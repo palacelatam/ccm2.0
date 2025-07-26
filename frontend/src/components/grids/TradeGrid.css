@@ -1,0 +1,97 @@
+/* AG Grid Dark Theme Customizations */
+.trade-grid {
+  height: 100%;
+  width: 100%;
+}
+
+.trade-grid .ag-header {
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trade-grid .ag-header-cell {
+  border-right: 1px solid var(--border-color);
+}
+
+.trade-grid .ag-header-cell-text {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.trade-grid .ag-row {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trade-grid .ag-row:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.trade-grid .ag-cell {
+  border-right: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.trade-grid .ag-row-selected {
+  background-color: rgba(74, 158, 255, 0.1);
+}
+
+.trade-grid .ag-paging-panel {
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.trade-grid .ag-paging-button {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.trade-grid .ag-paging-button:hover {
+  background-color: var(--border-color);
+}
+
+.trade-grid .ag-menu {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.trade-grid .ag-menu-option {
+  color: var(--text-primary);
+}
+
+.trade-grid .ag-menu-option:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Context Menu Styling */
+.ag-menu-list {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.ag-menu-option {
+  color: var(--text-primary) !important;
+  padding: 8px 12px !important;
+}
+
+.ag-menu-option:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.ag-menu-separator {
+  border-top: 1px solid var(--border-color) !important;
+}
+
+/* Panel Headers */
+.dashboard-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-blue);
+  padding-bottom: 8px;
+}

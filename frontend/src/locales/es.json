@@ -1,0 +1,115 @@
+{
+  "navigation": {
+    "title": "Client Confirmation Manager",
+    "settings": "Configuración",
+    "reports": "Reportes",
+    "logout": "Cerrar Sesión"
+  },
+  "dashboard": {
+    "matchedTrades": "Trades Coincidentes",
+    "confirmations": "Confirmaciones Bancarias",
+    "clientTrades": "Trades del Cliente"
+  },
+  "login": {
+    "title": "Client Confirmation Manager",
+    "subtitle": "Ingrese sus credenciales para acceder",
+    "email": "Email",
+    "password": "Contraseña",
+    "loginButton": "Iniciar Sesión",
+    "loggingIn": "Iniciando sesión...",
+    "emailPlaceholder": "usuario@empresa.com",
+    "passwordPlaceholder": "••••••••",
+    "invalidCredentials": "Credenciales inválidas",
+    "emailPasswordRequired": "Por favor ingrese email y contraseña",
+    "support": "¿Necesita ayuda? Contacte a soporte técnico"
+  },
+  "bank": {
+    "title": "Panel de Administración Bancaria",
+    "templates": {
+      "title": "Gestión de Plantillas",
+      "description": "Administrar plantillas de Carta de Instrucción",
+      "button": "Gestionar Plantillas"
+    },
+    "segments": {
+      "title": "Segmentos de Clientes",
+      "description": "Asignar clientes a diferentes segmentos",
+      "button": "Gestionar Segmentos"
+    },
+    "reports": {
+      "title": "Reportes",
+      "description": "Ver resúmenes y datos de transacciones",
+      "button": "Ver Reportes"
+    }
+  },
+  "admin": {
+    "title": "Panel de Administración",
+    "alerts": {
+      "title": "Configuración de Alertas",
+      "description": "Configurar alertas por email y WhatsApp",
+      "button": "Configurar"
+    },
+    "settlement": {
+      "title": "Reglas de Liquidación",
+      "description": "Gestionar instrucciones de liquidación",
+      "button": "Gestionar Reglas"
+    },
+    "mapping": {
+      "title": "Mapeo de Datos",
+      "description": "Configurar mapeo de archivos CSV/Excel",
+      "button": "Configurar Mapeo"
+    },
+    "dataSharing": {
+      "title": "Compartir Datos",
+      "description": "Configurar políticas de compartir datos",
+      "button": "Configurar"
+    }
+  },
+  "grid": {
+    "contextMenu": {
+      "verifyTrade": "Verificar Trade",
+      "viewConfirmation": "Ver Confirmación",
+      "dispute": "Disputar",
+      "viewDetails": "Ver Detalles",
+      "viewOriginalEmail": "Ver Email Original",
+      "markProcessed": "Marcar como Procesado",
+      "reject": "Rechazar",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "duplicate": "Duplicar"
+    },
+    "columns": {
+      "tradeId": "ID Trade",
+      "counterparty": "Contraparte",
+      "productType": "Tipo de Producto",
+      "tradeDate": "Fecha de Trade",
+      "valueDate": "Fecha Valor",
+      "direction": "Dirección",
+      "currency1": "Moneda 1",
+      "currency2": "Moneda 2",
+      "amount": "Monto",
+      "price": "Precio",
+      "maturityDate": "Fecha de Vencimiento",
+      "fixingReference": "Referencia de Fixing",
+      "settlementType": "Tipo de Liquidación",
+      "settlementCurrency": "Moneda de Liquidación",
+      "paymentDate": "Fecha de Pago",
+      "ourPaymentMethod": "Nuestro Método de Pago",
+      "counterpartyPaymentMethod": "Método de Pago Contraparte",
+      "status": "Estado",
+      "confidence": "Confianza",
+      "received": "Recibido",
+      "bank": "Banco",
+      "source": "Origen"
+    },
+    "status": {
+      "matched": "Full Match",
+      "disputed": "Match Parcial",
+      "unrecognised": "No Reconocido",
+      "unmatched": "Sin Coincidencia",
+      "pending": "Pendiente",
+      "processed": "Procesado",
+      "error": "Error",
+      "default": "Desconocido"
+    }
+  }
+}

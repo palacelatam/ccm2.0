@@ -1,0 +1,115 @@
+{
+  "navigation": {
+    "title": "Client Confirmation Manager",
+    "settings": "Settings",
+    "reports": "Reports",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "matchedTrades": "Matched Trades",
+    "confirmations": "Bank Confirmations",
+    "clientTrades": "Client Trades"
+  },
+  "login": {
+    "title": "Client Confirmation Manager",
+    "subtitle": "Enter your credentials to access",
+    "email": "Email",
+    "password": "Password",
+    "loginButton": "Login",
+    "loggingIn": "Logging in...",
+    "emailPlaceholder": "user@company.com",
+    "passwordPlaceholder": "••••••••",
+    "invalidCredentials": "Invalid credentials",
+    "emailPasswordRequired": "Please enter email and password",
+    "support": "Need help? Contact technical support"
+  },
+  "bank": {
+    "title": "Bank Administration Panel",
+    "templates": {
+      "title": "Template Management",
+      "description": "Manage Settlement Instruction templates",
+      "button": "Manage Templates"
+    },
+    "segments": {
+      "title": "Client Segments",
+      "description": "Assign clients to different segments",
+      "button": "Manage Segments"
+    },
+    "reports": {
+      "title": "Reports",
+      "description": "View summaries and transaction data",
+      "button": "View Reports"
+    }
+  },
+  "admin": {
+    "title": "Administration Panel",
+    "alerts": {
+      "title": "Alert Configuration",
+      "description": "Configure email and WhatsApp alerts",
+      "button": "Configure"
+    },
+    "settlement": {
+      "title": "Settlement Rules",
+      "description": "Manage settlement instructions",
+      "button": "Manage Rules"
+    },
+    "mapping": {
+      "title": "Data Mapping",
+      "description": "Configure CSV/Excel file mapping",
+      "button": "Configure Mapping"
+    },
+    "dataSharing": {
+      "title": "Data Sharing",
+      "description": "Configure data sharing policies",
+      "button": "Configure"
+    }
+  },
+  "grid": {
+    "contextMenu": {
+      "verifyTrade": "Verify Trade",
+      "viewConfirmation": "View Confirmation",
+      "dispute": "Dispute",
+      "viewDetails": "View Details",
+      "viewOriginalEmail": "View Original Email",
+      "markProcessed": "Mark as Processed",
+      "reject": "Reject",
+      "edit": "Edit",
+      "delete": "Delete",
+      "duplicate": "Duplicate"
+    },
+    "columns": {
+      "tradeId": "Trade ID",
+      "counterparty": "Counterparty",
+      "productType": "Product Type",
+      "tradeDate": "Trade Date",
+      "valueDate": "Value Date",
+      "direction": "Direction",
+      "currency1": "Currency 1",
+      "currency2": "Currency 2",
+      "amount": "Amount",
+      "price": "Price",
+      "maturityDate": "Maturity Date",
+      "fixingReference": "Fixing Reference",
+      "settlementType": "Settlement Type",
+      "settlementCurrency": "Settlement Currency",
+      "paymentDate": "Payment Date",
+      "ourPaymentMethod": "Our Payment Method",
+      "counterpartyPaymentMethod": "Counterparty Payment Method",
+      "status": "Status",
+      "confidence": "Confidence",
+      "received": "Received",
+      "bank": "Bank",
+      "source": "Source"
+    },
+    "status": {
+      "matched": "Matched",
+      "disputed": "Disputed",
+      "unrecognised": "Unrecognised",
+      "unmatched": "Unmatched",
+      "pending": "Pending",
+      "processed": "Processed",
+      "error": "Error",
+      "default": "Unknown"
+    }
+  }
+}
