@@ -43,25 +43,148 @@
   },
   "admin": {
     "title": "Painel de Administração",
+    "subtitle": "Configuração avançada do sistema de confirmação de trades",
+    "tabs": {
+      "automation": "Automação",
+      "alerts": "Alertas",
+      "settlement": "Liquidação",
+      "accounts": "Contas",
+      "mapping": "Mapeamento de Dados"
+    },
+    "automation": {
+      "title": "Configuração de Automação",
+      "dataSharing": {
+        "title": "Compartilhamento de Dados com Bancos",
+        "description": "Permitir compartilhar dados de trades confirmados com contrapartes bancárias"
+      },
+      "autoConfirmMatched": {
+        "title": "Auto-confirmação para Trades Correspondentes",
+        "description": "Enviar automaticamente emails de confirmação para trades correspondentes",
+        "delayLabel": "Atraso antes de enviar (minutos):"
+      },
+      "autoCartaInstruccion": {
+        "title": "Auto Instrução de Liquidação",
+        "description": "Gerar automaticamente documentos de Instrução de Liquidação baseados em modelos"
+      },
+      "autoConfirmDisputed": {
+        "title": "Auto-confirmação para Trades Disputados",
+        "description": "Enviar automaticamente emails indicando discrepâncias em trades disputados",
+        "delayLabel": "Atraso antes de enviar (minutos):"
+      }
+    },
     "alerts": {
       "title": "Configuração de Alertas",
-      "description": "Configurar alertas por email e WhatsApp",
-      "button": "Configurar"
+      "emailConfirmed": "Alertas por Email - Trades Confirmados",
+      "emailDisputed": "Alertas por Email - Trades Disputados",
+      "whatsappConfirmed": "Alertas por WhatsApp - Trades Confirmados",
+      "whatsappDisputed": "Alertas por WhatsApp - Trades Disputados",
+      "enableEmail": "Ativar alertas por email",
+      "enableWhatsapp": "Ativar alertas por WhatsApp",
+      "addEmail": "Adicionar email...",
+      "addPhone": "+56912345678",
+      "addButton": "Adicionar"
     },
     "settlement": {
       "title": "Regras de Liquidação",
-      "description": "Gerenciar instruções de liquidação",
-      "button": "Gerenciar Regras"
+      "description": "Configurar regras automatizadas para processamento de liquidações e geração de instruções de liquidação.",
+      "addRule": "Adicionar Nova Regra",
+      "editRule": "Editar Regra",
+      "deleteRule": "Excluir Regra",
+      "rules": {
+        "active": "Ativa",
+        "priority": "Prioridade",
+        "name": "Nome da Regra",
+        "counterparty": "Contraparte",
+        "cashflowCurrency": "Moeda do Fluxo",
+        "direction": "Direção",
+        "product": "Produto",
+        "bankName": "Nome do Banco",
+        "swiftCode": "Código SWIFT",
+        "accountCurrency": "Moeda da Conta",
+        "accountNumber": "Número da Conta"
+      },
+      "table": {
+        "active": "Ativa",
+        "priority": "Prioridade",
+        "name": "Nome",
+        "counterparty": "Contraparte",
+        "cashflowCurrency": "Moeda do Fluxo",
+        "product": "Produto",
+        "direction": "Direção",
+        "bankSwift": "SWIFT do Banco",
+        "accountNumber": "Número da Conta",
+        "actions": "Ações",
+        "notCounterpartySpecific": "Não Específico por Contraparte"
+      },
+      "form": {
+        "generalInfo": "Informações Gerais",
+        "accountDetails": "Detalhes da Conta",
+        "save": "Salvar Regra",
+        "cancel": "Cancelar"
+      },
+      "placeholders": {
+        "name": "Ex: Regra USD Santander Entrada",
+        "counterparty": "Selecionar contraparte...",
+        "cashflowCurrency": "Selecionar moeda...",
+        "product": "Selecionar produto...",
+        "bankName": "Selecionar banco...",
+        "swiftCode": "Selecionar código SWIFT...",
+        "accountCurrency": "Selecionar moeda da conta...",
+        "accountNumber": "Selecionar conta..."
+      }
+    },
+    "accounts": {
+      "title": "Contas Bancárias",
+      "description": "Gerenciar contas bancárias disponíveis para regras de liquidação.",
+      "addAccount": "Adicionar Conta",
+      "groupBy": "Agrupar por",
+      "groupByBank": "Nome do Banco",
+      "groupByCurrency": "Moeda da Conta",
+      "noGrouping": "Sem Agrupamento",
+      "table": {
+        "active": "Ativa",
+        "accountName": "Nome da Conta",
+        "bankName": "Nome do Banco",
+        "swiftCode": "Código SWIFT",
+        "accountCurrency": "Moeda",
+        "accountNumber": "Número da Conta",
+        "actions": "Ações"
+      },
+      "placeholders": {
+        "accountName": "Ex: Conta Principal USD",
+        "bankName": "Selecionar banco...",
+        "swiftCode": "Ex: BSCHCLRM",
+        "accountCurrency": "Selecionar moeda...",
+        "accountNumber": "Ex: 12345678901"
+      }
     },
     "mapping": {
-      "title": "Mapeamento de Dados",
-      "description": "Configurar mapeamento de arquivos CSV/Excel",
-      "button": "Configurar Mapeamento"
+      "title": "Mapeamento de Arquivos CSV/Excel",
+      "description": "Esta seção permitirá configurar o mapeamento de campos para importação de dados.",
+      "features": {
+        "columns": "Mapeamento de colunas CSV para campos do sistema",
+        "validation": "Validação de formatos de data e moeda",
+        "transformation": "Configuração de regras de transformação",
+        "templates": "Modelos de mapeamento reutilizáveis"
+      }
     },
-    "dataSharing": {
-      "title": "Compartilhamento de Dados",
-      "description": "Configurar políticas de compartilhamento de dados",
-      "button": "Configurar"
+    "actions": {
+      "save": "Salvar Configuração",
+      "saving": "Salvando..."
+    },
+    "modal": {
+      "duplicateEmail": {
+        "title": "Email Duplicado",
+        "message": "Este email já está na lista de distribuição."
+      },
+      "duplicatePhone": {
+        "title": "Telefone Duplicado",
+        "message": "Este número de telefone já está na lista de distribuição."
+      },
+      "saveSuccess": {
+        "title": "Configuração Salva",
+        "message": "A configuração foi salva com sucesso."
+      }
     }
   },
   "grid": {

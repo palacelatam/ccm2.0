@@ -172,8 +172,64 @@ If a discrepancy is found between the confirmation and the client’s internal r
     - Turn On/Off WhatsApp Confirmed Trade Alert, together with the phone numbers, or list of destination phone numbers
     - Turn On/Off Email Disputed Trade Alert, together with the phone numbers, or list of destination phone numbers
 - Settlement Instructions Page:
-    - A list of rules which allows the admin user to enter conditions to determine the account number to be used to settle a specific type of trade (and therefore entered into a Carta de Instrucción). Conditions should consider fields such as “Contraparte”, “Producto”, “Moneda Flujo”, “Dirección” (Entrante/Saliente) and map to an account number and bank name. The conditions should not be mandatory. Rules can be copied, edited, disabled, or deleted. A new rule can be added, including as a copy of an existing rule.
-    - A list of bank names and account numbers, which is used to populate the rules section.
+   ### Settlement Tab Structure
+
+    The Settlement tab should have the following structure for adding or editing a rule:
+
+    **General Information section:**
+    - **Active** (checkbox, On or Off) – Mandatory  
+    - **Priority** (integer) – Mandatory  
+    - **Rule name** – Mandatory  
+    - **Counterparty** – Optional  
+    - **Cashflow currency** – Mandatory  
+    - **Direction** (IN/OUT) – Mandatory  
+    - **Product** – Optional  
+
+    **Account Details section:**
+    - **Bank Name** – Mandatory  
+    - **SWIFT Code** – Mandatory  
+    - **Account Currency** – Mandatory  
+    - **Account Number** – Mandatory  
+
+    These fields should be selected from the Accounts configured for this client (see section below), and become visible once the client selects the Bank Name and the Account Currency.  
+    Any other fields that you have added in the current version can be removed.  
+    If, upon saving the configuration, there is a rule with the same configuration for this client, an alert should be shown to the user, and it should prevent the save.  
+    I’m a bit unclear on how to implement the priorities on the rules, at what level each priority should apply, so any recommendations on your part would be welcome. I think there should be validations to ensure that conflicting rules or priorities are prevented, but I’m not sure how to describe this.
+
+    ---
+
+    ### Summary Tab Table Structure
+
+    The summary tab should have the following table structure:
+
+    - **Active**, **Priority**  
+    - *Column separator line*  
+    - **Rule Name**, **Counterparty**, **Cashflow Currency**, **Product**, **Direction** (IN/OUT)  
+    - *Column separator line*  
+    - **Bank SWIFT Code**, **Account Number**  
+
+    The rules should be ordered by:  
+    1. Active rules ON  
+    2. Priority  
+
+    The rules should be grouped by **Counterparty**, although any rules which are not Counterparty specific should be shown at the top, before any Counterparties.  
+    Any other fields that you have added in the current version can be removed.
+
+    ---
+
+    ### New Tab: Accounts
+
+    We should also have another tab called **Accounts**. Here the user can save bank accounts that they use at that client.  
+    This should be viewable and editable in a single table, without the need to open other pages to edit. Upon clicking the edit button the row becomes editable.  
+    Accounts can be made active/inactive and also deleted.
+
+    - **Active** (checkbox, On or Off) – Mandatory  
+    - **Account name** – Mandatory  
+    - **Bank Name** – Mandatory  
+    - **SWIFT Code** – Mandatory  
+    - **Account Currency** – Mandatory  
+    - **Account Number** – Mandatory  
+
 - Trade Data Mapping Page:
     - A page which allows an Admin User to upload a CSV or XLSX format of their trade data to the system. This then calls an LLM which will map the fields to the known and expected data format used within the application, as well as perform a test mapping. The proposed mapping can then be saved (and edited, disabled, deleted, copied) for this particular client with a unique name. The user will see the list of mappings they have configured. This mapping ruleset will be used by the application each time it refreshes the trade data via a client upload.
 

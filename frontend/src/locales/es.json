@@ -43,25 +43,148 @@
   },
   "admin": {
     "title": "Panel de Administración",
+    "subtitle": "Configuración avanzada del sistema de confirmación de trades",
+    "tabs": {
+      "automation": "Automatización",
+      "alerts": "Alertas",
+      "settlement": "Liquidación",
+      "accounts": "Cuentas",
+      "mapping": "Mapeo de Datos"
+    },
+    "automation": {
+      "title": "Configuración de Automatización",
+      "dataSharing": {
+        "title": "Compartir Datos con Bancos",
+        "description": "Permite compartir datos de trades confirmados con las contrapartes bancarias"
+      },
+      "autoConfirmMatched": {
+        "title": "Auto-confirmación en Trades Coincidentes",
+        "description": "Envía automáticamente emails de confirmación para trades que coinciden",
+        "delayLabel": "Retraso antes de enviar (minutos):"
+      },
+      "autoCartaInstruccion": {
+        "title": "Auto Carta de Instrucción",
+        "description": "Genera automáticamente documentos de Carta de Instrucción basados en plantillas"
+      },
+      "autoConfirmDisputed": {
+        "title": "Auto-confirmación en Trades Disputados",
+        "description": "Envía automáticamente emails indicando discrepancias en trades disputados",
+        "delayLabel": "Retraso antes de enviar (minutos):"
+      }
+    },
     "alerts": {
       "title": "Configuración de Alertas",
-      "description": "Configurar alertas por email y WhatsApp",
-      "button": "Configurar"
+      "emailConfirmed": "Alertas por Email - Trades Confirmados",
+      "emailDisputed": "Alertas por Email - Trades Disputados",
+      "whatsappConfirmed": "Alertas por WhatsApp - Trades Confirmados",
+      "whatsappDisputed": "Alertas por WhatsApp - Trades Disputados",
+      "enableEmail": "Activar alertas por email",
+      "enableWhatsapp": "Activar alertas por WhatsApp",
+      "addEmail": "Agregar email...",
+      "addPhone": "+56912345678",
+      "addButton": "Agregar"
     },
     "settlement": {
       "title": "Reglas de Liquidación",
-      "description": "Gestionar instrucciones de liquidación",
-      "button": "Gestionar Reglas"
+      "description": "Configurar reglas automatizadas para el procesamiento de liquidaciones y generación de cartas de instrucción.",
+      "addRule": "Agregar Nueva Regla",
+      "editRule": "Editar Regla",
+      "deleteRule": "Eliminar Regla",
+      "rules": {
+        "active": "Activa",
+        "priority": "Prioridad",
+        "name": "Nombre de la Regla",
+        "counterparty": "Contraparte",
+        "cashflowCurrency": "Moneda del Flujo",
+        "direction": "Dirección",
+        "product": "Producto",
+        "bankName": "Nombre del Banco",
+        "swiftCode": "Código SWIFT",
+        "accountCurrency": "Moneda de la Cuenta",
+        "accountNumber": "Número de Cuenta"
+      },
+      "table": {
+        "active": "Activa",
+        "priority": "Prioridad",
+        "name": "Nombre",
+        "counterparty": "Contraparte",
+        "cashflowCurrency": "Moneda del Flujo",
+        "product": "Producto",
+        "direction": "Dirección",
+        "bankSwift": "SWIFT del Banco",
+        "accountNumber": "Número de Cuenta",
+        "actions": "Acciones",
+        "notCounterpartySpecific": "No Específico a Contraparte"
+      },
+      "form": {
+        "generalInfo": "Información General",
+        "accountDetails": "Detalles de Cuenta",
+        "save": "Guardar Regla",
+        "cancel": "Cancelar"
+      },
+      "placeholders": {
+        "name": "Ej: Regla USD Santander Entrada",
+        "counterparty": "Seleccionar contraparte...",
+        "cashflowCurrency": "Seleccionar moneda...",
+        "product": "Seleccionar producto...",
+        "bankName": "Seleccionar banco...",
+        "swiftCode": "Seleccionar código SWIFT...",
+        "accountCurrency": "Seleccionar moneda de cuenta...",
+        "accountNumber": "Seleccionar cuenta..."
+      }
+    },
+    "accounts": {
+      "title": "Cuentas Bancarias",
+      "description": "Gestionar cuentas bancarias disponibles para reglas de liquidación.",
+      "addAccount": "Agregar Cuenta",
+      "groupBy": "Agrupar por",
+      "groupByBank": "Nombre del Banco",
+      "groupByCurrency": "Moneda de Cuenta",
+      "noGrouping": "Sin Agrupación",
+      "table": {
+        "active": "Activa",
+        "accountName": "Nombre de Cuenta",
+        "bankName": "Nombre del Banco",
+        "swiftCode": "Código SWIFT",
+        "accountCurrency": "Moneda",
+        "accountNumber": "Número de Cuenta",
+        "actions": "Acciones"
+      },
+      "placeholders": {
+        "accountName": "Ej: Cuenta Principal USD",
+        "bankName": "Seleccionar banco...",
+        "swiftCode": "Ej: BSCHCLRM",
+        "accountCurrency": "Seleccionar moneda...",
+        "accountNumber": "Ej: 12345678901"
+      }
     },
     "mapping": {
-      "title": "Mapeo de Datos",
-      "description": "Configurar mapeo de archivos CSV/Excel",
-      "button": "Configurar Mapeo"
+      "title": "Mapeo de Archivos CSV/Excel",
+      "description": "Esta sección permitirá configurar el mapeo de campos para la importación de datos.",
+      "features": {
+        "columns": "Mapeo de columnas CSV a campos del sistema",
+        "validation": "Validación de formatos de fecha y moneda",
+        "transformation": "Configuración de reglas de transformación",
+        "templates": "Plantillas de mapeo reutilizables"
+      }
     },
-    "dataSharing": {
-      "title": "Compartir Datos",
-      "description": "Configurar políticas de compartir datos",
-      "button": "Configurar"
+    "actions": {
+      "save": "Guardar Configuración",
+      "saving": "Guardando..."
+    },
+    "modal": {
+      "duplicateEmail": {
+        "title": "Email Duplicado",
+        "message": "Este email ya está en la lista de distribución."
+      },
+      "duplicatePhone": {
+        "title": "Teléfono Duplicado", 
+        "message": "Este número de teléfono ya está en la lista de distribución."
+      },
+      "saveSuccess": {
+        "title": "Configuración Guardada",
+        "message": "La configuración se ha guardado exitosamente."
+      }
     }
   },
   "grid": {

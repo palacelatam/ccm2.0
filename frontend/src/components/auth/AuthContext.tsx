@@ -30,16 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // TODO: Check for existing authentication session
-    // For now, simulate loading and set a mock user
+    // For now, just finish loading without setting a user
     setTimeout(() => {
-      setUser({
-        id: '1',
-        name: 'Usuario Demo',
-        email: 'demo@palace.cl',
-        role: 'client_admin'
-      });
       setLoading(false);
-    }, 1000);
+    }, 500);
   }, []);
 
   const login = async (email: string, password: string) => {

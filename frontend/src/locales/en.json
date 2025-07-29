@@ -43,25 +43,148 @@
   },
   "admin": {
     "title": "Administration Panel",
+    "subtitle": "Advanced configuration for trade confirmation system",
+    "tabs": {
+      "automation": "Automation",
+      "alerts": "Alerts",
+      "settlement": "Settlement",
+      "accounts": "Accounts",
+      "mapping": "Data Mapping"
+    },
+    "automation": {
+      "title": "Automation Configuration",
+      "dataSharing": {
+        "title": "Data Sharing with Banks",
+        "description": "Allow sharing confirmed trade data with banking counterparties"
+      },
+      "autoConfirmMatched": {
+        "title": "Auto-confirmation for Matched Trades",
+        "description": "Automatically send confirmation emails for matching trades",
+        "delayLabel": "Delay before sending (minutes):"
+      },
+      "autoCartaInstruccion": {
+        "title": "Auto Settlement Instruction",
+        "description": "Automatically generate Settlement Instruction documents based on templates"
+      },
+      "autoConfirmDisputed": {
+        "title": "Auto-confirmation for Disputed Trades",
+        "description": "Automatically send emails indicating discrepancies in disputed trades",
+        "delayLabel": "Delay before sending (minutes):"
+      }
+    },
     "alerts": {
       "title": "Alert Configuration",
-      "description": "Configure email and WhatsApp alerts",
-      "button": "Configure"
+      "emailConfirmed": "Email Alerts - Confirmed Trades",
+      "emailDisputed": "Email Alerts - Disputed Trades",
+      "whatsappConfirmed": "WhatsApp Alerts - Confirmed Trades",
+      "whatsappDisputed": "WhatsApp Alerts - Disputed Trades",
+      "enableEmail": "Enable email alerts",
+      "enableWhatsapp": "Enable WhatsApp alerts",
+      "addEmail": "Add email...",
+      "addPhone": "+56912345678",
+      "addButton": "Add"
     },
     "settlement": {
       "title": "Settlement Rules",
-      "description": "Manage settlement instructions",
-      "button": "Manage Rules"
+      "description": "Configure automated rules for settlement processing and settlement instruction generation.",
+      "addRule": "Add New Rule",
+      "editRule": "Edit Rule",
+      "deleteRule": "Delete Rule",
+      "rules": {
+        "active": "Active",
+        "priority": "Priority",
+        "name": "Rule Name",
+        "counterparty": "Counterparty",
+        "cashflowCurrency": "Cashflow Currency",
+        "direction": "Direction",
+        "product": "Product",
+        "bankName": "Bank Name",
+        "swiftCode": "SWIFT Code",
+        "accountCurrency": "Account Currency",
+        "accountNumber": "Account Number"
+      },
+      "table": {
+        "active": "Active",
+        "priority": "Priority",
+        "name": "Name",
+        "counterparty": "Counterparty",
+        "cashflowCurrency": "Cashflow Currency",
+        "product": "Product",
+        "direction": "Direction",
+        "bankSwift": "Bank SWIFT",
+        "accountNumber": "Account Number",
+        "actions": "Actions",
+        "notCounterpartySpecific": "Not Counterparty Specific"
+      },
+      "form": {
+        "generalInfo": "General Information",
+        "accountDetails": "Account Details",
+        "save": "Save Rule",
+        "cancel": "Cancel"
+      },
+      "placeholders": {
+        "name": "Ex: USD Santander Inbound Rule",
+        "counterparty": "Select counterparty...",
+        "cashflowCurrency": "Select currency...",
+        "product": "Select product...",
+        "bankName": "Select bank...",
+        "swiftCode": "Select SWIFT code...",
+        "accountCurrency": "Select account currency...",
+        "accountNumber": "Select account..."
+      }
+    },
+    "accounts": {
+      "title": "Bank Accounts",
+      "description": "Manage bank accounts available for settlement rules.",
+      "addAccount": "Add Account",
+      "groupBy": "Group by",
+      "groupByBank": "Bank Name",
+      "groupByCurrency": "Account Currency",
+      "noGrouping": "No Grouping",
+      "table": {
+        "active": "Active",
+        "accountName": "Account Name",
+        "bankName": "Bank Name", 
+        "swiftCode": "SWIFT Code",
+        "accountCurrency": "Currency",
+        "accountNumber": "Account Number",
+        "actions": "Actions"
+      },
+      "placeholders": {
+        "accountName": "Ex: USD Main Account",
+        "bankName": "Select bank...",
+        "swiftCode": "Ex: BSCHCLRM",
+        "accountCurrency": "Select currency...",
+        "accountNumber": "Ex: 12345678901"
+      }
     },
     "mapping": {
-      "title": "Data Mapping",
-      "description": "Configure CSV/Excel file mapping",
-      "button": "Configure Mapping"
+      "title": "CSV/Excel File Mapping",
+      "description": "This section will allow configuration of field mapping for data import.",
+      "features": {
+        "columns": "CSV column to system field mapping",
+        "validation": "Date and currency format validation",
+        "transformation": "Data transformation rule configuration",
+        "templates": "Reusable mapping templates"
+      }
     },
-    "dataSharing": {
-      "title": "Data Sharing",
-      "description": "Configure data sharing policies",
-      "button": "Configure"
+    "actions": {
+      "save": "Save Configuration",
+      "saving": "Saving..."
+    },
+    "modal": {
+      "duplicateEmail": {
+        "title": "Duplicate Email",
+        "message": "This email is already in the distribution list."
+      },
+      "duplicatePhone": {
+        "title": "Duplicate Phone Number",
+        "message": "This phone number is already in the distribution list."
+      },
+      "saveSuccess": {
+        "title": "Configuration Saved",
+        "message": "The configuration has been saved successfully."
+      }
     }
   },
   "grid": {
