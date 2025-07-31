@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import LanguageSwitcher from './LanguageSwitcher';
 import UserMenu from './UserMenu';
 import './TopBanner.css';
@@ -8,7 +9,7 @@ import './TopBanner.css';
 const TopBanner: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
-  const [user] = useState({ name: 'Usuario Demo', role: 'client_admin' }); // Mock user
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -33,24 +34,42 @@ const TopBanner: React.FC = () => {
           </button>
           {menuOpen && (
             <div className="menu-dropdown">
-              <Link 
-                to="/" 
-                className={`menu-item ${location.pathname === '/' ? 'active' : ''}`}
-                onClick={() => setMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link 
-                to="/admin" 
-                className={`menu-item ${location.pathname === '/admin' ? 'active' : ''}`}
-                onClick={() => setMenuOpen(false)}
-              >
-                Administración
-              </Link>
+              {/* Dashboard - Available to client users only */}
+              {(user?.role === 'client_user' || user?.role === 'client_admin') && (
+                <Link 
+                  to="/" 
+                  className={`menu-item ${location.pathname === '/' ? 'active' : ''}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {t('navigation.dashboard')}
+                </Link>
+              )}
+              
+              {/* Client Admin Panel - Only for client_admin */}
+              {user?.role === 'client_admin' && (
+                <Link 
+                  to="/admin" 
+                  className={`menu-item ${location.pathname === '/admin' ? 'active' : ''}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {t('navigation.clientAdmin')}
+                </Link>
+              )}
+              
+              {/* Bank Admin Panel - Only for bank_admin */}
+              {user?.role === 'bank_admin' && (
+                <Link 
+                  to="/bank" 
+                  className={`menu-item ${location.pathname === '/bank' ? 'active' : ''}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {t('navigation.bankAdmin')}
+                </Link>
+              )}
             </div>
           )}
         </div>
-        <UserMenu user={user} />
+        {user && <UserMenu user={user} />}
       </div>
     </div>
   );

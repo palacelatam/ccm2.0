@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../auth/AuthContext';
 
 interface User {
   name: string;
@@ -10,6 +12,8 @@ interface UserMenuProps {
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
+  const { t } = useTranslation();
+  const { logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const getUserInitials = (name: string) => {
@@ -22,21 +26,12 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
   };
 
   const getRoleDisplay = (role: string) => {
-    switch (role) {
-      case 'client_user':
-        return 'Usuario';
-      case 'client_admin':
-        return 'Admin Cliente';
-      case 'bank_admin':
-        return 'Admin Banco';
-      default:
-        return role;
-    }
+    return t(`userMenu.roles.${role}`) || role;
   };
 
   const handleLogout = () => {
-    // TODO: Implement logout functionality
-    console.log('Logout clicked');
+    logout();
+    setIsOpen(false);
   };
 
   return (
@@ -57,14 +52,14 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
       {isOpen && (
         <div className="user-menu-dropdown">
           <div className="menu-item" onClick={() => console.log('Settings clicked')}>
-            Configuración
+            {t('userMenu.settings')}
           </div>
           <div className="menu-item" onClick={() => console.log('Reports clicked')}>
-            Reportes
+            {t('userMenu.reports')}
           </div>
           <div className="menu-divider"></div>
           <div className="menu-item logout" onClick={handleLogout}>
-            Cerrar Sesión
+            {t('userMenu.logout')}
           </div>
         </div>
       )}

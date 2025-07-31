@@ -1,9 +1,22 @@
 {
   "navigation": {
     "title": "Client Confirmation Manager",
+    "dashboard": "Dashboard",
+    "clientAdmin": "Administración",
+    "bankAdmin": "Admin Banco",
     "settings": "Configuración",
     "reports": "Reportes",
     "logout": "Cerrar Sesión"
+  },
+  "userMenu": {
+    "settings": "Configuración",
+    "reports": "Reportes",
+    "logout": "Cerrar Sesión",
+    "roles": {
+      "client_user": "Usuario",
+      "client_admin": "Admin Cliente",
+      "bank_admin": "Admin Banco"
+    }
   },
   "dashboard": {
     "matchedTrades": "Trades Coincidentes",
@@ -39,6 +52,59 @@
       "title": "Reportes",
       "description": "Ver resúmenes y datos de transacciones",
       "button": "Ver Reportes"
+    },
+    "letters": {
+      "title": "Cartas de Instrucciones de Liquidación",
+      "description": "Gestionar plantillas de documentos para cartas de instrucciones de liquidación organizadas por segmentos de clientes.",
+      "addTemplate": "Agregar Nueva Plantilla de Carta",
+      "editTemplate": "Editar Plantilla de Carta",
+      "ruleNameLabel": "Nombre de Regla de Instrucción de Liquidación",
+      "ruleNamePlaceholder": "Ej: Carta USD FX Spot Cliente Premium",
+      "clientSegmentLabel": "Segmento de Cliente",
+      "noSpecificSegment": "Sin Segmento Específico",
+      "productLabel": "Producto",
+      "productPlaceholder": "Seleccionar producto...",
+      "documentLabel": "Subir Plantilla de Documento PDF",
+      "saveTemplate": "Guardar Plantilla de Carta",
+      "cancel": "Cancelar",
+      "templateInfo": "Información de Plantilla",
+      "documentTemplate": "Plantilla de Documento",
+      "documentPreview": "Vista Previa del Documento",
+      "closePreview": "Cerrar Vista Previa"
+    },
+    "segmentation": {
+      "title": "Segmentación de Clientes",
+      "description": "Gestionar segmentos de clientes y asignar clientes a segmentos apropiados para procesamiento de liquidación dirigido.",
+      "availableSegments": "Segmentos Disponibles",
+      "clientAssignment": "Asignación de Clientes",
+      "clientName": "Nombre del Cliente",
+      "currentSegment": "Segmento Actual",
+      "noSegment": "Sin Segmento",
+      "clientsCount": "clientes",
+      "addSegment": "Agregar Segmento",
+      "editSegment": "Editar Segmento",
+      "deleteSegment": "Eliminar Segmento",
+      "segmentName": "Nombre del Segmento",
+      "segmentDescription": "Descripción",
+      "saveChanges": "Guardar Cambios",
+      "cancel": "Cancelar",
+      "selectMultiple": "Selección Múltiple",
+      "assignToSegment": "Asignar a Segmento",
+      "selectedClients": "Clientes Seleccionados",
+      "bulkAssign": "Asignación Masiva",
+      "confirmDelete": "¿Está seguro de que desea eliminar este segmento?",
+      "reassignClients": "Reasignar clientes a:",
+      "removeFromSegment": "Remover del segmento"
+    },
+    "table": {
+      "active": "Activa",
+      "priority": "Prioridad",
+      "ruleName": "Nombre de Regla",
+      "clientSegment": "Segmento de Cliente",
+      "product": "Producto",
+      "document": "Documento",
+      "actions": "Acciones",
+      "rut": "RUT"
     }
   },
   "admin": {
@@ -184,6 +250,86 @@
       "saveSuccess": {
         "title": "Configuración Guardada",
         "message": "La configuración se ha guardado exitosamente."
+      }
+    },
+    "dataMapping": {
+      "title": "Mapeo de Datos",
+      "description": "Configure mapeos de campos para diferentes formatos de datos de clientes. Suba archivos de muestra para crear mapeos inteligentes con transformaciones.",
+      "uploadSampleFile": "Subir Archivo de Muestra",
+      "dragDropText": "Arrastra y suelta tu archivo aquí o",
+      "browseFiles": "Explorar Archivos",
+      "supportedFormats": "Soporta archivos CSV, Excel (.xlsx, .xls) y JSON",
+      "clearUpload": "Limpiar Carga",
+      "fieldMapping": "Mapeo de Campos",
+      "headers": {
+        "expectedField": "Campo Esperado",
+        "sourceField": "Campo Origen",
+        "transformation": "Transformación",
+        "example": "Ejemplo"
+      },
+      "dropdown": {
+        "selectField": "- Seleccionar Campo -"
+      },
+      "transformations": {
+        "directCopy": "Copia directa",
+        "date": "Fecha",
+        "decimal": "Decimal",
+        "precision": "Precisión",
+        "decimals": "decimales",
+        "formatConversion": "Conversión de formato",
+        "enum": "Enumeración",
+        "unknown": "Desconocido",
+        "autoDetect": "Auto-detectar"
+      },
+      "examples": {
+        "noData": "Sin datos",
+        "none": "-"
+      },
+      "fieldDescriptions": {
+        "tradeId": "Identificador único para el trade",
+        "counterparty": "Contraparte bancaria o institución financiera",
+        "productType": "Tipo de producto financiero",
+        "tradeDate": "Fecha cuando se ejecutó el trade",
+        "valueDate": "Fecha de liquidación/valor para el trade",
+        "direction": "Dirección del trade (compra o venta)",
+        "currency1": "Moneda primaria (código ISO de 3 letras)",
+        "currency2": "Moneda secundaria (código ISO de 3 letras)",
+        "amount": "Monto/valor nocional del trade",
+        "price": "Tipo de cambio o precio (4 decimales)",
+        "paymentDate": "Fecha cuando vence el pago"
+      },
+      "mappingPreview": "Vista Previa del Mapeo",
+      "refresh": "Actualizar",
+      "refreshPreview": "Actualizar vista previa con mapeos de campos actuales",
+      "saveMapping": {
+        "showSaveButton": "Guardar Este Mapeo",
+        "title": "Guardar Configuración de Mapeo",
+        "nameLabel": "Nombre del Mapeo *",
+        "namePlaceholder": "Ej: Formato de Exportación Banco ABC",
+        "descriptionLabel": "Descripción",
+        "descriptionPlaceholder": "Descripción opcional",
+        "saveButton": "Guardar Mapeo",
+        "cancelButton": "Cancelar",
+        "successTitle": "Mapeo Guardado",
+        "successMessage": "El mapeo de datos \"{name}\" se ha guardado exitosamente."
+      },
+      "savedMappings": {
+        "title": "Mapeos Guardados",
+        "emptyState": "Aún no hay mapeos guardados. Carga un archivo y crea tu primer mapeo.",
+        "tableHeaders": {
+          "name": "Nombre",
+          "description": "Descripción",
+          "fileType": "Tipo de Archivo",
+          "created": "Creado",
+          "fields": "Campos",
+          "actions": "Acciones"
+        },
+        "fieldsCount": "campos",
+        "tooltips": {
+          "view": "Ver detalles del mapeo",
+          "edit": "Editar mapeo",
+          "delete": "Eliminar mapeo"
+        }
       }
     }
   },

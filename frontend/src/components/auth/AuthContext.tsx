@@ -39,18 +39,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // TODO: Implement Firebase authentication
       console.log('Login attempt:', { email, password });
       
-      // Mock login success
-      setTimeout(() => {
-        setUser({
+      // Mock user database
+      const mockUsers = {
+        'admin@xyz.cl': {
           id: '1',
-          name: 'Usuario Demo',
-          email: email,
-          role: 'client_admin'
-        });
-        setLoading(false);
+          name: 'Admin Cliente XYZ',
+          email: 'admin@xyz.cl',
+          role: 'client_admin' as const
+        },
+        'usuario@xyz.cl': {
+          id: '2', 
+          name: 'Usuario Cliente XYZ',
+          email: 'usuario@xyz.cl',
+          role: 'client_user' as const
+        },
+        'admin@bancoabc.cl': {
+          id: '3',
+          name: 'Admin Banco ABC',
+          email: 'admin@bancoabc.cl',
+          role: 'bank_admin' as const
+        }
+      };
+
+      // Mock login authentication
+      setTimeout(() => {
+        const user = mockUsers[email as keyof typeof mockUsers];
+        
+        if (user && password.length > 0) {
+          setUser(user);
+          setLoading(false);
+        } else {
+          setLoading(false);
+          throw new Error('Invalid credentials. Use one of: admin@xyz.cl, usuario@xyz.cl, admin@bancoabc.cl');
+        }
       }, 1500);
     } catch (error) {
       setLoading(false);

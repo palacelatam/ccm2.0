@@ -1,9 +1,22 @@
 {
   "navigation": {
     "title": "Client Confirmation Manager",
+    "dashboard": "Dashboard",
+    "clientAdmin": "Administration",
+    "bankAdmin": "Bank Admin",
     "settings": "Settings",
     "reports": "Reports",
     "logout": "Logout"
+  },
+  "userMenu": {
+    "settings": "Settings",
+    "reports": "Reports",
+    "logout": "Logout",
+    "roles": {
+      "client_user": "User",
+      "client_admin": "Client Admin",
+      "bank_admin": "Bank Admin"
+    }
   },
   "dashboard": {
     "matchedTrades": "Matched Trades",
@@ -39,6 +52,59 @@
       "title": "Reports",
       "description": "View summaries and transaction data",
       "button": "View Reports"
+    },
+    "letters": {
+      "title": "Settlement Instructions Letters",
+      "description": "Manage document templates for settlement instruction letters organized by client segments.",
+      "addTemplate": "Add New Letter Template",
+      "editTemplate": "Edit Letter Template",
+      "ruleNameLabel": "Settlement Instruction Rule Name",
+      "ruleNamePlaceholder": "Ex: USD FX Spot Premium Client Letter",
+      "clientSegmentLabel": "Client Segment",
+      "noSpecificSegment": "No Specific Segment",
+      "productLabel": "Product",
+      "productPlaceholder": "Select product...",
+      "documentLabel": "Upload PDF Document Template",
+      "saveTemplate": "Save Letter Template",
+      "cancel": "Cancel",
+      "templateInfo": "Template Information",
+      "documentTemplate": "Document Template",
+      "documentPreview": "Document Preview",
+      "closePreview": "Close Preview"
+    },
+    "segmentation": {
+      "title": "Client Segmentation",
+      "description": "Manage client segments and assign clients to appropriate segments for targeted settlement processing.",
+      "availableSegments": "Available Segments",
+      "clientAssignment": "Client Assignment",
+      "clientName": "Client Name",
+      "currentSegment": "Current Segment",
+      "noSegment": "No Segment",
+      "clientsCount": "clients",
+      "addSegment": "Add Segment",
+      "editSegment": "Edit Segment",
+      "deleteSegment": "Delete Segment",
+      "segmentName": "Segment Name",
+      "segmentDescription": "Description",
+      "saveChanges": "Save Changes",
+      "cancel": "Cancel",
+      "selectMultiple": "Select Multiple",
+      "assignToSegment": "Assign to Segment",
+      "selectedClients": "Selected Clients",
+      "bulkAssign": "Bulk Assign",
+      "confirmDelete": "Are you sure you want to delete this segment?",
+      "reassignClients": "Reassign clients to:",
+      "removeFromSegment": "Remove from segment"
+    },
+    "table": {
+      "active": "Active",
+      "priority": "Priority",
+      "ruleName": "Rule Name",
+      "clientSegment": "Client Segment",
+      "product": "Product",
+      "document": "Document",
+      "actions": "Actions",
+      "rut": "RUT"
     }
   },
   "admin": {
@@ -184,6 +250,86 @@
       "saveSuccess": {
         "title": "Configuration Saved",
         "message": "The configuration has been saved successfully."
+      }
+    },
+    "dataMapping": {
+      "title": "Data Mapping",
+      "description": "Configure field mappings for different client data formats. Upload sample files to create intelligent mappings with transformations.",
+      "uploadSampleFile": "Upload Sample File",
+      "dragDropText": "Drag and drop your file here or",
+      "browseFiles": "Browse Files",
+      "supportedFormats": "Supports CSV, Excel (.xlsx, .xls), and JSON files",
+      "clearUpload": "Clear Upload",
+      "fieldMapping": "Field Mapping",
+      "headers": {
+        "expectedField": "Expected Field",
+        "sourceField": "Source Field", 
+        "transformation": "Transformation",
+        "example": "Example"
+      },
+      "dropdown": {
+        "selectField": "- Select Field -"
+      },
+      "transformations": {
+        "directCopy": "Direct copy",
+        "date": "Date",
+        "decimal": "Decimal",
+        "precision": "Precision",
+        "decimals": "decimals",
+        "formatConversion": "Format conversion",
+        "enum": "Enum",
+        "unknown": "Unknown",
+        "autoDetect": "Auto-detect"
+      },
+      "examples": {
+        "noData": "No data",
+        "none": "-"
+      },
+      "fieldDescriptions": {
+        "tradeId": "Unique identifier for the trade",
+        "counterparty": "Bank or financial institution counterparty",
+        "productType": "Type of financial product",
+        "tradeDate": "Date when trade was executed",
+        "valueDate": "Settlement/value date for the trade",
+        "direction": "Trade direction (buy or sell)",
+        "currency1": "Primary currency (3-letter ISO code)",
+        "currency2": "Secondary currency (3-letter ISO code)",
+        "amount": "Trade amount/notional value",
+        "price": "Exchange rate or price (4 decimal places)",
+        "paymentDate": "Date when payment is due"
+      },
+      "mappingPreview": "Mapping Preview",
+      "refresh": "Refresh",
+      "refreshPreview": "Refresh preview with current field mappings",
+      "saveMapping": {
+        "showSaveButton": "Save This Mapping",
+        "title": "Save Mapping Configuration", 
+        "nameLabel": "Mapping Name *",
+        "namePlaceholder": "Ex: Bank ABC Export Format",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Optional description",
+        "saveButton": "Save Mapping",
+        "cancelButton": "Cancel",
+        "successTitle": "Mapping Saved",
+        "successMessage": "Data mapping \"{name}\" has been saved successfully."
+      },
+      "savedMappings": {
+        "title": "Saved Mappings",
+        "emptyState": "No saved mappings yet. Upload a file and create your first mapping.",
+        "tableHeaders": {
+          "name": "Name",
+          "description": "Description", 
+          "fileType": "File Type",
+          "created": "Created",
+          "fields": "Fields",
+          "actions": "Actions"
+        },
+        "fieldsCount": "fields",
+        "tooltips": {
+          "view": "View mapping details",
+          "edit": "Edit mapping", 
+          "delete": "Delete mapping"
+        }
       }
     }
   },

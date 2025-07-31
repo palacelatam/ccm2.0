@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import * as XLSX from 'xlsx';
 import AlertModal from '../../components/common/AlertModal';
 import './AdminDashboard.css';
 
@@ -60,8 +61,51 @@ interface BankAccount {
   accountNumber: string;
 }
 
+interface ExpectedField {
+  name: string;
+  type: 'string' | 'number' | 'date' | 'enum';
+  format?: string;
+  required: boolean;
+  enumValues?: string[];
+  description: string;
+}
+
+interface FieldMapping {
+  sourceField: string;
+  targetField: string;
+  transformation?: {
+    type: 'direct' | 'format' | 'enum' | 'split' | 'combine';
+    params?: any;
+  };
+}
+
+interface DataMapping {
+  id: string;
+  name: string;
+  description: string;
+  fileType: 'csv' | 'excel' | 'json';
+  createdDate: string;
+  fieldMappings: FieldMapping[];
+  sampleData?: any[];
+}
+
 const AdminDashboard: React.FC = () => {
   const { t } = useTranslation();
+  
+  // Expected fields for trade data mapping (based on ClientTradesGrid columns, excluding status and source)
+  const EXPECTED_FIELDS: ExpectedField[] = [
+    { name: 'tradeId', type: 'string', format: 'text', required: true, description: 'Unique identifier for the trade' },
+    { name: 'counterparty', type: 'string', format: 'text', required: true, description: 'Bank or financial institution counterparty' },
+    { name: 'productType', type: 'enum', format: 'text', required: true, enumValues: ['FX Spot', 'FX Forward'], description: 'Type of financial product' },
+    { name: 'tradeDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Date when trade was executed' },
+    { name: 'valueDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Settlement/value date for the trade' },
+    { name: 'direction', type: 'enum', format: 'text', required: true, enumValues: ['BUY', 'SELL'], description: 'Trade direction (buy or sell)' },
+    { name: 'currency1', type: 'enum', format: 'ISO code', required: true, enumValues: ['USD', 'CLP', 'EUR', 'GBP', 'CLF'], description: 'Primary currency (3-letter ISO code)' },
+    { name: 'currency2', type: 'enum', format: 'ISO code', required: true, enumValues: ['USD', 'CLP', 'EUR', 'GBP', 'CLF'], description: 'Secondary currency (3-letter ISO code)' },
+    { name: 'amount', type: 'number', format: 'decimal', required: true, description: 'Trade amount/notional value' },
+    { name: 'price', type: 'number', format: 'decimal(4)', required: true, description: 'Exchange rate or price (4 decimal places)' },
+    { name: 'paymentDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Date when payment is due' }
+  ];
   
   // Chilean banks list in alphabetical order
   const CHILEAN_BANKS = [
@@ -206,6 +250,18 @@ const AdminDashboard: React.FC = () => {
   });
   
   const [isSaving, setIsSaving] = useState(false);
+
+  // Data Mapping state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedData, setUploadedData] = useState<any[] | null>(null);
+  const [sourceFields, setSourceFields] = useState<string[]>([]);
+  const [currentMapping, setCurrentMapping] = useState<FieldMapping[]>([]);
+  const [mappedData, setMappedData] = useState<any[] | null>(null);
+  const [dataMappings, setDataMappings] = useState<DataMapping[]>([]);
+  const [showMappingForm, setShowMappingForm] = useState(false);
+  const [editingMapping, setEditingMapping] = useState<DataMapping | null>(null);
+  const [mappingForm, setMappingForm] = useState<{name: string, description: string}>({name: '', description: ''});
+  const [dragOverUpload, setDragOverUpload] = useState(false);
   
   const handleAutomationChange = (key: keyof AutomationSettings, value: any) => {
     setAutomationSettings(prev => ({
@@ -645,13 +701,444 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Data Mapping functions
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverUpload(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      processUploadedFile(file);
+    }
+  };
+
+  const processUploadedFile = (file: File) => {
+    setUploadedFile(file);
+    
+    let extractedFields: string[] = [];
+    let parsedData: any[] = [];
+    
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      // Parse CSV file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length > 0) {
+          // Extract headers from first line
+          extractedFields = lines[0].split(',').map(field => field.trim().replace(/"/g, ''));
+          
+          // Parse first few rows for sample data
+          for (let i = 1; i < Math.min(lines.length, 4); i++) {
+            const values = lines[i].split(',').map(val => val.trim().replace(/"/g, ''));
+            const row: any = {};
+            extractedFields.forEach((field, index) => {
+              row[field] = values[index] || '';
+            });
+            parsedData.push(row);
+          }
+        }
+        updateFileData(extractedFields, parsedData, file);
+      };
+      reader.readAsText(file);
+      
+    } else if (file.name.toLowerCase().endsWith('.json')) {
+      // Parse JSON file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        try {
+          const jsonData = JSON.parse(text);
+          if (Array.isArray(jsonData) && jsonData.length > 0) {
+            extractedFields = Object.keys(jsonData[0]);
+            parsedData = jsonData.slice(0, 3);
+          }
+        } catch (error) {
+          console.error('Error parsing JSON:', error);
+        }
+        updateFileData(extractedFields, parsedData, file);
+      };
+      reader.readAsText(file);
+      
+    } else if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+      // Parse Excel file using xlsx library
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          
+          // Get the first worksheet
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // Helper function to convert Excel date serial numbers to readable dates
+          const convertExcelValue = (value: any, fieldName: string) => {
+            // Only try to convert numbers that are likely to be dates based on field name
+            const isLikelyDateField = fieldName && (
+              fieldName.toLowerCase().includes('date') ||
+              fieldName.toLowerCase().includes('maturity') ||
+              fieldName.toLowerCase().includes('payment') ||
+              fieldName.toLowerCase().includes('settlement') ||
+              fieldName.toLowerCase().includes('fixing') ||
+              fieldName.toLowerCase().includes('expiry') ||
+              fieldName.toLowerCase().includes('value')
+            );
+            
+            // Check if it's a number that could be an Excel date serial number
+            if (isLikelyDateField && typeof value === 'number' && value > 25000 && value < 80000) {
+              // Narrower range: 25000 ≈ 1968, 80000 ≈ 2119 (more realistic date range)
+              try {
+                // Excel stores dates as days since 1900-01-01 (with 1900 leap year bug)
+                // Convert Excel serial number to JavaScript Date
+                const excelEpoch = new Date(1899, 11, 30); // December 30, 1899 (accounting for Excel's leap year bug)
+                const jsDate = new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
+                
+                // Validate the date and check if it's reasonable
+                if (jsDate && !isNaN(jsDate.getTime()) && jsDate.getFullYear() > 1968 && jsDate.getFullYear() < 2119) {
+                  // Format as YYYY-MM-DD for consistency
+                  return jsDate.toISOString().split('T')[0];
+                }
+              } catch (error) {
+                console.log('Date conversion failed for value:', value, 'field:', fieldName);
+              }
+            }
+            // Return original value if not a date serial number or not a date field
+            return value || '';
+          };
+          
+          if (jsonData.length > 0) {
+            // First row contains headers
+            extractedFields = (jsonData[0] as any[]).map(header => String(header || '').trim());
+            
+            // Convert remaining rows to objects
+            for (let i = 1; i < Math.min(jsonData.length, 4); i++) {
+              const rowData = jsonData[i] as any[];
+              const row: any = {};
+              extractedFields.forEach((field, index) => {
+                row[field] = convertExcelValue(rowData[index], field);
+              });
+              parsedData.push(row);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing Excel file:', error);
+        }
+        updateFileData(extractedFields, parsedData, file);
+      };
+      reader.readAsBinaryString(file);
+      
+    } else {
+      console.warn('Unsupported file format:', file.name);
+      updateFileData([], [], file);
+    }
+  };
+
+  const updateFileData = (extractedFields: string[], parsedData: any[], file: File) => {
+    setSourceFields(extractedFields);
+    setUploadedData(parsedData);
+    
+    // Generate intelligent mapping suggestions based on actual field names
+    if (extractedFields.length > 0) {
+      const suggestedMapping = generateIntelligentMapping(extractedFields);
+      setCurrentMapping(suggestedMapping);
+      
+      // Apply mapping to generate preview
+      if (parsedData.length > 0) {
+        const mapped = applyMapping(parsedData, suggestedMapping);
+        setMappedData(mapped);
+      }
+    }
+  };
+
+  const generateMockData = (filename: string) => {
+    // Mock data based on filename to simulate different client formats with comprehensive field set
+    if (filename.toLowerCase().includes('bank')) {
+      return [
+        { 
+          'ID_TRADE': 'T001', 'FECHA_TRADE': '15/01/2025', 'FECHA_VALOR': '17/01/2025', 'CONTRAPARTE': 'BANCO ABC', 
+          'PRODUCTO': 'SPOT', 'COMPRA_VENTA': 'C', 'MONEDA1': 'USD', 'MONEDA2': 'CLP', 'MONTO': '100.000,50', 
+          'TASA': '920,45', 'FECHA_PAGO': '17/01/2025', 'TIPO_LIQUIDACION': 'DVP', 'REFERENCIA': 'REF001',
+          'COMENTARIOS': 'Trade normal', 'ESTADO': 'ACTIVO', 'USUARIO': 'admin', 'SISTEMA': 'CORE'
+        },
+        { 
+          'ID_TRADE': 'T002', 'FECHA_TRADE': '16/01/2025', 'FECHA_VALOR': '18/01/2025', 'CONTRAPARTE': 'BANCO XYZ', 
+          'PRODUCTO': 'FORWARD', 'COMPRA_VENTA': 'V', 'MONEDA1': 'EUR', 'MONEDA2': 'USD', 'MONTO': '50.000,00', 
+          'TASA': '1,0856', 'FECHA_PAGO': '18/01/2025', 'TIPO_LIQUIDACION': 'NET', 'REFERENCIA': 'REF002',
+          'COMENTARIOS': 'Forward EUR/USD', 'ESTADO': 'PENDIENTE', 'USUARIO': 'trader1', 'SISTEMA': 'FRONT'
+        }
+      ];
+    }
+    return [
+      { 
+        'TradeID': 'TR1001', 'TradeDate': '2025-01-15', 'ValueDate': '2025-01-17', 'Counterparty': 'Bank ABC', 
+        'Product': 'FX SPOT', 'Direction': 'BUY', 'Ccy1': 'USD', 'Ccy2': 'CLP', 'Amount': '100000.50', 
+        'Rate': '920.45', 'PaymentDate': '2025-01-17', 'SettlementType': 'DVP', 'Reference': 'REF001',
+        'Comments': 'Standard trade', 'Status': 'ACTIVE', 'User': 'admin', 'Source': 'SYSTEM_A'
+      },
+      { 
+        'TradeID': 'TR1002', 'TradeDate': '2025-01-16', 'ValueDate': '2025-01-18', 'Counterparty': 'Bank XYZ', 
+        'Product': 'FX FORWARD', 'Direction': 'SELL', 'Ccy1': 'EUR', 'Ccy2': 'USD', 'Amount': '50000.00', 
+        'Rate': '1.0856', 'PaymentDate': '2025-01-18', 'SettlementType': 'NET', 'Reference': 'REF002',
+        'Comments': 'Forward EUR/USD', 'Status': 'PENDING', 'User': 'trader1', 'Source': 'SYSTEM_B'
+      }
+    ];
+  };
+
+  const generateIntelligentMapping = (sourceFields: string[]): FieldMapping[] => {
+    const mappings: FieldMapping[] = [];
+    
+    sourceFields.forEach(sourceField => {
+      const lowerField = sourceField.toLowerCase();
+      
+      // Intelligent field matching for ClientTradesGrid fields
+      if (lowerField.includes('trade') && lowerField.includes('id') || lowerField === 'id_trade' || lowerField === 'tradeid') {
+        mappings.push({ sourceField, targetField: 'tradeId', transformation: { type: 'direct' } });
+      }
+      else if (lowerField.includes('contraparte') || lowerField === 'counterparty') {
+        mappings.push({ sourceField, targetField: 'counterparty', transformation: { type: 'direct' } });
+      }
+      else if (lowerField.includes('producto') || lowerField.includes('product type') || lowerField === 'producttype' || lowerField === 'product') {
+        mappings.push({ sourceField, targetField: 'productType', transformation: { type: 'enum', params: { mapping: { 
+          'SPOT': 'FX Spot', 
+          'FORWARD': 'FX Forward', 
+          'Forward': 'FX Forward',
+          'forward': 'FX Forward',
+          'FX SPOT': 'FX Spot', 
+          'FX FORWARD': 'FX Forward', 
+          'SWAP': 'FX Swap', 
+          'OPTION': 'FX Option' 
+        } } } });
+      }
+      else if (lowerField.includes('fecha') && lowerField.includes('trade') || lowerField === 'tradedate') {
+        mappings.push({ sourceField, targetField: 'tradeDate', transformation: { type: 'format', params: { from: 'auto', to: 'YYYY-MM-DD' } } });
+      }
+      else if (lowerField.includes('valor') || lowerField.includes('value date') || lowerField === 'valuedate') {
+        mappings.push({ sourceField, targetField: 'valueDate', transformation: { type: 'format', params: { from: 'auto', to: 'YYYY-MM-DD' } } });
+      }
+      else if (lowerField.includes('compra') || lowerField.includes('venta') || lowerField === 'direction') {
+        mappings.push({ sourceField, targetField: 'direction', transformation: { type: 'enum', params: { mapping: { 'C': 'BUY', 'V': 'SELL', 'BUY': 'BUY', 'SELL': 'SELL' } } } });
+      }
+      else if (lowerField.includes('moneda1') || lowerField === 'ccy1' || lowerField === 'currency1' || lowerField.includes('currency 1')) {
+        mappings.push({ sourceField, targetField: 'currency1', transformation: { type: 'enum', params: { mapping: { 
+          'US$': 'USD',
+          'USD': 'USD',
+          '$': 'CLP',
+          'CLP': 'CLP',
+          'UF': 'CLF',
+          'CLF': 'CLF',
+          'EUR': 'EUR',
+          '€': 'EUR',
+          'GBP': 'GBP',
+          '£': 'GBP'
+        } } } });
+      }
+      else if (lowerField.includes('moneda2') || lowerField === 'ccy2' || lowerField === 'currency2' || lowerField.includes('currency 2')) {
+        mappings.push({ sourceField, targetField: 'currency2', transformation: { type: 'enum', params: { mapping: { 
+          'US$': 'USD',
+          'USD': 'USD',
+          '$': 'CLP',
+          'CLP': 'CLP',
+          'UF': 'CLF',
+          'CLF': 'CLF',
+          'EUR': 'EUR',
+          '€': 'EUR',
+          'GBP': 'GBP',
+          '£': 'GBP'
+        } } } });
+      }
+      else if (lowerField.includes('monto') || lowerField === 'amount') {
+        mappings.push({ sourceField, targetField: 'amount', transformation: { type: 'format', params: { decimalSeparator: 'auto' } } });
+      }
+      else if (lowerField.includes('precio') || lowerField.includes('price') || lowerField.includes('tasa') || lowerField.includes('rate')) {
+        mappings.push({ sourceField, targetField: 'price', transformation: { type: 'format', params: { decimalSeparator: 'auto', precision: 4 } } });
+      }
+      else if (lowerField.includes('pago') || lowerField === 'paymentdate' || (lowerField.includes('payment') && lowerField.includes('date'))) {
+        mappings.push({ sourceField, targetField: 'paymentDate', transformation: { type: 'format', params: { from: 'auto', to: 'YYYY-MM-DD' } } });
+      }
+    });
+    
+    return mappings;
+  };
+
+  // Helper function to get suggested source field for each expected field
+  const getSuggestedSourceField = (expectedFieldName: string): string => {
+    const mapping = currentMapping.find(m => m.targetField === expectedFieldName);
+    return mapping ? mapping.sourceField : 'No suggestion';
+  };
+
+  const applyMapping = (data: any[], mappings: FieldMapping[]) => {
+    return data.map(row => {
+      const mappedRow: any = {};
+      
+      mappings.forEach(mapping => {
+        const sourceValue = row[mapping.sourceField];
+        let targetValue = sourceValue;
+        
+        if (mapping.transformation) {
+          switch (mapping.transformation.type) {
+            case 'format':
+              if (mapping.transformation.params?.decimalSeparator) {
+                targetValue = sourceValue?.toString().replace(',', '.');
+              }
+              if (mapping.transformation.params?.from && mapping.transformation.params?.to) {
+                // Date format conversion
+                if (mapping.transformation.params.from === 'DD/MM/YYYY') {
+                  const parts = sourceValue?.split('/');
+                  if (parts?.length === 3) {
+                    targetValue = `${parts[0]}${parts[1]}${parts[2]}`;
+                  }
+                }
+              }
+              break;
+            case 'enum':
+              const enumMapping = mapping.transformation.params?.mapping;
+              if (enumMapping && enumMapping[sourceValue]) {
+                targetValue = enumMapping[sourceValue];
+              }
+              break;
+            case 'direct':
+            default:
+              targetValue = sourceValue;
+          }
+        }
+        
+        mappedRow[mapping.targetField] = targetValue;
+      });
+      
+      return mappedRow;
+    });
+  };
+
+  const updateMapping = (sourceField: string, targetField: string) => {
+    setCurrentMapping(prev => {
+      const updated = prev.filter(m => m.sourceField !== sourceField);
+      if (targetField && targetField !== 'unmapped') {
+        updated.push({ sourceField, targetField, transformation: { type: 'direct' } });
+      }
+      return updated;
+    });
+    
+    // Reapply mapping to update preview
+    if (uploadedData) {
+      const newMapping = currentMapping.filter(m => m.sourceField !== sourceField);
+      if (targetField && targetField !== 'unmapped') {
+        newMapping.push({ sourceField, targetField, transformation: { type: 'direct' } });
+      }
+      const mapped = applyMapping(uploadedData, newMapping);
+      setMappedData(mapped);
+    }
+  };
+
+  const updateMappingByTarget = (targetField: string, sourceField: string) => {
+    setCurrentMapping(prev => {
+      // Remove any existing mapping for this target field
+      const updated = prev.filter(m => m.targetField !== targetField);
+      
+      if (sourceField && sourceField !== 'unmapped') {
+        // Also remove any mapping that was using this source field for a different target
+        const finalUpdated = updated.filter(m => m.sourceField !== sourceField);
+        
+        // Find intelligent transformation for this mapping
+        const transformation = getTransformationForField(sourceField, targetField);
+        finalUpdated.push({ sourceField, targetField, transformation });
+        
+        return finalUpdated;
+      }
+      return updated;
+    });
+    
+    // Reapply mapping to update preview
+    if (uploadedData) {
+      setTimeout(() => {
+        const mapped = applyMapping(uploadedData, currentMapping);
+        setMappedData(mapped);
+      }, 0);
+    }
+  };
+
+  const getTransformationForField = (sourceField: string, targetField: string) => {
+    const lowerSourceField = sourceField.toLowerCase();
+    
+    // Date transformation
+    if (targetField === 'tradeDate' || targetField === 'valueDate' || targetField === 'maturityDate') {
+      const hasSlash = lowerSourceField.includes('/') || (uploadedData?.[0]?.[sourceField] && String(uploadedData[0][sourceField]).includes('/'));
+      return { 
+        type: 'format' as const, 
+        params: hasSlash ? { from: 'DD/MM/YYYY', to: 'DDMMYYYY' } : { from: 'YYYY-MM-DD', to: 'DDMMYYYY' }
+      };
+    }
+    
+    // Amount/Rate transformation
+    if (targetField === 'amount' || targetField === 'rate') {
+      const hasComma = lowerSourceField.includes(',') || (uploadedData?.[0]?.[sourceField] && String(uploadedData[0][sourceField]).includes(','));
+      return { 
+        type: 'format' as const, 
+        params: hasComma ? { decimalSeparator: ',' } : { decimalSeparator: '.' }
+      };
+    }
+    
+    // Enum transformations
+    if (targetField === 'product') {
+      return { type: 'enum' as const, params: { mapping: { 'SPOT': 'FX SPOT', 'FORWARD': 'FX FORWARD', 'SWAP': 'FX SWAP' } } };
+    }
+    
+    if (targetField === 'buySell') {
+      return { type: 'enum' as const, params: { mapping: { 'C': 'BUY', 'V': 'SELL', 'BUY': 'BUY', 'SELL': 'SELL' } } };
+    }
+    
+    // Direct mapping for everything else
+    return { type: 'direct' as const };
+  };
+
+  const saveMapping = () => {
+    if (!mappingForm.name || !uploadedFile) return;
+    
+    const newMapping: DataMapping = {
+      id: Date.now().toString(),
+      name: mappingForm.name,
+      description: mappingForm.description,
+      fileType: uploadedFile.name.endsWith('.json') ? 'json' : uploadedFile.name.endsWith('.xlsx') ? 'excel' : 'csv',
+      createdDate: new Date().toISOString().split('T')[0],
+      fieldMappings: currentMapping,
+      sampleData: mappedData?.slice(0, 3)
+    };
+    
+    setDataMappings(prev => [...prev, newMapping]);
+    setShowMappingForm(false);
+    setMappingForm({name: '', description: ''});
+    
+    setAlertModal({
+      isOpen: true,
+      title: t('admin.dataMapping.saveMapping.successTitle'),
+      message: t('admin.dataMapping.saveMapping.successMessage').replace('{name}', newMapping.name),
+      type: 'success'
+    });
+  };
+
+  const deleteMapping = (mappingId: string) => {
+    setDataMappings(prev => prev.filter(m => m.id !== mappingId));
+  };
+
+  const clearUpload = () => {
+    setUploadedFile(null);
+    setUploadedData(null);
+    setSourceFields([]);
+    setCurrentMapping([]);
+    setMappedData(null);
+  };
+
   return (
     <div className="admin-dashboard">
-      <div className="admin-header">
-        <h1>{t('admin.title')}</h1>
-        <p className="admin-subtitle">{t('admin.subtitle')}</p>
-      </div>
-      
       <div className="admin-tabs">
         <button 
           className={`tab-button ${activeTab === 'automation' ? 'active' : ''}`}
@@ -683,6 +1170,7 @@ const AdminDashboard: React.FC = () => {
         >
           {t('admin.tabs.mapping')}
         </button>
+        <div className="admin-title">Admin</div>
       </div>
       
       <div className="admin-content">
@@ -1456,18 +1944,308 @@ const AdminDashboard: React.FC = () => {
         
         {activeTab === 'mapping' && (
           <div className="mapping-settings">
-            <h2>{t('admin.mapping.title')}</h2>
-            <div className="coming-soon">
-              <h3>{t('admin.mapping.title')}</h3>
-              <p>{t('admin.mapping.description')}</p>
-              <div className="feature-list">
-                <ul>
-                  <li>{t('admin.mapping.features.columns')}</li>
-                  <li>{t('admin.mapping.features.validation')}</li>
-                  <li>{t('admin.mapping.features.transformation')}</li>
-                  <li>{t('admin.mapping.features.templates')}</li>
-                </ul>
+            <h2>{t('admin.dataMapping.title')}</h2>
+            <p className="mapping-description">
+              {t('admin.dataMapping.description')}
+            </p>
+            
+            {/* File Upload Section */}
+            {!uploadedFile ? (
+              <div className="file-upload-section">
+                <h3>{t('admin.dataMapping.uploadSampleFile')}</h3>
+                <div 
+                  className={`file-upload-area ${dragOverUpload ? 'drag-over' : ''}`}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverUpload(true); }}
+                  onDragLeave={() => setDragOverUpload(false)}
+                  onDrop={handleFileDrop}
+                >
+                  <div className="upload-content">
+                    <div className="upload-icon">📁</div>
+                    <p>{t('admin.dataMapping.dragDropText')}</p>
+                    <label className="upload-button">
+                      {t('admin.dataMapping.browseFiles')}
+                      <input 
+                        type="file" 
+                        accept=".csv,.xlsx,.xls,.json" 
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    <p className="file-types">{t('admin.dataMapping.supportedFormats')}</p>
+                  </div>
+                </div>
               </div>
+            ) : (
+              <div className="mapping-interface">
+                <div className="uploaded-file-info">
+                  <h3>File: {uploadedFile.name}</h3>
+                  <button className="clear-upload-button" onClick={clearUpload}>
+                    ✗ {t('admin.dataMapping.clearUpload')}
+                  </button>
+                </div>
+
+                {/* Field Mapping */}
+                <div className="field-mapping-section">
+                  <h4>{t('admin.dataMapping.fieldMapping')}</h4>
+                  <div className="mapping-columns">
+                    <div className="mapping-headers">
+                      <div className="expected-field-header">{t('admin.dataMapping.headers.expectedField')}</div>
+                      <div className="source-field-header">{t('admin.dataMapping.headers.sourceField')}</div>
+                      <div className="transformation-header">{t('admin.dataMapping.headers.transformation')}</div>
+                      <div className="example-header">{t('admin.dataMapping.headers.example')}</div>
+                    </div>
+                    {EXPECTED_FIELDS.map(expectedField => (
+                      <div key={expectedField.name} className="mapping-row">
+                        <div className="expected-field-column">
+                          <div className="field-name">{t(`grid.columns.${expectedField.name}`)}</div>
+                          <div className="field-format">{expectedField.format}</div>
+                          <div className="field-description">{t(`admin.dataMapping.fieldDescriptions.${expectedField.name}`)}</div>
+                        </div>
+                        <div className="source-field-column">
+                          <select 
+                            className="source-field-dropdown"
+                            value={getSuggestedSourceField(expectedField.name) === 'No suggestion' ? '' : getSuggestedSourceField(expectedField.name)}
+                            onChange={(e) => updateMappingByTarget(expectedField.name, e.target.value)}
+                          >
+                            <option value="">{t('admin.dataMapping.dropdown.selectField')}</option>
+                            {(() => {
+                              //console.log('Rendering dropdown for field:', expectedField.name, 'Available sourceFields:', sourceFields);
+                              return sourceFields.map(sourceField => (
+                                <option key={sourceField} value={sourceField}>
+                                  {sourceField}
+                                </option>
+                              ));
+                            })()}
+                          </select>
+                        </div>
+                        <div className="transformation-column">
+                          <div className="transformation-info">
+                            {(() => {
+                              const mapping = currentMapping.find(m => m.targetField === expectedField.name);
+                              if (!mapping) return <span className="no-transformation">-</span>;
+                              
+                              const { type, params } = mapping.transformation || {};
+                              switch (type) {
+                                case 'direct':
+                                  return <span className="transform-direct">{t('admin.dataMapping.transformations.directCopy')}</span>;
+                                case 'format':
+                                  if (params?.from && params?.to) {
+                                    return <span className="transform-format">{t('admin.dataMapping.transformations.date')}: {params.from} → {params.to}</span>;
+                                  }
+                                  if (params?.decimalSeparator) {
+                                    return <span className="transform-format">{t('admin.dataMapping.transformations.decimal')}: {params.decimalSeparator === 'auto' ? t('admin.dataMapping.transformations.autoDetect') : params.decimalSeparator}</span>;
+                                  }
+                                  if (params?.precision) {
+                                    return <span className="transform-format">{t('admin.dataMapping.transformations.precision')}: {params.precision} {t('admin.dataMapping.transformations.decimals')}</span>;
+                                  }
+                                  return <span className="transform-format">{t('admin.dataMapping.transformations.formatConversion')}</span>;
+                                case 'enum':
+                                  const mappingCount = params?.mapping ? Object.keys(params.mapping).length : 0;
+                                  const mappingPreview = params?.mapping ? Object.entries(params.mapping).slice(0, 2).map(([k, v]) => `${k}→${v}`).join(', ') : '';
+                                  return <span className="transform-enum">{t('admin.dataMapping.transformations.enum')}: {mappingPreview}{mappingCount > 2 ? '...' : ''}</span>;
+                                default:
+                                  return <span className="transform-unknown">{t('admin.dataMapping.transformations.unknown')}</span>;
+                              }
+                            })()}
+                          </div>
+                        </div>
+                        <div className="example-column">
+                          <div className="example-data">
+                            {(() => {
+                              const mapping = currentMapping.find(m => m.targetField === expectedField.name);
+                              if (!mapping || !uploadedData?.[0]) {
+                                return <span className="no-example">{t('admin.dataMapping.examples.none')}</span>;
+                              }
+                              
+                              const sourceValue = uploadedData[0][mapping.sourceField];
+                              if (!sourceValue) {
+                                return <span className="no-example">{t('admin.dataMapping.examples.noData')}</span>;
+                              }
+                              
+                              // Apply the same transformation logic as in applyMapping
+                              let transformedValue = sourceValue;
+                              const { type, params } = mapping.transformation || {};
+                              
+                              switch (type) {
+                                case 'format':
+                                  if (params?.decimalSeparator === ',' || String(sourceValue).includes(',')) {
+                                    transformedValue = String(sourceValue).replace(',', '.');
+                                  }
+                                  if (params?.from === 'DD/MM/YYYY' && String(sourceValue).includes('/')) {
+                                    const parts = String(sourceValue).split('/');
+                                    if (parts.length === 3) {
+                                      transformedValue = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                    }
+                                  }
+                                  break;
+                                case 'enum':
+                                  const enumMapping = params?.mapping;
+                                  if (enumMapping && enumMapping[sourceValue]) {
+                                    transformedValue = enumMapping[sourceValue];
+                                  }
+                                  break;
+                                case 'direct':
+                                default:
+                                  transformedValue = sourceValue;
+                              }
+                              
+                              return (
+                                <div className="example-transformation">
+                                  <div className="source-value">{String(sourceValue)}</div>
+                                  <div className="arrow">→</div>
+                                  <div className="target-value">{String(transformedValue)}</div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview Section */}
+                {mappedData && mappedData.length > 0 && (
+                  <div className="preview-section">
+                    <div className="preview-header-row">
+                      <h4>{t('admin.dataMapping.mappingPreview')}</h4>
+                      <button 
+                        className="refresh-preview-button"
+                        onClick={() => {
+                          if (uploadedData && uploadedData.length > 0) {
+                            const mapped = applyMapping(uploadedData, currentMapping);
+                            setMappedData(mapped);
+                          }
+                        }}
+                        title={t('admin.dataMapping.refreshPreview')}
+                      >
+                        🔄 {t('admin.dataMapping.refresh')}
+                      </button>
+                    </div>
+                    <div className="preview-table-container">
+                      <table className="preview-data-table">
+                        <thead>
+                          <tr>
+                            {EXPECTED_FIELDS.map(field => (
+                              <th key={field.name} className="preview-th">
+                                {t(`grid.columns.${field.name}`)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mappedData.slice(0, 3).map((row, index) => (
+                            <tr key={index}>
+                              {EXPECTED_FIELDS.map(field => (
+                                <td key={field.name} className="preview-td">
+                                  {row[field.name] || '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save Mapping Section */}
+                <div className="save-mapping-section">
+                  {!showMappingForm ? (
+                    <button 
+                      className="show-save-form-button"
+                      onClick={() => setShowMappingForm(true)}
+                    >
+                      {t('admin.dataMapping.saveMapping.showSaveButton')}
+                    </button>
+                  ) : (
+                    <div className="save-mapping-form">
+                      <h4>{t('admin.dataMapping.saveMapping.title')}</h4>
+                      <div className="form-grid">
+                        <div className="form-group">
+                          <label>{t('admin.dataMapping.saveMapping.nameLabel')}</label>
+                          <input
+                            type="text"
+                            value={mappingForm.name}
+                            onChange={(e) => setMappingForm(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder={t('admin.dataMapping.saveMapping.namePlaceholder')}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>{t('admin.dataMapping.saveMapping.descriptionLabel')}</label>
+                          <input
+                            type="text"
+                            value={mappingForm.description}
+                            onChange={(e) => setMappingForm(prev => ({ ...prev, description: e.target.value }))}
+                            placeholder={t('admin.dataMapping.saveMapping.descriptionPlaceholder')}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <button 
+                          className="save-mapping-button" 
+                          onClick={saveMapping}
+                          disabled={!mappingForm.name}
+                        >
+                          {t('admin.dataMapping.saveMapping.saveButton')}
+                        </button>
+                        <button 
+                          className="cancel-mapping-button"
+                          onClick={() => setShowMappingForm(false)}
+                        >
+                          {t('admin.dataMapping.saveMapping.cancelButton')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Saved Mappings Section */}
+            <div className="saved-mappings-section">
+              <h3>{t('admin.dataMapping.savedMappings.title')}</h3>
+              {dataMappings.length === 0 ? (
+                <div className="empty-state">
+                  <p>{t('admin.dataMapping.savedMappings.emptyState')}</p>
+                </div>
+              ) : (
+                <div className="mappings-table">
+                  <div className="mappings-header">
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.name')}</div>
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.description')}</div>
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.fileType')}</div>
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.created')}</div>
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.fields')}</div>
+                    <div>{t('admin.dataMapping.savedMappings.tableHeaders.actions')}</div>
+                  </div>
+                  {dataMappings.map(mapping => (
+                    <div key={mapping.id} className="mapping-row">
+                      <div className="mapping-name">{mapping.name}</div>
+                      <div className="mapping-description">{mapping.description}</div>
+                      <div className="mapping-file-type">
+                        <span className={`file-type-badge ${mapping.fileType}`}>
+                          {mapping.fileType.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mapping-date">{mapping.createdDate}</div>
+                      <div className="mapping-fields">
+                        {mapping.fieldMappings.length} {t('admin.dataMapping.savedMappings.fieldsCount')}
+                      </div>
+                      <div className="mapping-actions">
+                        <button className="edit-button" title={t('admin.dataMapping.savedMappings.tooltips.edit')}>✏️</button>
+                        <button 
+                          className="delete-button" 
+                          onClick={() => deleteMapping(mapping.id)}
+                          title={t('admin.dataMapping.savedMappings.tooltips.delete')}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
