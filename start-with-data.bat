@@ -1,0 +1,3 @@
+@echo off
+echo Starting Firebase Emulators with your demo data...
+firebase emulators:start --import=./demo-data --export-on-exit=./demo-data

@@ -153,6 +153,10 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 
+# Firebase Emulator Data (uncomment to ignore demo data)
+# demo-data/
+# backups/
+
 # MacOS
 .DS_Store
 .AppleDouble

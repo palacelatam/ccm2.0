@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 
 interface User {
   id: string;
@@ -29,61 +31,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Check for existing authentication session
-    // For now, just finish loading without setting a user
-    setTimeout(() => {
+    // Listen for authentication state changes
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Map Firebase user to our User interface
+        const mappedUser = mapFirebaseUserToUser(firebaseUser);
+        setUser(mappedUser);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
-    }, 500);
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  // Helper function to map Firebase user to our User interface
+  const mapFirebaseUserToUser = (firebaseUser: FirebaseUser): User => {
+    // Determine role based on email domain
+    let role: 'client_user' | 'client_admin' | 'bank_admin';
+    
+    if (firebaseUser.email?.includes('@bancoabc.cl')) {
+      role = 'bank_admin';
+    } else if (firebaseUser.email === 'admin@xyz.cl') {
+      role = 'client_admin';
+    } else {
+      role = 'client_user';
+    }
+
+    return {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      email: firebaseUser.email || '',
+      role
+    };
+  };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('Login attempt:', { email, password });
+      console.log('Firebase login attempt:', { email });
       
-      // Mock user database
-      const mockUsers = {
-        'admin@xyz.cl': {
-          id: '1',
-          name: 'Admin Cliente XYZ',
-          email: 'admin@xyz.cl',
-          role: 'client_admin' as const
-        },
-        'usuario@xyz.cl': {
-          id: '2', 
-          name: 'Usuario Cliente XYZ',
-          email: 'usuario@xyz.cl',
-          role: 'client_user' as const
-        },
-        'admin@bancoabc.cl': {
-          id: '3',
-          name: 'Admin Banco ABC',
-          email: 'admin@bancoabc.cl',
-          role: 'bank_admin' as const
-        }
-      };
-
-      // Mock login authentication
-      setTimeout(() => {
-        const user = mockUsers[email as keyof typeof mockUsers];
-        
-        if (user && password.length > 0) {
-          setUser(user);
-          setLoading(false);
-        } else {
-          setLoading(false);
-          throw new Error('Invalid credentials. Use one of: admin@xyz.cl, usuario@xyz.cl, admin@bancoabc.cl');
-        }
-      }, 1500);
-    } catch (error) {
+      // Use Firebase Auth to sign in
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // User will be set automatically by the onAuthStateChanged listener
+      console.log('Login successful:', userCredential.user.email);
+      
+    } catch (error: any) {
       setLoading(false);
-      throw error;
+      console.error('Login error:', error);
+      
+      // Provide user-friendly error messages
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        throw new Error('Invalid email or password');
+      } else if (error.code === 'auth/invalid-credential') {
+        throw new Error('Invalid credentials');
+      } else {
+        throw new Error('Login failed. Please try again.');
+      }
     }
   };
 
-  const logout = () => {
-    // TODO: Implement Firebase logout
-    setUser(null);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      // User will be set to null automatically by the onAuthStateChanged listener
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const value = {
