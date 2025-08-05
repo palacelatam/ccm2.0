@@ -872,7 +872,7 @@ input:checked + .slider:before {
 .rules-table .table-header,
 .rules-table .table-row {
   display: grid;
-  grid-template-columns: 60px 80px 2px 200px 150px 80px 120px 80px 2px 120px 140px 80px;
+  grid-template-columns: 60px 80px 2px 250px 150px 80px 120px 100px 2px 140px 160px 80px;
   gap: 0.5rem;
   align-items: center;
 }
@@ -1249,20 +1249,50 @@ input:checked + .slider:before {
 .rules-table .table-row {
   cursor: grab;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .rules-table .table-row:active {
   cursor: grabbing;
 }
 
+.rules-table .table-row.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px dashed var(--accent-blue);
+}
+
 .rules-table .table-row.drag-over {
   background: rgba(59, 130, 246, 0.1);
   border: 2px dashed var(--accent-blue);
   transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.rules-table .table-row:hover:not(.drag-over) {
+.rules-table .table-row.drag-over::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  animation: pulse 1s infinite;
+}
+
+.rules-table .table-row:hover:not(.drag-over):not(.dragging) {
   background: rgba(0, 0, 0, 0.02);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .drag-handle {

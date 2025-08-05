@@ -186,20 +186,20 @@ const ConfirmationsGrid: React.FC = () => {
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
       name: t('grid.contextMenu.viewOriginalEmail'),
-      action: () => console.log('Ver email:', params.node?.data)
+      action: () => {/* View email action */}
     },
     {
       name: t('grid.contextMenu.markProcessed'),
-      action: () => console.log('Marcar procesado:', params.node?.data)
+      action: () => {/* Mark processed action */}
     },
     {
       name: t('grid.contextMenu.reject'),
-      action: () => console.log('Rechazar:', params.node?.data)
+      action: () => {/* Reject action */}
     },
     'separator',
     {
       name: t('grid.contextMenu.viewDetails'),
-      action: () => console.log('Ver detalles:', params.node?.data)
+      action: () => {/* View details action */}
     }
   ], [t]);
 

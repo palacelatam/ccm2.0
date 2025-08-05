@@ -276,20 +276,20 @@ const ClientTradesGrid: React.FC = () => {
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
       name: t('grid.contextMenu.viewDetails'),
-      action: () => console.log('Ver detalles:', params.node?.data)
+      action: () => {/* View details action */}
     },
     {
       name: t('grid.contextMenu.edit'),
-      action: () => console.log('Editar trade:', params.node?.data)
+      action: () => {/* Edit trade action */}
     },
     {
       name: t('grid.contextMenu.delete'),
-      action: () => console.log('Eliminar trade:', params.node?.data)
+      action: () => {/* Delete trade action */}
     },
     'separator',
     {
       name: t('grid.contextMenu.duplicate'),
-      action: () => console.log('Duplicar trade:', params.node?.data)
+      action: () => {/* Duplicate trade action */}
     }
   ], [t]);
 

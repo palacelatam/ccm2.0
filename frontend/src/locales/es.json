@@ -2,6 +2,7 @@
   "navigation": {
     "title": "Client Confirmation Manager",
     "dashboard": "Dashboard",
+    "clientSettings": "Configuración Cliente",
     "clientAdmin": "Administración",
     "bankAdmin": "Admin Banco",
     "settings": "Configuración",
@@ -186,6 +187,7 @@
         "generalInfo": "Información General",
         "accountDetails": "Detalles de Cuenta",
         "save": "Guardar Regla",
+        "saving": "Guardando...",
         "cancel": "Cancelar"
       },
       "placeholders": {
@@ -222,7 +224,9 @@
         "swiftCode": "Ej: BSCHCLRM",
         "accountCurrency": "Seleccionar moneda...",
         "accountNumber": "Ej: 12345678901"
-      }
+      },
+      "save": "Guardar Cuenta",
+      "saving": "Guardando cuenta..."
     },
     "mapping": {
       "title": "Mapeo de Archivos CSV/Excel",
@@ -250,7 +254,18 @@
       "saveSuccess": {
         "title": "Configuración Guardada",
         "message": "La configuración se ha guardado exitosamente."
+      },
+      "error": {
+        "title": "Error"
       }
+    },
+    "unsavedChanges": {
+      "title": "Cambios Sin Guardar",
+      "message": "Tienes cambios sin guardar que se perderán si continúas. ¿Qué te gustaría hacer?",
+      "saveAndContinue": "Guardar y Continuar",
+      "discardAndContinue": "Descartar y Continuar",
+      "cancel": "Cancelar",
+      "saving": "Guardando..."
     },
     "dataMapping": {
       "title": "Mapeo de Datos",

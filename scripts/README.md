@@ -15,10 +15,15 @@ Starts Firebase emulators with persistent data storage.
 - Saves data automatically when emulators stop
 - Displays helpful status information
 
+**Important**: Must be run from **Windows Command Prompt** (not Git Bash)
+
 **Usage:**
-```bash
-# From project root
+```cmd
+# From project root in Windows Command Prompt
 scripts\start-emulators.bat
+
+# Or run the command directly:
+firebase emulators:start --import=./demo-data --export-on-exit=./demo-data
 ```
 
 **Demo Users (Password: demo123):**
@@ -69,9 +74,11 @@ demo-data/
 ## 🔄 **Development Workflow**
 
 ### **Daily Development:**
-1. Run `scripts\start-emulators.bat`
-2. Develop and test with consistent demo data
-3. Stop emulators (Ctrl+C) - data auto-saves
+1. **Open Windows Command Prompt** (not Git Bash)
+2. **Navigate to project**: `cd C:\Users\bencl\Proyectos\ccm2.0`
+3. **Run**: `firebase emulators:start --import=./demo-data --export-on-exit=./demo-data`
+4. Develop and test with consistent demo data
+5. Stop emulators (Ctrl+C) - data auto-saves
 
 ### **After Adding New Demo Data:**
 1. Create new users/data in emulator UI
@@ -132,8 +139,10 @@ When migrating to production Firestore:
 ## 🔍 **Troubleshooting**
 
 **Scripts won't run:**
+- **Use Windows Command Prompt** (not Git Bash or PowerShell)
 - Ensure you're in project root directory
 - Check that Firebase CLI is installed and in PATH
+- Verify Java is installed and accessible from Command Prompt
 
 **Demo data not loading:**
 - Verify `demo-data/auth_export/accounts.json` exists

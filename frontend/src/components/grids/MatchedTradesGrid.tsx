@@ -206,20 +206,20 @@ const MatchedTradesGrid: React.FC = () => {
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
       name: t('grid.contextMenu.verifyTrade'),
-      action: () => console.log('Verificar trade:', params.node?.data)
+      action: () => {/* Verify trade action */}
     },
     {
       name: t('grid.contextMenu.viewConfirmation'),
-      action: () => console.log('Ver confirmación:', params.node?.data)
+      action: () => {/* View confirmation action */}
     },
     {
       name: t('grid.contextMenu.dispute'),
-      action: () => console.log('Disputar trade:', params.node?.data)
+      action: () => {/* Dispute trade action */}
     },
     'separator',
     {
       name: t('grid.contextMenu.viewDetails'),
-      action: () => console.log('Ver detalles:', params.node?.data)
+      action: () => {/* View details action */}
     }
   ], [t]);
 

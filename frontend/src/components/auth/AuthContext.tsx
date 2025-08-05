@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import { userService, UserProfile } from '../../services/api';
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: 'client_user' | 'client_admin' | 'bank_admin';
+  profile?: UserProfile; // Add backend profile data
+  permissions?: string[]; // Add backend permissions
 }
 
 interface AuthContextType {
@@ -32,11 +35,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Listen for authentication state changes
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Map Firebase user to our User interface
-        const mappedUser = mapFirebaseUserToUser(firebaseUser);
-        setUser(mappedUser);
+        try {
+          // Get user profile from backend
+          const profileResponse = await userService.getMyProfile();
+          const profile = profileResponse.data;
+          
+          // Map Firebase user with backend profile data
+          const mappedUser = mapFirebaseUserToUser(firebaseUser, profile);
+          setUser(mappedUser);
+        } catch (error) {
+          console.error('Failed to load user profile from backend:', error);
+          // Fallback to Firebase-only user
+          const mappedUser = mapFirebaseUserToUser(firebaseUser);
+          setUser(mappedUser);
+        }
       } else {
         setUser(null);
       }
@@ -47,11 +61,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Helper function to map Firebase user to our User interface
-  const mapFirebaseUserToUser = (firebaseUser: FirebaseUser): User => {
-    // Determine role based on email domain
+  const mapFirebaseUserToUser = (firebaseUser: FirebaseUser, profile?: UserProfile): User => {
+    // Determine role based on backend profile or email domain fallback
     let role: 'client_user' | 'client_admin' | 'bank_admin';
     
-    if (firebaseUser.email?.includes('@bancoabc.cl')) {
+    if (profile?.organization?.type === 'bank') {
+      role = 'bank_admin';
+    } else if (profile?.organization?.type === 'client' && profile?.primaryRole === 'client_admin') {
+      role = 'client_admin';
+    } else if (firebaseUser.email?.includes('@bancoabc.cl')) {
       role = 'bank_admin';
     } else if (firebaseUser.email === 'admin@xyz.cl') {
       role = 'client_admin';
@@ -61,22 +79,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return {
       id: firebaseUser.uid,
-      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      name: profile?.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
       email: firebaseUser.email || '',
-      role
+      role,
+      profile
     };
   };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('Firebase login attempt:', { email });
-      
       // Use Firebase Auth to sign in
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // User will be set automatically by the onAuthStateChanged listener
-      console.log('Login successful:', userCredential.user.email);
       
     } catch (error: any) {
       setLoading(false);

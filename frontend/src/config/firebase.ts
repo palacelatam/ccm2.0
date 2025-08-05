@@ -28,7 +28,6 @@ if (process.env.NODE_ENV === 'development') {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099');
   } catch (error) {
     // Emulator already connected
-    console.log('Auth emulator already connected');
   }
   
   // Connect to Firestore emulator  
@@ -36,7 +35,6 @@ if (process.env.NODE_ENV === 'development') {
     connectFirestoreEmulator(db, '127.0.0.1', 8081);
   } catch (error) {
     // Emulator already connected
-    console.log('Firestore emulator already connected');
   }
 }
 

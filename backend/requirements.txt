@@ -2,40 +2,19 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Database and cloud services
+# Firebase and database
 firebase-admin==6.2.0
 google-cloud-firestore==2.13.1
-google-cloud-vertex-ai==1.38.1
-google-cloud-dlp==3.12.1
-google-cloud-secretmanager==2.16.4
-google-cloud-kms==2.19.1
-google-cloud-logging==3.8.0
 
-# Email processing
-google-api-python-client==2.108.0
-google-auth-oauthlib==1.1.0
-google-auth-httplib2==0.1.1
-
-# Data processing
-pandas==2.1.3
-openpyxl==3.1.2
+# Data validation and processing
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
 python-multipart==0.0.6
 
-# AI/ML
-openai==1.3.5
-
-# Utilities
+# Environment management
 python-dotenv==1.0.0
-pydantic==2.5.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
 
-# Testing
+# Testing (optional)
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
-
-# Development
-black==23.11.0
-flake8==6.1.0
-isort==5.12.0

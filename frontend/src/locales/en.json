@@ -2,6 +2,7 @@
   "navigation": {
     "title": "Client Confirmation Manager",
     "dashboard": "Dashboard",
+    "clientSettings": "Client Settings",
     "clientAdmin": "Administration",
     "bankAdmin": "Bank Admin",
     "settings": "Settings",
@@ -186,6 +187,7 @@
         "generalInfo": "General Information",
         "accountDetails": "Account Details",
         "save": "Save Rule",
+        "saving": "Saving...",
         "cancel": "Cancel"
       },
       "placeholders": {
@@ -222,7 +224,9 @@
         "swiftCode": "Ex: BSCHCLRM",
         "accountCurrency": "Select currency...",
         "accountNumber": "Ex: 12345678901"
-      }
+      },
+      "save": "Save Account",
+      "saving": "Saving account..."
     },
     "mapping": {
       "title": "CSV/Excel File Mapping",
@@ -250,7 +254,18 @@
       "saveSuccess": {
         "title": "Configuration Saved",
         "message": "The configuration has been saved successfully."
+      },
+      "error": {
+        "title": "Error"
       }
+    },
+    "unsavedChanges": {
+      "title": "Unsaved Changes",
+      "message": "You have unsaved changes that will be lost if you continue. What would you like to do?",
+      "saveAndContinue": "Save & Continue",
+      "discardAndContinue": "Discard & Continue",
+      "cancel": "Cancel",
+      "saving": "Saving..."
     },
     "dataMapping": {
       "title": "Data Mapping",

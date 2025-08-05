@@ -1,0 +1,16 @@
+{
+  "name": "ccm-demo-data-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for seeding demo data in CCM Firestore emulator",
+  "main": "seed-demo-data.js",
+  "scripts": {
+    "seed": "node seed-demo-data.js",
+    "get-uids": "node get-auth-uids.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

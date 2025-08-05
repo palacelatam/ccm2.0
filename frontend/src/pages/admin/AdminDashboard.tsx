@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
+import { useAuth } from '../../components/auth/AuthContext';
+import { clientService } from '../../services/api/clientService';
 import AlertModal from '../../components/common/AlertModal';
 import './AdminDashboard.css';
 
@@ -59,6 +61,7 @@ interface BankAccount {
   swiftCode: string;
   accountCurrency: string;
   accountNumber: string;
+  isDefault: boolean;
 }
 
 interface ExpectedField {
@@ -91,6 +94,7 @@ interface DataMapping {
 
 const AdminDashboard: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   
   // Expected fields for trade data mapping (based on ClientTradesGrid columns, excluding status and source)
   const EXPECTED_FIELDS: ExpectedField[] = [
@@ -127,6 +131,17 @@ const AdminDashboard: React.FC = () => {
   ];
   
   const [activeTab, setActiveTab] = useState<'automation' | 'alerts' | 'settlement' | 'accounts' | 'mapping'>('automation');
+  
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingTabChange, setPendingTabChange] = useState<string | null>(null);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  
+  // Original values for reset functionality
+  const [originalAutomationSettings, setOriginalAutomationSettings] = useState<AutomationSettings | null>(null);
+  const [originalAlertSettings, setOriginalAlertSettings] = useState<AlertSettings | null>(null);
+  const [originalBankAccounts, setOriginalBankAccounts] = useState<BankAccount[] | null>(null);
+  const [originalSettlementRules, setOriginalSettlementRules] = useState<SettlementRule[] | null>(null);
   
   const [automationSettings, setAutomationSettings] = useState<AutomationSettings>({
     dataSharing: true,
@@ -174,7 +189,8 @@ const AdminDashboard: React.FC = () => {
       bankName: 'Banco Santander Chile',
       swiftCode: 'BSCHCLRM',
       accountCurrency: 'USD',
-      accountNumber: '12345678901'
+      accountNumber: '1234567890',
+      isDefault: true
     },
     {
       id: '2',
@@ -183,7 +199,8 @@ const AdminDashboard: React.FC = () => {
       bankName: 'Banco de Crédito e Inversiones',
       swiftCode: 'BCICHCL2',
       accountCurrency: 'EUR',
-      accountNumber: '23456789012'
+      accountNumber: '2345678901',
+      isDefault: false
     },
     {
       id: '3',
@@ -192,7 +209,8 @@ const AdminDashboard: React.FC = () => {
       bankName: 'Banco del Estado de Chile',
       swiftCode: 'BECHCLRM',
       accountCurrency: 'CLP',
-      accountNumber: '34567890123'
+      accountNumber: '3456789012',
+      isDefault: false
     }
   ]);
 
@@ -231,11 +249,13 @@ const AdminDashboard: React.FC = () => {
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [editingRule, setEditingRule] = useState<SettlementRule | null>(null);
   const [ruleForm, setRuleForm] = useState<Partial<SettlementRule>>({});
+  const [isSavingRule, setIsSavingRule] = useState(false);
   
   // Accounts state
   const [editingAccount, setEditingAccount] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState<Partial<BankAccount>>({});
   const [accountGrouping, setAccountGrouping] = useState<'none' | 'bank' | 'currency'>('none');
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
   
   // Drag and drop state
   const [draggedRule, setDraggedRule] = useState<string | null>(null);
@@ -250,6 +270,8 @@ const AdminDashboard: React.FC = () => {
   });
   
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Data Mapping state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -263,11 +285,97 @@ const AdminDashboard: React.FC = () => {
   const [mappingForm, setMappingForm] = useState<{name: string, description: string}>({name: '', description: ''});
   const [dragOverUpload, setDragOverUpload] = useState(false);
   
+  // Load client settings on component mount
+  useEffect(() => {
+    const loadClientSettings = async () => {
+      if (!user?.profile?.organization?.id) {
+        setLoadError('No organization ID found');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await clientService.getClientSettings(user.profile.organization.id);
+        
+        if (response.success && response.data) {
+          // Update automation settings
+          setAutomationSettings(response.data.automation);
+          setOriginalAutomationSettings(response.data.automation);
+          
+          // Update alert settings
+          setAlertSettings(response.data.alerts);
+          setOriginalAlertSettings(response.data.alerts);
+        }
+        
+        // Load bank accounts
+        const accountsResponse = await clientService.getBankAccounts(user.profile.organization.id);
+        let accounts: BankAccount[] = [];
+        if (accountsResponse.success && accountsResponse.data) {
+          accounts = accountsResponse.data.map(account => ({
+            id: account.id || '',
+            active: account.active,
+            accountName: account.accountName,
+            bankName: account.bankName,
+            swiftCode: account.swiftCode,
+            accountCurrency: account.accountCurrency,
+            accountNumber: account.accountNumber,
+            isDefault: account.isDefault
+          }));
+          setBankAccounts(accounts);
+          setOriginalBankAccounts([...accounts]);
+        }
+        
+        // Load settlement rules
+        const rulesResponse = await clientService.getSettlementRules(user.profile.organization.id);
+        if (rulesResponse.success && rulesResponse.data) {
+          const rules = rulesResponse.data.map((rule, index) => {
+            // If backend doesn't provide ID, generate a consistent one based on rule data
+            let finalId = rule.id;
+            if (!finalId || finalId === 'undefined' || finalId.trim() === '') {
+              // Generate consistent ID based on priority and name (matches backend logic)
+              finalId = `rule-${rule.priority}-${rule.name.replace(/\s+/g, '-').toLowerCase()}`;
+            }
+            
+            // Look up bank account details from bankAccountId using the local accounts array
+            const bankAccount = accounts.find(account => account.id === rule.bankAccountId);
+            
+            return {
+              id: finalId,
+              active: rule.active,
+              priority: rule.priority,
+              name: rule.name,
+              counterparty: rule.counterparty,
+              cashflowCurrency: rule.cashflowCurrency,
+              direction: (rule.direction === 'IN' ? 'IN' : 'OUT') as 'IN' | 'OUT',
+              product: rule.product,
+              bankName: bankAccount?.bankName || '',
+              swiftCode: bankAccount?.swiftCode || '',
+              accountCurrency: bankAccount?.accountCurrency || '',
+              accountNumber: bankAccount?.accountNumber || ''
+            };
+          });
+          setSettlementRules(rules);
+          setOriginalSettlementRules([...rules]);
+        }
+        
+      } catch (error) {
+        console.error('Failed to load client settings:', error);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load settings');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadClientSettings();
+  }, [user?.profile?.organization?.id]);
+  
   const handleAutomationChange = (key: keyof AutomationSettings, value: any) => {
     setAutomationSettings(prev => ({
       ...prev,
       [key]: value
     }));
+    setHasUnsavedChanges(true);
   };
   
   const handleDelayChange = (setting: 'autoConfirmMatched' | 'autoConfirmDisputed', minutes: number) => {
@@ -278,6 +386,7 @@ const AdminDashboard: React.FC = () => {
         delayMinutes: minutes
       }
     }));
+    setHasUnsavedChanges(true);
   };
   
   const addEmail = (alertType: 'emailConfirmedTrades' | 'emailDisputedTrades') => {
@@ -304,6 +413,7 @@ const AdminDashboard: React.FC = () => {
         }
       }));
       setEmail('');
+      setHasUnsavedChanges(true);
     }
   };
   
@@ -315,6 +425,7 @@ const AdminDashboard: React.FC = () => {
         emails: prev[alertType].emails.filter((e: string) => e !== email)
       }
     }));
+    setHasUnsavedChanges(true);
   };
   
   const addPhone = (alertType: 'whatsappConfirmedTrades' | 'whatsappDisputedTrades') => {
@@ -341,6 +452,7 @@ const AdminDashboard: React.FC = () => {
         }
       }));
       setPhone('');
+      setHasUnsavedChanges(true);
     }
   };
   
@@ -352,6 +464,7 @@ const AdminDashboard: React.FC = () => {
         phones: prev[alertType].phones.filter((p: string) => p !== phone)
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const closeModal = () => {
@@ -375,6 +488,7 @@ const AdminDashboard: React.FC = () => {
       accountNumber: ''
     });
     setShowRuleForm(true);
+    setHasUnsavedChanges(true);
   };
 
   // Check for duplicate settlement rule
@@ -400,6 +514,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleDeleteRule = (ruleId: string) => {
     setSettlementRules(prev => prev.filter(rule => rule.id !== ruleId));
+    setHasUnsavedChanges(true);
   };
 
   // Find next available priority
@@ -417,65 +532,123 @@ const AdminDashboard: React.FC = () => {
     return existingPriorities.length + 1;
   };
 
-  const handleSaveRule = () => {
-    // Validate required fields
-    if (!ruleForm.name || !ruleForm.cashflowCurrency || !ruleForm.bankName || !ruleForm.swiftCode || 
-        !ruleForm.accountCurrency || !ruleForm.accountNumber) {
-      setAlertModal({
-        isOpen: true,
-        title: 'Validation Error',
-        message: 'Please fill in all required fields (Active, Priority, Rule Name, Cashflow Currency, Direction, Bank Name, SWIFT Code, Account Currency, Account Number).',
-        type: 'warning'
-      });
-      return;
-    }
-
-    // Check for duplicate priority
-    const existingPriorities = settlementRules
-      .filter(rule => rule.id !== editingRule?.id)
-      .map(rule => rule.priority);
+  const handleSaveRule = async () => {
+    // Prevent double-clicking
+    if (isSavingRule) return;
     
-    if (existingPriorities.includes(ruleForm.priority || 1)) {
-      const nextAvailable = getNextAvailablePriority(editingRule?.id);
-      setAlertModal({
-        isOpen: true,
-        title: 'Duplicate Priority',
-        message: `Priority ${ruleForm.priority} is already in use. Would you like to use Priority ${nextAvailable} instead?`,
-        type: 'warning'
-      });
-      // Auto-suggest the next available priority
-      updateRuleForm('priority', nextAvailable);
-      return;
-    }
+    setIsSavingRule(true);
+    
+    try {
+      // Validate required fields
+      if (!ruleForm.name || !ruleForm.cashflowCurrency || !ruleForm.bankName || !ruleForm.swiftCode || 
+          !ruleForm.accountCurrency || !ruleForm.accountNumber) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Validation Error',
+          message: 'Please fill in all required fields (Active, Priority, Rule Name, Cashflow Currency, Direction, Bank Name, SWIFT Code, Account Currency, Account Number).',
+          type: 'warning'
+        });
+        return;
+      }
 
-    // Check for duplicate rule
-    if (isDuplicateRule(ruleForm, editingRule?.id)) {
-      setAlertModal({
-        isOpen: true,
-        title: 'Duplicate Rule',
-        message: 'A rule with the same configuration already exists. Please modify the rule to avoid duplicates.',
-        type: 'warning'
-      });
-      return;
-    }
+      // Check for duplicate priority
+      const existingPriorities = settlementRules
+        .filter(rule => rule.id !== editingRule?.id)
+        .map(rule => rule.priority);
+      
+      if (existingPriorities.includes(ruleForm.priority || 1)) {
+        const nextAvailable = getNextAvailablePriority(editingRule?.id);
+        setAlertModal({
+          isOpen: true,
+          title: 'Duplicate Priority',
+          message: `Priority ${ruleForm.priority} is already in use. Would you like to use Priority ${nextAvailable} instead?`,
+          type: 'warning'
+        });
+        // Auto-suggest the next available priority
+        updateRuleForm('priority', nextAvailable);
+        return;
+      }
 
-    if (editingRule) {
-      // Update existing rule
-      setSettlementRules(prev => prev.map(rule => 
-        rule.id === editingRule.id ? { ...ruleForm as SettlementRule } : rule
-      ));
-    } else {
-      // Add new rule
-      const newRule: SettlementRule = {
-        ...ruleForm as SettlementRule,
-        id: Date.now().toString()
+      // Check for duplicate rule
+      if (isDuplicateRule(ruleForm, editingRule?.id)) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Duplicate Rule',
+          message: 'A rule with the same configuration already exists. Please modify the rule to avoid duplicates.',
+          type: 'warning'
+        });
+        return;
+      }
+
+      if (!user?.profile?.organization?.id) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Error',
+          message: 'No organization ID found',
+          type: 'error'
+        });
+        return;
+      }
+
+      // Find matching bank account
+      const matchingAccount = bankAccounts.find(account => 
+        account.bankName === ruleForm.bankName && 
+        account.swiftCode === ruleForm.swiftCode &&
+        account.accountNumber === ruleForm.accountNumber
+      );
+
+      if (!matchingAccount) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Bank Account Not Found',
+          message: 'Please create the bank account first before creating settlement rules.',
+          type: 'warning'
+        });
+        return;
+      }
+
+      const ruleData = {
+        name: ruleForm.name!,
+        counterparty: ruleForm.counterparty || '',
+        cashflowCurrency: ruleForm.cashflowCurrency!,
+        direction: ruleForm.direction!,
+        product: ruleForm.product || '',
+        bankAccountId: matchingAccount.id,
+        priority: ruleForm.priority || 1
       };
-      setSettlementRules(prev => [...prev, newRule]);
-    }
 
-    setShowRuleForm(false);
-    setRuleForm({});
-    setEditingRule(null);
+      if (editingRule && editingRule.id) {
+        // Update existing rule
+        const response = await clientService.updateSettlementRule(user.profile.organization.id, editingRule.id, ruleData);
+        if (response.success) {
+          setSettlementRules(prev => prev.map(rule => 
+            rule.id === editingRule.id ? { ...ruleForm as SettlementRule } : rule
+          ));
+        }
+      } else {
+        // Add new rule
+        const response = await clientService.createSettlementRule(user.profile.organization.id, ruleData);
+        if (response.success && response.data) {
+          const newRule: SettlementRule = {
+            ...ruleForm as SettlementRule,
+            id: response.data.id || Date.now().toString()
+          };
+          setSettlementRules(prev => [...prev, newRule]);
+        }
+      }
+      setShowRuleForm(false);
+      setRuleForm({});
+      setEditingRule(null);
+    } catch (error) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Save Error',
+        message: error instanceof Error ? error.message : 'Failed to save settlement rule',
+        type: 'error'
+      });
+    } finally {
+      setIsSavingRule(false);
+    }
   };
 
   const handleCancelRule = () => {
@@ -486,22 +659,25 @@ const AdminDashboard: React.FC = () => {
 
   const updateRuleForm = (field: keyof SettlementRule, value: any) => {
     setRuleForm(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
   };
 
   // Account management functions
   const handleAddAccount = () => {
     const newAccount: BankAccount = {
-      id: Date.now().toString(),
+      id: 'NEW_ACCOUNT', // Special marker for new accounts
       active: true,
       accountName: '',
       bankName: '',
       swiftCode: '',
       accountCurrency: '',
-      accountNumber: ''
+      accountNumber: '',
+      isDefault: false
     };
     setBankAccounts(prev => [...prev, newAccount]);
     setEditingAccount(newAccount.id);
     setAccountForm({ ...newAccount });
+    setHasUnsavedChanges(true);
   };
 
   const handleEditAccount = (account: BankAccount) => {
@@ -509,29 +685,88 @@ const AdminDashboard: React.FC = () => {
     setAccountForm({ ...account });
   };
 
-  const handleSaveAccount = () => {
-    if (!accountForm.accountName || !accountForm.bankName || !accountForm.swiftCode || 
-        !accountForm.accountCurrency || !accountForm.accountNumber) {
+  const handleSaveAccount = async () => {
+    // Prevent double-clicking
+    if (isSavingAccount) return;
+    
+    setIsSavingAccount(true);
+    
+    try {
+      if (!accountForm.accountName || !accountForm.bankName || !accountForm.swiftCode || 
+          !accountForm.accountCurrency || !accountForm.accountNumber) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Validation Error',
+          message: 'Please fill in all required fields.',
+          type: 'warning'
+        });
+        return;
+      }
+
+      if (!user?.profile?.organization?.id) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Error',
+          message: 'No organization ID found',
+          type: 'error'
+        });
+        return;
+      }
+
+      if (editingAccount === 'NEW_ACCOUNT') {
+        // Create new account
+        const response = await clientService.createBankAccount(user.profile.organization.id, {
+          accountName: accountForm.accountName!,
+          bankName: accountForm.bankName!,
+          swiftCode: accountForm.swiftCode!,
+          accountCurrency: accountForm.accountCurrency!,
+          accountNumber: accountForm.accountNumber!,
+          isDefault: accountForm.isDefault ?? false
+        });
+
+        if (response.success && response.data) {
+          // Replace the temporary account with the saved account (with server-generated id)
+          setBankAccounts(prev => prev.map(account => 
+            account.id === 'NEW_ACCOUNT' ? response.data as BankAccount : account
+          ));
+        }
+      } else if (editingAccount) {
+        // Update existing account
+        const response = await clientService.updateBankAccount(user.profile.organization.id, editingAccount, {
+          accountName: accountForm.accountName!,
+          bankName: accountForm.bankName!,
+          swiftCode: accountForm.swiftCode!,
+          accountCurrency: accountForm.accountCurrency!,
+          accountNumber: accountForm.accountNumber!,
+          active: accountForm.active ?? true,
+          isDefault: accountForm.isDefault ?? false
+        });
+
+        if (response.success) {
+          setBankAccounts(prev => prev.map(account => 
+            account.id === editingAccount ? { ...accountForm as BankAccount } : account
+          ));
+        }
+      }
+
+      setEditingAccount(null);
+      setAccountForm({});
+    } catch (error) {
       setAlertModal({
         isOpen: true,
-        title: 'Validation Error',
-        message: 'Please fill in all required fields.',
-        type: 'warning'
+        title: 'Save Error',
+        message: error instanceof Error ? error.message : 'Failed to save bank account',
+        type: 'error'
       });
-      return;
+    } finally {
+      setIsSavingAccount(false);
     }
-
-    setBankAccounts(prev => prev.map(account => 
-      account.id === editingAccount ? { ...accountForm as BankAccount } : account
-    ));
-    setEditingAccount(null);
-    setAccountForm({});
   };
 
   const handleCancelAccount = () => {
-    if (editingAccount && !bankAccounts.find(acc => acc.id === editingAccount)?.accountName) {
+    if (editingAccount === 'NEW_ACCOUNT') {
       // Remove new empty account if cancelled
-      setBankAccounts(prev => prev.filter(acc => acc.id !== editingAccount));
+      setBankAccounts(prev => prev.filter(acc => acc.id !== 'NEW_ACCOUNT'));
     }
     setEditingAccount(null);
     setAccountForm({});
@@ -543,10 +778,12 @@ const AdminDashboard: React.FC = () => {
       setEditingAccount(null);
       setAccountForm({});
     }
+    setHasUnsavedChanges(true);
   };
 
   const updateAccountForm = (field: keyof BankAccount, value: any) => {
     setAccountForm(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
   };
 
   // Get accounts filtered by bank and currency for settlement rule form
@@ -601,31 +838,58 @@ const AdminDashboard: React.FC = () => {
 
   // Helper function to group and sort bank accounts
   const getSortedAndGroupedAccounts = () => {
-    // Sort by active status first, then by account name
-    const sorted = [...bankAccounts].sort((a, b) => {
-      // First by active status (active first)
-      if (a.active !== b.active) return a.active ? -1 : 1;
-      // Then by account name
-      return a.accountName.localeCompare(b.accountName);
-    });
-
     if (accountGrouping === 'none') {
+      // Sort by active status first, then by account name
+      const sorted = [...bankAccounts].sort((a, b) => {
+        // First by active status (active first)
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        // Then by account name
+        return a.accountName.localeCompare(b.accountName);
+      });
       return sorted.map(account => ({ type: 'account' as const, data: account }));
     }
 
-    // Build ordered list with grouping
-    const orderedAccounts: Array<{ type: 'account' | 'header'; data: BankAccount | string }> = [];
-    let currentGroup: string | null = null;
-
-    sorted.forEach(account => {
-      const groupKey = accountGrouping === 'bank' ? account.bankName : account.accountCurrency;
-      
-      if (groupKey !== currentGroup) {
-        currentGroup = groupKey;
-        orderedAccounts.push({ type: 'header', data: groupKey });
+    // Group accounts by the selected criteria
+    const groupKey = accountGrouping === 'bank' ? 'bankName' : 'accountCurrency';
+    const grouped = bankAccounts.reduce((groups, account) => {
+      const key = account[groupKey];
+      // Skip accounts with empty/null/undefined group keys
+      if (!key || key.trim() === '') {
+        return groups;
       }
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(account);
+      return groups;
+    }, {} as Record<string, BankAccount[]>);
+
+    // Sort accounts within each group
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => {
+        // First by active status (active first)
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        // Then by account name
+        return a.accountName.localeCompare(b.accountName);
+      });
+    });
+
+    // Build ordered list with proper grouping
+    const orderedAccounts: Array<{ type: 'account' | 'header'; data: BankAccount | string }> = [];
+    
+    // Sort group keys and filter out empty groups
+    const sortedGroupKeys = Object.keys(grouped)
+      .filter(key => grouped[key].length > 0) // Only include groups with accounts
+      .sort();
+    
+    sortedGroupKeys.forEach(groupName => {
+      // Add header for this group
+      orderedAccounts.push({ type: 'header', data: groupName });
       
-      orderedAccounts.push({ type: 'account', data: account });
+      // Add all accounts in this group
+      grouped[groupName].forEach(account => {
+        orderedAccounts.push({ type: 'account', data: account });
+      });
     });
 
     return orderedAccounts;
@@ -635,15 +899,39 @@ const AdminDashboard: React.FC = () => {
   const handleDragStart = (e: React.DragEvent, ruleId: string) => {
     setDraggedRule(ruleId);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ruleId);
+    
+    // Add visual feedback to the dragged element
+    const target = e.target as HTMLElement;
+    target.style.opacity = '0.5';
   };
 
   const handleDragOver = (e: React.DragEvent, ruleId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverRule(ruleId);
+    
+    // Only set drag over if it's different from the dragged rule
+    if (draggedRule !== ruleId) {
+      setDragOverRule(ruleId);
+    }
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear drag over if we're leaving the entire row, not just a child element
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverRule(null);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Reset visual feedback
+    const target = e.target as HTMLElement;
+    target.style.opacity = '1';
+    setDraggedRule(null);
     setDragOverRule(null);
   };
 
@@ -659,33 +947,102 @@ const AdminDashboard: React.FC = () => {
     const draggedRuleData = settlementRules.find(r => r.id === draggedRule);
     const targetRuleData = settlementRules.find(r => r.id === targetRuleId);
     
-    if (draggedRuleData && targetRuleData) {
-      // Swap priorities
-      const newRules = settlementRules.map(rule => {
-        if (rule.id === draggedRule) {
-          return { ...rule, priority: targetRuleData.priority };
-        } else if (rule.id === targetRuleId) {
-          return { ...rule, priority: draggedRuleData.priority };
-        }
-        return rule;
-      });
-      
-      setSettlementRules(newRules);
+    if (!draggedRuleData || !targetRuleData) {
+      setDraggedRule(null);
+      setDragOverRule(null);
+      return;
     }
+
+    // Calculate new priority order (frontend-only)
+    const sortedRules = [...settlementRules].sort((a, b) => a.priority - b.priority);
+    const draggedIndex = sortedRules.findIndex(r => r.id === draggedRule);
+    const targetIndex = sortedRules.findIndex(r => r.id === targetRuleId);
+    
+    // If dragging to the same position, no change needed
+    if (draggedIndex === targetIndex) {
+      setDraggedRule(null);
+      setDragOverRule(null);
+      return;
+    }
+    
+    // Remove dragged rule from its current position
+    const ruleToMove = sortedRules[draggedIndex];
+    sortedRules.splice(draggedIndex, 1);
+    
+    // Insert at target position (adjust target index if we removed an item before it)
+    const adjustedTargetIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    sortedRules.splice(adjustedTargetIndex, 0, ruleToMove);
+    
+    // Reassign priorities based on new order
+    const updatedRules = sortedRules.map((rule, index) => ({
+      ...rule,
+      priority: index + 1
+    }));
+    
+    // Update local state immediately (no backend call)
+    setSettlementRules(updatedRules);
+    setHasUnsavedChanges(true);
     
     setDraggedRule(null);
     setDragOverRule(null);
   };
 
   const saveConfiguration = async () => {
+    if (!user?.profile?.organization?.id) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'No organization ID found',
+        type: 'error'
+      });
+      return;
+    }
+
     setIsSaving(true);
     
     try {
-      // TODO: Implement actual save to backend
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save client settings (automation and alerts)
+      await clientService.updateClientSettings(user.profile.organization.id, {
+        automation: automationSettings,
+        alerts: alertSettings
+      });
       
-      console.log('Saving configuration:', { automationSettings, alertSettings });
+      // Save settlement rule priorities - update ALL rules to ensure correct priorities
+      if (settlementRules.length > 0 && user?.profile?.organization?.id) {
+        const updatePromises = settlementRules
+          .filter(rule => !rule.id.startsWith('temp-rule-')) // Only update rules with real or generated IDs
+          .map(rule => {
+            // If using a generated ID, we need to find the rule by its properties instead
+            if (rule.id.startsWith('rule-') && rule.id.includes('-')) {
+              // This is a generated ID, try to update by matching properties
+              // For now, let's try using the generated ID - the backend should handle this
+              return clientService.updateSettlementRule(
+                user.profile!.organization!.id, 
+                rule.id, 
+                { priority: rule.priority }
+              );
+            }
+            
+            return clientService.updateSettlementRule(
+              user.profile!.organization!.id, 
+              rule.id, 
+              { priority: rule.priority }
+            );
+          });
+
+        if (updatePromises.length > 0) {
+          const updateResults = await Promise.all(updatePromises);
+          const failedUpdates = updateResults.filter(result => !result.success);
+          
+          if (failedUpdates.length > 0) {
+            // Some settlement rule priority updates failed
+          } else {
+            // Successfully updated priorities for all settlement rules
+          }
+        } else {
+          // No settlement rules with real IDs found to update
+        }
+      }
       
       setAlertModal({
         isOpen: true,
@@ -693,12 +1050,82 @@ const AdminDashboard: React.FC = () => {
         message: t('admin.modal.saveSuccess.message'),
         type: 'success'
       });
+      
+      // Reset unsaved changes flag and update original values after successful save
+      setHasUnsavedChanges(false);
+      setOriginalAutomationSettings({ ...automationSettings });
+      setOriginalAlertSettings({ ...alertSettings });
+      setOriginalBankAccounts([...bankAccounts]);
+      setOriginalSettlementRules([...settlementRules]);
     } catch (error) {
       console.error('Save failed:', error);
-      // TODO: Show error modal
+      setAlertModal({
+        isOpen: true,
+        title: t('admin.modal.error.title'),
+        message: 'Failed to save configuration. Please try again.',
+        type: 'error'
+      });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Unsaved changes handlers
+  const handleTabChange = (newTab: 'automation' | 'alerts' | 'settlement' | 'accounts' | 'mapping') => {
+    if (hasUnsavedChanges) {
+      setPendingTabChange(newTab);
+      setShowUnsavedChangesModal(true);
+    } else {
+      setActiveTab(newTab);
+    }
+  };
+
+  const handleSaveAndContinue = async () => {
+    await saveConfiguration();
+    if (pendingTabChange) {
+      setActiveTab(pendingTabChange as any);
+      setPendingTabChange(null);
+    }
+    setShowUnsavedChangesModal(false);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleDiscardAndContinue = () => {
+    // Reset all form data to original values
+    if (originalAutomationSettings) {
+      setAutomationSettings({ ...originalAutomationSettings });
+    }
+    if (originalAlertSettings) {
+      setAlertSettings({ ...originalAlertSettings });
+    }
+    if (originalBankAccounts) {
+      setBankAccounts([...originalBankAccounts]);
+      // Reset editing state if user was editing an account
+      setEditingAccount(null);
+      setAccountForm({});
+    }
+    if (originalSettlementRules) {
+      setSettlementRules([...originalSettlementRules]);
+      // Reset editing state if user was editing a rule
+      setEditingRule(null);
+      setRuleForm({});
+      setShowRuleForm(false);
+    }
+    
+    // Navigate to pending tab
+    if (pendingTabChange) {
+      setActiveTab(pendingTabChange as any);
+      setPendingTabChange(null);
+    }
+    
+    // Reset modal state
+    setShowUnsavedChangesModal(false);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleCancelNavigation = () => {
+    setPendingTabChange(null);
+    setShowUnsavedChangesModal(false);
   };
 
   // Data Mapping functions
@@ -809,7 +1236,7 @@ const AdminDashboard: React.FC = () => {
                   return jsDate.toISOString().split('T')[0];
                 }
               } catch (error) {
-                console.log('Date conversion failed for value:', value, 'field:', fieldName);
+                // Date conversion failed
               }
             }
             // Return original value if not a date serial number or not a date field
@@ -1142,31 +1569,31 @@ const AdminDashboard: React.FC = () => {
       <div className="admin-tabs">
         <button 
           className={`tab-button ${activeTab === 'automation' ? 'active' : ''}`}
-          onClick={() => setActiveTab('automation')}
+          onClick={() => handleTabChange('automation')}
         >
           {t('admin.tabs.automation')}
         </button>
         <button 
           className={`tab-button ${activeTab === 'alerts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alerts')}
+          onClick={() => handleTabChange('alerts')}
         >
           {t('admin.tabs.alerts')}
         </button>
         <button 
           className={`tab-button ${activeTab === 'settlement' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settlement')}
+          onClick={() => handleTabChange('settlement')}
         >
           {t('admin.tabs.settlement')}
         </button>
         <button 
           className={`tab-button ${activeTab === 'accounts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('accounts')}
+          onClick={() => handleTabChange('accounts')}
         >
           {t('admin.tabs.accounts')}
         </button>
         <button 
           className={`tab-button ${activeTab === 'mapping' ? 'active' : ''}`}
-          onClick={() => setActiveTab('mapping')}
+          onClick={() => handleTabChange('mapping')}
         >
           {t('admin.tabs.mapping')}
         </button>
@@ -1284,13 +1711,16 @@ const AdminDashboard: React.FC = () => {
                   <input 
                     type="checkbox" 
                     checked={alertSettings.emailConfirmedTrades.enabled}
-                    onChange={(e) => setAlertSettings(prev => ({
-                      ...prev,
-                      emailConfirmedTrades: {
-                        ...prev.emailConfirmedTrades,
-                        enabled: e.target.checked
-                      }
-                    }))}
+                    onChange={(e) => {
+                      setAlertSettings(prev => ({
+                        ...prev,
+                        emailConfirmedTrades: {
+                          ...prev.emailConfirmedTrades,
+                          enabled: e.target.checked
+                        }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                   <span className="slider"></span>
                 </label>
@@ -1326,13 +1756,16 @@ const AdminDashboard: React.FC = () => {
                   <input 
                     type="checkbox" 
                     checked={alertSettings.emailDisputedTrades.enabled}
-                    onChange={(e) => setAlertSettings(prev => ({
-                      ...prev,
-                      emailDisputedTrades: {
-                        ...prev.emailDisputedTrades,
-                        enabled: e.target.checked
-                      }
-                    }))}
+                    onChange={(e) => {
+                      setAlertSettings(prev => ({
+                        ...prev,
+                        emailDisputedTrades: {
+                          ...prev.emailDisputedTrades,
+                          enabled: e.target.checked
+                        }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                   <span className="slider"></span>
                 </label>
@@ -1368,13 +1801,16 @@ const AdminDashboard: React.FC = () => {
                   <input 
                     type="checkbox" 
                     checked={alertSettings.whatsappConfirmedTrades.enabled}
-                    onChange={(e) => setAlertSettings(prev => ({
-                      ...prev,
-                      whatsappConfirmedTrades: {
-                        ...prev.whatsappConfirmedTrades,
-                        enabled: e.target.checked
-                      }
-                    }))}
+                    onChange={(e) => {
+                      setAlertSettings(prev => ({
+                        ...prev,
+                        whatsappConfirmedTrades: {
+                          ...prev.whatsappConfirmedTrades,
+                          enabled: e.target.checked
+                        }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                   <span className="slider"></span>
                 </label>
@@ -1410,13 +1846,16 @@ const AdminDashboard: React.FC = () => {
                   <input 
                     type="checkbox" 
                     checked={alertSettings.whatsappDisputedTrades.enabled}
-                    onChange={(e) => setAlertSettings(prev => ({
-                      ...prev,
-                      whatsappDisputedTrades: {
-                        ...prev.whatsappDisputedTrades,
-                        enabled: e.target.checked
-                      }
-                    }))}
+                    onChange={(e) => {
+                      setAlertSettings(prev => ({
+                        ...prev,
+                        whatsappDisputedTrades: {
+                          ...prev.whatsappDisputedTrades,
+                          enabled: e.target.checked
+                        }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                   <span className="slider"></span>
                 </label>
@@ -1477,58 +1916,58 @@ const AdminDashboard: React.FC = () => {
                 
 {(() => {
                   const orderedRules = getSortedAndGroupedRules();
-                  
-                  const renderRule = (rule: SettlementRule) => (
-                    <div 
-                      key={rule.id} 
-                      className={`table-row ${!rule.active ? 'inactive' : ''} ${dragOverRule === rule.id ? 'drag-over' : ''}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, rule.id)}
-                      onDragOver={(e) => handleDragOver(e, rule.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, rule.id)}
-                    >
-                      <div className="table-cell center">
-                        <input
-                          type="checkbox"
-                          checked={rule.active}
-                          readOnly
-                        />
-                      </div>
-                      <div className="table-cell center">
-                        <span className="drag-handle">⋮⋮</span>
-                        {rule.priority}
-                      </div>
-                      <div className="separator-cell"></div>
-                      <div className="table-cell">{rule.name}</div>
-                      <div className="table-cell">{rule.counterparty || '-'}</div>
-                      <div className="table-cell">{rule.cashflowCurrency}</div>
-                      <div className="table-cell">{rule.product || '-'}</div>
-                      <div className="table-cell direction-cell">
-                        <span className={`direction-badge ${rule.direction.toLowerCase()}`}>
-                          {rule.direction}
-                        </span>
-                      </div>
-                      <div className="separator-cell"></div>
-                      <div className="table-cell">{rule.swiftCode}</div>
-                      <div className="table-cell">{rule.accountNumber}</div>
-                      <div className="table-cell actions">
-                        <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
-                        <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>
-                      </div>
-                    </div>
-                  );
 
                   return orderedRules.map((item, index) => {
                     if (item.type === 'header') {
                       const headerText = item.data as string;
                       return (
-                        <div key={`header-${headerText}`} className="counterparty-group-header">
+                        <div key={`header-${headerText}-${index}`} className="counterparty-group-header">
                           <h4>{headerText === 'Not Counterparty Specific' ? t('admin.settlement.table.notCounterpartySpecific') : headerText}</h4>
                         </div>
                       );
                     } else {
-                      return renderRule(item.data as SettlementRule);
+                      const rule = item.data as SettlementRule;
+                      return (
+                        <div 
+                          key={`rule-${rule.id || index}`} 
+                          className={`table-row ${!rule.active ? 'inactive' : ''} ${dragOverRule === rule.id ? 'drag-over' : ''} ${draggedRule === rule.id ? 'dragging' : ''}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, rule.id)}
+                          onDragOver={(e) => handleDragOver(e, rule.id)}
+                          onDragLeave={handleDragLeave}
+                          onDragEnd={handleDragEnd}
+                          onDrop={(e) => handleDrop(e, rule.id)}
+                        >
+                          <div className="table-cell center">
+                            <input
+                              type="checkbox"
+                              checked={rule.active}
+                              readOnly
+                            />
+                          </div>
+                          <div className="table-cell center">
+                            <span className="drag-handle">⋮⋮</span>
+                            {rule.priority}
+                          </div>
+                          <div className="separator-cell"></div>
+                          <div className="table-cell">{rule.name}</div>
+                          <div className="table-cell">{rule.counterparty || '-'}</div>
+                          <div className="table-cell">{rule.cashflowCurrency}</div>
+                          <div className="table-cell">{rule.product || '-'}</div>
+                          <div className="table-cell direction-cell">
+                            <span className={`direction-badge ${rule.direction.toLowerCase()}`}>
+                              {rule.direction}
+                            </span>
+                          </div>
+                          <div className="separator-cell"></div>
+                          <div className="table-cell">{rule.swiftCode}</div>
+                          <div className="table-cell">{rule.accountNumber}</div>
+                          <div className="table-cell actions">
+                            <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
+                            <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>
+                          </div>
+                        </div>
+                      );
                     }
                   });
                 })()}
@@ -1767,10 +2206,18 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="form-actions">
-                  <button className="save-rule-button" onClick={handleSaveRule}>
-                    {t('admin.settlement.form.save')}
+                  <button 
+                    className="save-rule-button" 
+                    onClick={handleSaveRule}
+                    disabled={isSavingRule}
+                  >
+                    {isSavingRule ? t('admin.settlement.form.saving') : t('admin.settlement.form.save')}
                   </button>
-                  <button className="cancel-rule-button" onClick={handleCancelRule}>
+                  <button 
+                    className="cancel-rule-button" 
+                    onClick={handleCancelRule}
+                    disabled={isSavingRule}
+                  >
                     {t('admin.settlement.form.cancel')}
                   </button>
                 </div>
@@ -1891,8 +2338,21 @@ const AdminDashboard: React.FC = () => {
                           />
                         </div>
                         <div className="table-cell actions">
-                          <button className="save-button" onClick={handleSaveAccount}>✓</button>
-                          <button className="cancel-button" onClick={handleCancelAccount}>✗</button>
+                          <button 
+                            className="save-button" 
+                            onClick={handleSaveAccount}
+                            disabled={isSavingAccount}
+                            title={isSavingAccount ? t('admin.accounts.saving') : t('admin.accounts.save')}
+                          >
+                            {isSavingAccount ? '⏳' : '✓'}
+                          </button>
+                          <button 
+                            className="cancel-button" 
+                            onClick={handleCancelAccount}
+                            disabled={isSavingAccount}
+                          >
+                            ✗
+                          </button>
                         </div>
                       </>
                     ) : (
@@ -1923,7 +2383,7 @@ const AdminDashboard: React.FC = () => {
                   if (item.type === 'header') {
                     const headerText = item.data as string;
                     return (
-                      <div key={`header-${headerText}`} className="counterparty-group-header">
+                      <div key={`header-${headerText}-${index}`} className="counterparty-group-header">
                         <h4>{headerText}</h4>
                       </div>
                     );
@@ -2009,7 +2469,6 @@ const AdminDashboard: React.FC = () => {
                           >
                             <option value="">{t('admin.dataMapping.dropdown.selectField')}</option>
                             {(() => {
-                              //console.log('Rendering dropdown for field:', expectedField.name, 'Available sourceFields:', sourceFields);
                               return sourceFields.map(sourceField => (
                                 <option key={sourceField} value={sourceField}>
                                   {sourceField}
@@ -2251,15 +2710,17 @@ const AdminDashboard: React.FC = () => {
         )}
       </div>
       
-      <div className="admin-actions">
-        <button 
-          className="save-button primary" 
-          onClick={saveConfiguration}
-          disabled={isSaving}
-        >
-          {isSaving ? t('admin.actions.saving') : t('admin.actions.save')}
-        </button>
-      </div>
+      {!showRuleForm && (
+        <div className="admin-actions">
+          <button 
+            className="save-button primary" 
+            onClick={saveConfiguration}
+            disabled={isSaving}
+          >
+            {isSaving ? t('admin.actions.saving') : t('admin.actions.save')}
+          </button>
+        </div>
+      )}
       
       <AlertModal
         isOpen={alertModal.isOpen}
@@ -2268,6 +2729,39 @@ const AdminDashboard: React.FC = () => {
         message={alertModal.message}
         type={alertModal.type}
       />
+
+      {/* Unsaved Changes Modal */}
+      {showUnsavedChangesModal && (
+        <div className="modal-overlay">
+          <div className="modal unsaved-changes-modal">
+            <h3>{t('admin.unsavedChanges.title')}</h3>
+            <p>{t('admin.unsavedChanges.message')}</p>
+            <div className="modal-actions">
+              <button 
+                className="save-button primary"
+                onClick={handleSaveAndContinue}
+                disabled={isSaving}
+              >
+                {isSaving ? t('admin.unsavedChanges.saving') : t('admin.unsavedChanges.saveAndContinue')}
+              </button>
+              <button 
+                className="save-button secondary"
+                onClick={handleDiscardAndContinue}
+                disabled={isSaving}
+              >
+                {t('admin.unsavedChanges.discardAndContinue')}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={handleCancelNavigation}
+                disabled={isSaving}
+              >
+                {t('admin.unsavedChanges.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

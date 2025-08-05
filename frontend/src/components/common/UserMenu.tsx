@@ -51,10 +51,10 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
       
       {isOpen && (
         <div className="user-menu-dropdown">
-          <div className="menu-item" onClick={() => console.log('Settings clicked')}>
+          <div className="menu-item" onClick={() => {/* Settings action */}}>
             {t('userMenu.settings')}
           </div>
-          <div className="menu-item" onClick={() => console.log('Reports clicked')}>
+          <div className="menu-item" onClick={() => {/* Reports action */}}>
             {t('userMenu.reports')}
           </div>
           <div className="menu-divider"></div>

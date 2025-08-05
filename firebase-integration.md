@@ -47,7 +47,7 @@ firebase init
 - Firestore Indexes: `firestore.indexes.json` (default)
 - Emulators: ✅ Authentication Emulator, ✅ Firestore Emulator
 - Auth Emulator Port: `9099` (default)
-- Firestore Emulator Port: `8080` (default)
+- Firestore Emulator Port: `8081` (changed from default 8080 due to port conflict)
 - Emulator UI: ✅ Yes, any available port
 
 ### **Step 3: Frontend Firebase Integration**
@@ -76,7 +76,7 @@ export const db = getFirestore(app);
 if (process.env.NODE_ENV === 'development') {
   try {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099');
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectFirestoreEmulator(db, '127.0.0.1', 8081);
   } catch (error) {
     console.log('Emulators already connected');
   }
@@ -103,9 +103,9 @@ import { auth } from '../../config/firebase';
 
 ### **Step 4: Start Development Environment**
 
-**Terminal 1 - Firebase Emulators:**
-```bash
-firebase emulators:start
+**Terminal 1 - Firebase Emulators (Windows Command Prompt):**
+```cmd
+firebase emulators:start --import=./demo-data --export-on-exit=./demo-data
 ```
 
 **Terminal 2 - React Development Server:**
@@ -119,6 +119,8 @@ npm start
 - **Authentication**: http://127.0.0.1:4000/auth
 - **Firestore**: http://127.0.0.1:4000/firestore
 - **React App**: http://localhost:3000
+
+**Important**: Firebase emulators must be started from **Windows Command Prompt** (not Git Bash) due to Java PATH requirements.
 
 ## 👤 **Demo User Management**
 
@@ -278,9 +280,11 @@ firebase deploy
 ### **Common Issues**
 
 **Firebase Emulators Won't Start:**
+- **Use Windows Command Prompt** (not Git Bash or PowerShell) 
 - Ensure Java 11+ is installed and in PATH
-- Check ports 4000, 8080, 9099 are not in use
+- Check ports 4000, 8081, 9099 are not in use
 - Restart terminal after Java installation
+- If port 8081 is taken, kill Java processes: `taskkill /F /IM java.exe`
 
 **Frontend Won't Connect to Emulators:**
 - Verify emulator URLs in firebase.ts configuration

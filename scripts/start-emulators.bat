@@ -20,7 +20,7 @@ if exist "demo-data\auth_export\accounts.json" (
 echo.
 echo [INFO] Starting Firebase Emulators...
 echo        - Auth Emulator: http://127.0.0.1:9099
-echo        - Firestore Emulator: http://127.0.0.1:8080  
+echo        - Firestore Emulator: http://127.0.0.1:8081  
 echo        - Emulator UI: http://127.0.0.1:4000
 echo.
 echo [INFO] Data will be automatically saved on exit.
