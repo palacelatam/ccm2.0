@@ -88,6 +88,37 @@ export class APIClient {
   }
 
   /**
+   * POST request with FormData (for file uploads)
+   */
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<APIResponse<T>> {
+    const token = await this.getAuthToken();
+    
+    const headers: Record<string, string> = {};
+
+    // Add authorization header if token is available
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Don't set Content-Type for FormData - browser will set it with boundary
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ 
+        message: `HTTP ${response.status}: ${response.statusText}` 
+      }));
+      throw new Error(errorData.message || `Request failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * PUT request
    */
   async put<T>(endpoint: string, data?: any): Promise<APIResponse<T>> {

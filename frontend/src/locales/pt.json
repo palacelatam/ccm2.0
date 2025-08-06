@@ -71,7 +71,11 @@
       "templateInfo": "Informações do Modelo",
       "documentTemplate": "Modelo de Documento",
       "documentPreview": "Visualização do Documento",
-      "closePreview": "Fechar Visualização"
+      "closePreview": "Fechar Visualização",
+      "retrievingDocument": "Obtendo documento do armazenamento seguro...",
+      "failedToLoadDocument": "Falha ao carregar documento",
+      "unknownError": "Erro desconhecido",
+      "emptyState": "Nenhuma carta de instrução de liquidação configurada ainda. Clique em \"Adicionar Novo Modelo de Carta\" para criar seu primeiro modelo."
     },
     "segmentation": {
       "title": "Segmentação de Clientes",

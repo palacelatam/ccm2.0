@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 
 from config.firebase_config import get_firestore_client
+from services.storage_service import StorageService
 from models.bank import (
     Bank, BankCreate, BankUpdate,
     ClientSegment, ClientSegmentCreate, ClientSegmentUpdate,
@@ -24,6 +25,7 @@ class BankService:
     
     def __init__(self):
         self.db = get_firestore_client()
+        self.storage_service = StorageService()
     
     # ========== Bank Management Methods ==========
     
@@ -44,7 +46,7 @@ class BankService:
             logger.error(f"Error getting bank {bank_id}: {e}")
             return None
     
-    async def bank_exists(self, bank_id: str) -> bool:
+    def bank_exists(self, bank_id: str) -> bool:
         """Check if bank exists"""
         try:
             bank_doc = self.db.collection('banks').document(bank_id).get()
@@ -101,7 +103,7 @@ class BankService:
     
     # ========== Client Segmentation Methods ==========
     
-    async def get_client_segments(self, bank_id: str) -> List[ClientSegment]:
+    def get_client_segments(self, bank_id: str) -> List[ClientSegment]:
         """Get all client segments for a bank"""
         try:
             segments_ref = self.db.collection('banks').document(bank_id).collection('clientSegments')
@@ -194,7 +196,7 @@ class BankService:
     
     # ========== Settlement Instruction Letters Methods ==========
     
-    async def get_settlement_letters(self, bank_id: str) -> List[SettlementInstructionLetter]:
+    def get_settlement_letters(self, bank_id: str) -> List[SettlementInstructionLetter]:
         """Get all settlement instruction letters for a bank"""
         try:
             letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
@@ -204,6 +206,18 @@ class BankService:
             for doc in letters_docs:
                 letter_data = doc.to_dict()
                 letter_data['id'] = doc.id
+                
+                # Handle DocumentReference objects - convert them to strings
+                if 'clientSegmentId' in letter_data:
+                    if hasattr(letter_data['clientSegmentId'], 'path'):
+                        # It's a DocumentReference, get the ID from the path
+                        letter_data['clientSegmentId'] = letter_data['clientSegmentId'].path.split('/')[-1]
+                
+                if 'lastUpdatedBy' in letter_data:
+                    if hasattr(letter_data['lastUpdatedBy'], 'path'):
+                        # It's a DocumentReference, get the ID from the path
+                        letter_data['lastUpdatedBy'] = letter_data['lastUpdatedBy'].path.split('/')[-1]
+                
                 letters.append(SettlementInstructionLetter(**letter_data))
             
             return letters
@@ -212,7 +226,7 @@ class BankService:
             logger.error(f"Error getting settlement letters for bank {bank_id}: {e}")
             return []
     
-    async def get_settlement_letter(self, bank_id: str, letter_id: str) -> Optional[SettlementInstructionLetter]:
+    def get_settlement_letter(self, bank_id: str, letter_id: str) -> Optional[SettlementInstructionLetter]:
         """Get specific settlement instruction letter"""
         try:
             letter_doc = (self.db.collection('banks').document(bank_id)
@@ -223,14 +237,24 @@ class BankService:
             
             letter_data = letter_doc.to_dict()
             letter_data['id'] = letter_doc.id
+            
+            # Handle DocumentReference objects - convert them to strings
+            if 'clientSegmentId' in letter_data:
+                if hasattr(letter_data['clientSegmentId'], 'path'):
+                    letter_data['clientSegmentId'] = letter_data['clientSegmentId'].path.split('/')[-1]
+            
+            if 'lastUpdatedBy' in letter_data:
+                if hasattr(letter_data['lastUpdatedBy'], 'path'):
+                    letter_data['lastUpdatedBy'] = letter_data['lastUpdatedBy'].path.split('/')[-1]
+            
             return SettlementInstructionLetter(**letter_data)
             
         except Exception as e:
             logger.error(f"Error getting settlement letter {letter_id} for bank {bank_id}: {e}")
             return None
     
-    async def create_settlement_letter(self, bank_id: str, letter_data: SettlementInstructionLetterCreate, created_by_uid: str) -> Optional[SettlementInstructionLetter]:
-        """Create a new settlement instruction letter"""
+    def create_settlement_letter(self, bank_id: str, letter_data: SettlementInstructionLetterCreate, created_by_uid: str) -> Optional[SettlementInstructionLetter]:
+        """Create a new settlement instruction letter (without file upload)"""
         try:
             letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
             letter_ref = letters_ref.document()
@@ -250,8 +274,65 @@ class BankService:
         except Exception as e:
             logger.error(f"Error creating settlement letter for bank {bank_id}: {e}")
             return None
+
+    async def create_settlement_letter_with_document(
+        self, 
+        bank_id: str, 
+        letter_data: SettlementInstructionLetterCreate, 
+        file_content: bytes,
+        filename: str,
+        content_type: str,
+        created_by_uid: str
+    ) -> Optional[SettlementInstructionLetter]:
+        """Create a new settlement instruction letter with document upload"""
+        try:
+            # First, upload the document to Cloud Storage
+            segment_id = letter_data.client_segment_id if letter_data.client_segment_id else "default"
+            
+            upload_result = await self.storage_service.upload_settlement_document(
+                file_content=file_content,
+                filename=filename,
+                content_type=content_type,
+                bank_id=bank_id,
+                segment_id=segment_id,
+                uploaded_by=created_by_uid
+            )
+            
+            if not upload_result["success"]:
+                logger.error(f"Failed to upload document: {upload_result.get('error')}")
+                return None
+            
+            # Create the settlement letter record with document info
+            letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
+            letter_ref = letters_ref.document()
+            
+            letter_dict = letter_data.model_dump()
+            letter_dict.update({
+                'id': letter_ref.id,
+                # Document storage information
+                'document_name': filename,
+                'document_storage_path': upload_result["storage_path"],
+                'document_url': upload_result["public_url"],
+                'document_size': upload_result["file_size"],
+                'document_content_type': content_type,
+                'document_uploaded_at': upload_result["uploaded_at"],
+                # Standard metadata
+                'created_at': datetime.now(),
+                'last_updated_at': datetime.now(),
+                'last_updated_by': created_by_uid
+            })
+            
+            letter_ref.set(letter_dict)
+            
+            logger.info(f"Created settlement letter {letter_ref.id} with document {upload_result['storage_path']}")
+            
+            return SettlementInstructionLetter(**letter_dict)
+            
+        except Exception as e:
+            logger.error(f"Error creating settlement letter with document for bank {bank_id}: {e}")
+            return None
     
-    async def update_settlement_letter(self, bank_id: str, letter_id: str, letter_update: SettlementInstructionLetterUpdate, updated_by_uid: str) -> Optional[SettlementInstructionLetter]:
+    def update_settlement_letter(self, bank_id: str, letter_id: str, letter_update: SettlementInstructionLetterUpdate, updated_by_uid: str) -> Optional[SettlementInstructionLetter]:
         """Update settlement instruction letter"""
         try:
             letter_ref = (self.db.collection('banks').document(bank_id)
@@ -265,13 +346,13 @@ class BankService:
             
             letter_ref.update(update_dict)
             
-            return await self.get_settlement_letter(bank_id, letter_id)
+            return self.get_settlement_letter(bank_id, letter_id)
             
         except Exception as e:
             logger.error(f"Error updating settlement letter {letter_id} for bank {bank_id}: {e}")
             return None
     
-    async def delete_settlement_letter(self, bank_id: str, letter_id: str) -> bool:
+    def delete_settlement_letter(self, bank_id: str, letter_id: str) -> bool:
         """Delete settlement instruction letter"""
         try:
             letter_ref = (self.db.collection('banks').document(bank_id)
@@ -433,14 +514,14 @@ class BankService:
             
             if not assignments_doc.exists:
                 # Return empty assignments for all segments
-                segments = await self.get_client_segments(bank_id)
+                segments = self.get_client_segments(bank_id)
                 return {segment.id: [] for segment in segments}
             
             assignments_data = assignments_doc.to_dict()
             current_assignments = assignments_data.get('assignments', {})
             
             # Ensure all segments are represented, even if they have no clients
-            segments = await self.get_client_segments(bank_id)
+            segments = self.get_client_segments(bank_id)
             result = {}
             for segment in segments:
                 result[segment.id] = current_assignments.get(segment.id, [])

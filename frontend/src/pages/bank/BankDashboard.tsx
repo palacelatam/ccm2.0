@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../components/auth/AuthContext';
-import { bankService } from '../../services/api';
+import { bankService, SettlementInstructionLetterCreate, SettlementInstructionLetterUpdate } from '../../services/api';
 import AlertModal from '../../components/common/AlertModal';
 import './BankDashboard.css';
 
@@ -62,6 +62,7 @@ const BankDashboard: React.FC = () => {
   // Document preview state
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<SettlementInstructionLetter | null>(null);
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string>('');
 
   // Form states
   const [showLetterForm, setShowLetterForm] = useState(false);
@@ -87,6 +88,7 @@ const BankDashboard: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<{client: Client, x: number, y: number} | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
   // Save state for client segmentation
   const [isSavingSegments, setIsSavingSegments] = useState(false);
@@ -112,10 +114,21 @@ const BankDashboard: React.FC = () => {
       const response = await bankService.getSettlementLetters(user.profile.organization.id);
       if (response.success && response.data) {
         // Map API response to component interface
-        const mappedLetters = response.data.map(letter => ({
-          ...letter,
-          id: letter.id || `letter-${Date.now()}-${Math.random()}`, // Ensure ID exists
-          clientSegment: getSegmentNameById(letter.clientSegmentId) || 'No Specific Segment'
+        const mappedLetters = response.data.map((letter: any) => ({
+          id: letter.id || `letter-${Date.now()}-${Math.random()}`,
+          active: letter.active,
+          priority: letter.priority,
+          ruleName: letter.rule_name || letter.ruleName, // Handle both formats
+          product: letter.product,
+          clientSegmentId: letter.client_segment_id || letter.clientSegmentId,
+          documentName: letter.document_name || letter.documentName,
+          documentUrl: letter.document_url || letter.documentUrl,
+          templateVariables: letter.template_variables || letter.templateVariables || [],
+          conditions: letter.conditions || {},
+          createdAt: letter.createdAt || letter.created_at,
+          lastUpdatedAt: letter.lastUpdatedAt || letter.last_updated_at,
+          lastUpdatedBy: letter.lastUpdatedBy || letter.last_updated_by,
+          clientSegment: getSegmentNameById(letter.client_segment_id || letter.clientSegmentId) || 'No Specific Segment'
         }));
         setSettlementLetters(mappedLetters);
       }
@@ -270,14 +283,50 @@ const BankDashboard: React.FC = () => {
   };
 
   // Document preview handlers
-  const handleDocumentPreview = (letter: SettlementInstructionLetter) => {
-    setPreviewDocument(letter);
+  const handleDocumentPreview = async (letter: SettlementInstructionLetter) => {
+    // Show preview modal immediately with loading state
+    setPreviewDocument({
+      ...letter,
+      documentUrl: 'loading' // Special value to indicate loading
+    });
+    setPreviewErrorMessage('');
     setShowDocumentPreview(true);
+    
+    try {
+      // Generate a fresh signed URL for document preview
+      const response = await bankService.previewSettlementLetterDocument(user?.profile?.organization?.id || '', letter.id);
+      
+      if (response.success && response.data.signed_url) {
+        // Update with the actual signed URL
+        setPreviewDocument({
+          ...letter,
+          documentUrl: response.data.signed_url
+        });
+        setPreviewErrorMessage('');
+      } else {
+        console.error('Failed to generate preview URL:', response.message);
+        // Update with error state
+        setPreviewDocument({
+          ...letter,
+          documentUrl: 'error'
+        });
+        setPreviewErrorMessage(response.message || 'Failed to generate preview URL');
+      }
+    } catch (error) {
+      console.error('Error generating document preview URL:', error);
+      // Update with error state
+      setPreviewDocument({
+        ...letter,
+        documentUrl: 'error'
+      });
+      setPreviewErrorMessage(error instanceof Error ? error.message : 'Failed to generate preview URL');
+    }
   };
 
   const closeDocumentPreview = () => {
     setShowDocumentPreview(false);
     setPreviewDocument(null);
+    setPreviewErrorMessage('');
   };
 
   // Form handlers
@@ -303,42 +352,170 @@ const BankDashboard: React.FC = () => {
     setLetterForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveLetter = () => {
+  const handleSaveLetter = async () => {
     if (!letterForm.ruleName || !letterForm.product) return;
 
-    if (editingLetter) {
-      // Update existing letter
-      setSettlementLetters(prev =>
-        prev.map(letter =>
-          letter.id === editingLetter.id
-            ? { ...letter, ...letterForm } as SettlementInstructionLetter
-            : letter
-        )
-      );
-    } else {
-      // Add new letter
-      const newLetter: SettlementInstructionLetter = {
-        id: Date.now().toString(),
-        active: letterForm.active || true,
-        priority: letterForm.priority || 1,
-        ruleName: letterForm.ruleName || '',
-        clientSegment: letterForm.clientSegment || 'No Specific Segment',
-        product: letterForm.product || '',
-        documentUrl: letterForm.documentUrl,
-        documentName: letterForm.documentName
-      };
-      setSettlementLetters(prev => [...prev, newLetter]);
-    }
+    setIsSavingSegments(true);
+    try {
+      if (editingLetter) {
+        // Update existing letter
+        const updateData: SettlementInstructionLetterUpdate = {
+          active: letterForm.active || true,
+          priority: letterForm.priority || 1,
+          rule_name: letterForm.ruleName,
+          product: letterForm.product,
+          client_segment_id: letterForm.clientSegmentId,
+          document_name: letterForm.documentName || '',
+          document_url: letterForm.documentUrl || '',
+          template_variables: letterForm.templateVariables || [],
+          conditions: letterForm.conditions || {}
+        };
 
-    setShowLetterForm(false);
-    setEditingLetter(null);
-    setLetterForm({});
+        const response = await bankService.updateSettlementLetter(user?.profile?.organization?.id || '', editingLetter.id!, updateData);
+        
+        if (response.success) {
+          // Map API response to local interface
+          const apiData: any = response.data;
+          const updatedLetter: SettlementInstructionLetter = {
+            id: apiData.id || editingLetter.id!,
+            active: apiData.active,
+            priority: apiData.priority,
+            ruleName: apiData.rule_name,
+            product: apiData.product,
+            clientSegmentId: apiData.client_segment_id,
+            documentName: apiData.document_name,
+            documentUrl: apiData.document_url,
+            templateVariables: apiData.template_variables || [],
+            conditions: apiData.conditions || {},
+            createdAt: apiData.created_at,
+            lastUpdatedAt: apiData.last_updated_at,
+            lastUpdatedBy: apiData.last_updated_by,
+            clientSegment: getSegmentNameById(apiData.client_segment_id) || 'No Specific Segment'
+          };
+          
+          setSettlementLetters(prev =>
+            prev.map(letter =>
+              letter.id === editingLetter.id ? updatedLetter : letter
+            )
+          );
+          setAlertModal({
+            isOpen: true,
+            title: 'Success',
+            message: 'Settlement letter template updated successfully',
+            type: 'success'
+          });
+        } else {
+          throw new Error(response.message || 'Failed to update settlement letter');
+        }
+      } else {
+        // Create new letter
+        let response;
+        
+        if (uploadedFile) {
+          // Use the new endpoint with file upload
+          setIsUploadingDocument(true);
+          
+          const letterData = {
+            rule_name: letterForm.ruleName,
+            product: letterForm.product,
+            client_segment_id: letterForm.clientSegmentId,
+            priority: letterForm.priority || 1,
+            active: letterForm.active !== false, // Default to true
+            template_variables: letterForm.templateVariables || [],
+            conditions: letterForm.conditions || {}
+          };
+
+          response = await bankService.createSettlementLetterWithDocument(
+            user?.profile?.organization?.id || '', 
+            letterData, 
+            uploadedFile
+          );
+          
+          setIsUploadingDocument(false);
+        } else {
+          // Use the original endpoint without file upload
+          const createData: SettlementInstructionLetterCreate = {
+            active: letterForm.active || true,
+            priority: letterForm.priority || 1,
+            rule_name: letterForm.ruleName,
+            product: letterForm.product,
+            client_segment_id: letterForm.clientSegmentId,
+            document_name: letterForm.documentName || '',
+            document_url: letterForm.documentUrl || '',
+            template_variables: letterForm.templateVariables || [],
+            conditions: letterForm.conditions || {}
+          };
+
+          response = await bankService.createSettlementLetter(user?.profile?.organization?.id || '', createData);
+        }
+        
+        if (response.success) {
+          // Map API response to local interface
+          const apiData: any = response.data;
+          const newLetter: SettlementInstructionLetter = {
+            id: apiData.id || `letter-${Date.now()}`,
+            active: apiData.active,
+            priority: apiData.priority,
+            ruleName: apiData.rule_name,
+            product: apiData.product,
+            clientSegmentId: apiData.client_segment_id,
+            documentName: apiData.document_name,
+            documentUrl: apiData.document_url,
+            templateVariables: apiData.template_variables || [],
+            conditions: apiData.conditions || {},
+            createdAt: apiData.created_at,
+            lastUpdatedAt: apiData.last_updated_at,
+            lastUpdatedBy: apiData.last_updated_by,
+            clientSegment: getSegmentNameById(apiData.client_segment_id) || 'No Specific Segment'
+          };
+          
+          setSettlementLetters(prev => [...prev, newLetter]);
+          setAlertModal({
+            isOpen: true,
+            title: 'Success',
+            message: 'Settlement letter template created successfully',
+            type: 'success'
+          });
+        } else {
+          throw new Error(response.message || 'Failed to create settlement letter');
+        }
+      }
+
+      setShowLetterForm(false);
+      setEditingLetter(null);
+      setLetterForm({});
+      
+      // Clean up file upload state
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+      setUploadedFile(null);
+      setFilePreviewUrl(null);
+    } catch (error) {
+      console.error('Error saving settlement letter:', error);
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to save settlement letter',
+        type: 'error'
+      });
+    } finally {
+      setIsSavingSegments(false);
+      setIsUploadingDocument(false);
+    }
   };
 
   const handleCancelLetter = () => {
     setShowLetterForm(false);
     setEditingLetter(null);
     setLetterForm({});
+    
+    // Clean up file upload state
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+    }
+    setUploadedFile(null);
+    setFilePreviewUrl(null);
   };
 
   const handleDeleteLetter = async (letterId: string) => {
@@ -530,7 +707,10 @@ const BankDashboard: React.FC = () => {
 
   // Unsaved changes handlers
   const handleTabChange = (newTab: 'letters' | 'segmentation') => {
-    if (hasUnsavedChanges && activeTab === 'segmentation') {
+    const hasSegmentationChanges = hasUnsavedChanges && activeTab === 'segmentation';
+    const hasSettlementFormOpen = showLetterForm && activeTab === 'letters';
+    
+    if (hasSegmentationChanges || hasSettlementFormOpen) {
       setPendingTabChange(newTab);
       setShowUnsavedChangesModal(true);
     } else {
@@ -539,7 +719,12 @@ const BankDashboard: React.FC = () => {
   };
 
   const handleSaveAndContinue = async () => {
-    await handleSaveChanges();
+    if (activeTab === 'segmentation' && hasUnsavedChanges) {
+      await handleSaveChanges();
+    } else if (activeTab === 'letters' && showLetterForm) {
+      await handleSaveLetter();
+    }
+    
     if (pendingTabChange) {
       setActiveTab(pendingTabChange as 'letters' | 'segmentation');
       setPendingTabChange(null);
@@ -548,9 +733,23 @@ const BankDashboard: React.FC = () => {
   };
 
   const handleDiscardAndContinue = () => {
-    // Reset pending changes
+    // Reset segmentation changes
     setPendingChanges({});
     setHasUnsavedChanges(false);
+    
+    // Reset settlement letter form
+    if (showLetterForm) {
+      setShowLetterForm(false);
+      setEditingLetter(null);
+      setLetterForm({});
+      
+      // Clean up file upload state
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+      setUploadedFile(null);
+      setFilePreviewUrl(null);
+    }
     
     // Navigate to pending tab
     if (pendingTabChange) {
@@ -964,7 +1163,7 @@ const BankDashboard: React.FC = () => {
                 
                 {settlementLetters.length === 0 && (
                   <div className="empty-state">
-                    <p>No settlement instruction letters configured yet. Click "Add New Letter Template" to create your first template.</p>
+                    <p>{t('bank.letters.emptyState')}</p>
                   </div>
                 )}
               </div>
@@ -1079,8 +1278,8 @@ const BankDashboard: React.FC = () => {
               </div>
 
               <div className="form-actions">
-                <button className="save-rule-button" onClick={handleSaveLetter}>
-                  Save Letter Template
+                <button className="save-rule-button" onClick={handleSaveLetter} disabled={isSavingSegments || isUploadingDocument}>
+                  {isUploadingDocument ? 'Uploading Document...' : (isSavingSegments ? t('bank.segmentation.saving') : 'Save Letter Template')}
                 </button>
                 <button className="cancel-rule-button" onClick={handleCancelLetter}>
                   Cancel
@@ -1371,7 +1570,17 @@ const BankDashboard: React.FC = () => {
                 <p><strong>Product:</strong> {previewDocument.product}</p>
               </div>
               <div className="document-preview-area">
-                {previewDocument.documentUrl ? (
+                {previewDocument.documentUrl === 'loading' ? (
+                  <div className="document-loading">
+                    <div className="loading-spinner"></div>
+                    <p>{t('bank.letters.retrievingDocument')}</p>
+                  </div>
+                ) : previewDocument.documentUrl === 'error' ? (
+                  <div className="document-error">
+                    <p>❌ {t('bank.letters.failedToLoadDocument')}</p>
+                    <p className="error-message">{previewErrorMessage || t('bank.letters.unknownError')}</p>
+                  </div>
+                ) : previewDocument.documentUrl ? (
                   <iframe
                     src={previewDocument.documentUrl}
                     width="100%"
@@ -1463,7 +1672,13 @@ const BankDashboard: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal unsaved-changes-modal">
             <h3>{t('bank.unsavedChanges.title')}</h3>
-            <p>{t('bank.unsavedChanges.message')}</p>
+            <p>{
+              activeTab === 'segmentation' && hasUnsavedChanges
+                ? t('bank.unsavedChanges.message')
+                : activeTab === 'letters' && showLetterForm
+                ? 'You have an unsaved settlement letter template. Do you want to save it before continuing?'
+                : t('bank.unsavedChanges.message')
+            }</p>
             <div className="modal-actions">
               <button 
                 className="save-button primary"

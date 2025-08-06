@@ -71,7 +71,11 @@
       "templateInfo": "Información de Plantilla",
       "documentTemplate": "Plantilla de Documento",
       "documentPreview": "Vista Previa del Documento",
-      "closePreview": "Cerrar Vista Previa"
+      "closePreview": "Cerrar Vista Previa",
+      "retrievingDocument": "Obteniendo documento desde almacenamiento seguro...",
+      "failedToLoadDocument": "Error al cargar el documento",
+      "unknownError": "Error desconocido",
+      "emptyState": "No hay cartas de instrucciones de liquidación configuradas aún. Haga clic en \"Agregar Nueva Plantilla de Carta\" para crear su primera plantilla."
     },
     "segmentation": {
       "title": "Segmentación de Clientes",

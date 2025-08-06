@@ -69,6 +69,10 @@ class SettlementInstructionLetter(BaseFirestoreModel):
     client_segment_id: Optional[str] = Field(None, description="Associated client segment ID")
     document_name: str = Field(..., description="Original document filename")
     document_url: str = Field(..., description="Cloud storage URL for the document")
+    document_storage_path: Optional[str] = Field(None, description="Cloud storage path for generating signed URLs")
+    document_size: Optional[int] = Field(None, description="Document file size in bytes")
+    document_content_type: Optional[str] = Field(None, description="Document MIME content type")
+    document_uploaded_at: Optional[str] = Field(None, description="Document upload timestamp")
     template_variables: List[str] = Field(default_factory=list, description="Available template variables")
     conditions: Dict[str, Any] = Field(default_factory=dict, description="Template selection conditions")
 

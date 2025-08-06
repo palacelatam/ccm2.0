@@ -76,24 +76,24 @@ export interface SettlementInstructionLetter {
 export interface SettlementInstructionLetterCreate {
   active: boolean;
   priority: number;
-  ruleName: string;
+  rule_name: string;
   product: string;
-  clientSegmentId?: string;
-  documentName: string;
-  documentUrl: string;
-  templateVariables: string[];
+  client_segment_id?: string;
+  document_name: string;
+  document_url: string;
+  template_variables: string[];
   conditions: Record<string, any>;
 }
 
 export interface SettlementInstructionLetterUpdate {
   active?: boolean;
   priority?: number;
-  ruleName?: string;
+  rule_name?: string;
   product?: string;
-  clientSegmentId?: string;
-  documentName?: string;
-  documentUrl?: string;
-  templateVariables?: string[];
+  client_segment_id?: string;
+  document_name?: string;
+  document_url?: string;
+  template_variables?: string[];
   conditions?: Record<string, any>;
 }
 
@@ -202,6 +202,48 @@ class BankService {
   }
 
   /**
+   * Create a new settlement instruction letter with document upload
+   */
+  async createSettlementLetterWithDocument(
+    bankId: string, 
+    letterData: {
+      rule_name: string;
+      product: string;
+      client_segment_id?: string;
+      priority?: number;
+      active?: boolean;
+      template_variables?: string[];
+      conditions?: Record<string, any>;
+    },
+    file: File
+  ): Promise<APIResponse<SettlementInstructionLetter>> {
+    const formData = new FormData();
+    
+    // Add form fields
+    formData.append('rule_name', letterData.rule_name);
+    formData.append('product', letterData.product);
+    formData.append('priority', String(letterData.priority || 1));
+    formData.append('active', String(letterData.active !== false)); // Default to true
+    
+    if (letterData.client_segment_id) {
+      formData.append('client_segment_id', letterData.client_segment_id);
+    }
+    
+    if (letterData.template_variables) {
+      formData.append('template_variables', JSON.stringify(letterData.template_variables));
+    }
+    
+    if (letterData.conditions) {
+      formData.append('conditions', JSON.stringify(letterData.conditions));
+    }
+    
+    // Add the PDF file
+    formData.append('document', file);
+    
+    return apiClient.postFormData(`/api/v1/banks/${bankId}/settlement-letters/with-document`, formData);
+  }
+
+  /**
    * Update settlement instruction letter
    */
   async updateSettlementLetter(bankId: string, letterId: string, updates: SettlementInstructionLetterUpdate): Promise<APIResponse<SettlementInstructionLetter>> {
@@ -213,6 +255,14 @@ class BankService {
    */
   async deleteSettlementLetter(bankId: string, letterId: string): Promise<APIResponse<{}>> {
     return apiClient.delete(`/api/v1/banks/${bankId}/settlement-letters/${letterId}`);
+  }
+
+  /**
+   * Preview settlement instruction letter document - generates signed URL
+   */
+  async previewSettlementLetterDocument(bankId: string, letterId: string, expirationMinutes?: number): Promise<APIResponse<{signed_url: string, expires_in_minutes: number, document_name: string}>> {
+    const params = expirationMinutes ? `?expiration_minutes=${expirationMinutes}` : '';
+    return apiClient.get(`/api/v1/banks/${bankId}/settlement-letters/${letterId}/document/preview${params}`);
   }
 
   // ========== Client Assignment Methods ==========

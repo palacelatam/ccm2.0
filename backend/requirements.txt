@@ -5,6 +5,7 @@ uvicorn[standard]==0.24.0
 # Firebase and database
 firebase-admin==6.2.0
 google-cloud-firestore==2.13.1
+google-cloud-storage==2.10.0
 
 # Data validation and processing
 pydantic[email]==2.5.0

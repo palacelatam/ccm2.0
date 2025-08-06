@@ -2,7 +2,7 @@
 Bank management routes
 """
 
-from fastapi import APIRouter, Request, HTTPException, status, Path, File, UploadFile
+from fastapi import APIRouter, Request, HTTPException, status, Path, Query, File, UploadFile, Form
 from typing import List, Dict, Any
 import logging
 
@@ -102,13 +102,13 @@ async def get_client_segments(
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"
         )
     
-    segments = await bank_service.get_client_segments(bank_id)
+    segments = bank_service.get_client_segments(bank_id)
     
     return APIResponse(
         success=True,
@@ -157,7 +157,7 @@ async def create_client_segment(
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"
@@ -252,19 +252,93 @@ async def get_settlement_letters(
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"
         )
     
-    letters = await bank_service.get_settlement_letters(bank_id)
+    letters = bank_service.get_settlement_letters(bank_id)
     
     return APIResponse(
         success=True,
         data=letters,
         message="Settlement letters retrieved successfully"
     )
+
+
+@router.get("/{bank_id}/settlement-letters/{letter_id}/document/preview", response_model=APIResponse[dict])
+async def preview_settlement_letter_document(
+    request: Request,
+    bank_id: str = Path(..., description="Bank ID"),
+    letter_id: str = Path(..., description="Letter ID"),
+    expiration_minutes: int = Query(60, description="Signed URL expiration in minutes", ge=1, le=1440)
+):
+    """Generate a signed URL for previewing the settlement letter document"""
+    try:
+        auth_context = get_auth_context(request)
+        validate_bank_access(auth_context, bank_id)
+        
+        bank_service = BankService()
+        
+        # Get the settlement letter to retrieve the document storage path
+        letter = bank_service.get_settlement_letter(bank_id, letter_id)
+        if letter is None:
+            return APIResponse(
+                success=False,
+                data={},
+                message="Settlement letter not found"
+            )
+        
+        # Check if the letter has a document_storage_path
+        storage_path = getattr(letter, 'document_storage_path', None)
+        
+        if not storage_path:
+            return APIResponse(
+                success=False,
+                data={},
+                message="No document storage path found for this settlement letter"
+            )
+        
+        try:
+            # Generate signed URL for document preview
+            storage_service = bank_service.storage_service
+            signed_url_result = await storage_service.generate_document_signed_url(
+                storage_path, 
+                expiration_minutes
+            )
+            
+            if not signed_url_result["success"]:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to generate preview URL: {signed_url_result.get('error', 'Unknown error')}"
+                )
+            
+            return APIResponse(
+                success=True,
+                data={
+                    "signed_url": signed_url_result["signed_url"],
+                    "expires_in_minutes": signed_url_result["expires_in_minutes"],
+                    "document_name": getattr(letter, 'document_name', 'settlement_document.pdf')
+                },
+                message="Document preview URL generated successfully"
+            )
+            
+        except Exception as signed_url_error:
+            logger.error(f"Error generating signed URL for {storage_path}: {signed_url_error}")
+            return APIResponse(
+                success=False,
+                data={},
+                message=f"Failed to generate signed URL: {str(signed_url_error)}"
+            )
+        
+    except Exception as e:
+        logger.error(f"Error in preview endpoint: {e}")
+        return APIResponse(
+            success=False,
+            data={},
+            message=f"Error: {str(e)}"
+        )
 
 
 @router.get("/{bank_id}/settlement-letters/{letter_id}", response_model=APIResponse[SettlementInstructionLetter])
@@ -279,7 +353,7 @@ async def get_settlement_letter(
     
     bank_service = BankService()
     
-    letter = await bank_service.get_settlement_letter(bank_id, letter_id)
+    letter = bank_service.get_settlement_letter(bank_id, letter_id)
     
     if letter is None:
         raise HTTPException(
@@ -301,19 +375,19 @@ async def create_settlement_letter(
     letter_data: SettlementInstructionLetterCreate,
     bank_id: str = Path(..., description="Bank ID")
 ):
-    """Create a new settlement instruction letter"""
+    """Create a new settlement instruction letter (without file upload)"""
     auth_context = get_auth_context(request)
     validate_bank_access(auth_context, bank_id)
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"
         )
     
-    created_letter = await bank_service.create_settlement_letter(
+    created_letter = bank_service.create_settlement_letter(
         bank_id, letter_data, auth_context.uid
     )
     
@@ -330,6 +404,99 @@ async def create_settlement_letter(
     )
 
 
+@router.post("/{bank_id}/settlement-letters/with-document", response_model=APIResponse[SettlementInstructionLetter])
+@require_permission("manage_instruction_letters")
+async def create_settlement_letter_with_document(
+    request: Request,
+    bank_id: str = Path(..., description="Bank ID"),
+    # Form fields for the letter data
+    rule_name: str = Form(..., description="Settlement instruction rule name"),
+    product: str = Form(..., description="Product type"),
+    client_segment_id: str = Form(None, description="Client segment ID"),
+    priority: int = Form(1, description="Priority order"),
+    active: bool = Form(True, description="Whether the letter is active"),
+    template_variables: str = Form("[]", description="JSON array of template variables"),
+    conditions: str = Form("{}", description="JSON object of conditions"),
+    # File upload
+    document: UploadFile = File(..., description="PDF document to upload")
+):
+    """Create a new settlement instruction letter with document upload"""
+    auth_context = get_auth_context(request)
+    validate_bank_access(auth_context, bank_id)
+    
+    bank_service = BankService()
+    
+    if not bank_service.bank_exists(bank_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bank not found"
+        )
+    
+    # Validate file type
+    if document.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are allowed"
+        )
+    
+    try:
+        # Read file content
+        file_content = await document.read()
+        
+        # Parse JSON fields
+        import json
+        try:
+            template_variables_list = json.loads(template_variables) if template_variables else []
+            conditions_dict = json.loads(conditions) if conditions else {}
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON format: {str(e)}"
+            )
+        
+        # Create settlement letter data object
+        letter_data = SettlementInstructionLetterCreate(
+            rule_name=rule_name,
+            product=product,
+            client_segment_id=client_segment_id,
+            priority=priority,
+            active=active,
+            document_name=document.filename,
+            document_url="",  # Will be set by the service
+            template_variables=template_variables_list,
+            conditions=conditions_dict
+        )
+        
+        # Create letter with document
+        created_letter = await bank_service.create_settlement_letter_with_document(
+            bank_id=bank_id,
+            letter_data=letter_data,
+            file_content=file_content,
+            filename=document.filename,
+            content_type=document.content_type,
+            created_by_uid=auth_context.uid
+        )
+        
+        if created_letter is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to create settlement letter with document"
+            )
+        
+        return APIResponse(
+            success=True,
+            data=created_letter,
+            message="Settlement letter with document created successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error creating settlement letter with document: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error while creating settlement letter"
+        )
+
+
 @router.put("/{bank_id}/settlement-letters/{letter_id}", response_model=APIResponse[SettlementInstructionLetter])
 @require_permission("manage_instruction_letters")
 async def update_settlement_letter(
@@ -344,7 +511,7 @@ async def update_settlement_letter(
     
     bank_service = BankService()
     
-    updated_letter = await bank_service.update_settlement_letter(
+    updated_letter = bank_service.update_settlement_letter(
         bank_id, letter_id, letter_update, auth_context.uid
     )
     
@@ -374,7 +541,7 @@ async def delete_settlement_letter(
     
     bank_service = BankService()
     
-    success = await bank_service.delete_settlement_letter(bank_id, letter_id)
+    success = bank_service.delete_settlement_letter(bank_id, letter_id)
     
     if not success:
         raise HTTPException(
@@ -387,6 +554,7 @@ async def delete_settlement_letter(
         data={},
         message="Settlement letter deleted successfully"
     )
+
 
 
 # ========== Client Segment Assignment Endpoints ==========
@@ -402,7 +570,7 @@ async def get_client_segment_assignments(
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"
@@ -519,7 +687,7 @@ async def get_bank_system_settings(
     
     bank_service = BankService()
     
-    if not await bank_service.bank_exists(bank_id):
+    if not bank_service.bank_exists(bank_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank not found"

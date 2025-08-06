@@ -71,7 +71,11 @@
       "templateInfo": "Template Information",
       "documentTemplate": "Document Template",
       "documentPreview": "Document Preview",
-      "closePreview": "Close Preview"
+      "closePreview": "Close Preview",
+      "retrievingDocument": "Retrieving document from secure storage...",
+      "failedToLoadDocument": "Failed to load document",
+      "unknownError": "Unknown error occurred",
+      "emptyState": "No settlement instruction letters configured yet. Click \"Add New Letter Template\" to create your first template."
     },
     "segmentation": {
       "title": "Client Segmentation",
