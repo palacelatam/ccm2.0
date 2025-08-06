@@ -11,7 +11,7 @@ import os
 
 from config.firebase_config import initialize_firebase
 from config.settings import get_settings
-from api.routes import auth, users, health, clients
+from api.routes import auth, users, health, clients, banks
 from api.middleware.auth_middleware import AuthMiddleware
 
 
@@ -66,6 +66,7 @@ app.include_router(health.router, prefix="", tags=["Health"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1", tags=["Users"])
 app.include_router(clients.router, prefix="/api/v1", tags=["Clients"])
+app.include_router(banks.router, prefix="/api/v1", tags=["Banks"])
 
 
 # Root and health endpoints are handled by health.router

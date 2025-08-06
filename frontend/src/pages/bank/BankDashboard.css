@@ -526,9 +526,51 @@
   white-space: nowrap;
 }
 
-.save-all-button:hover {
+.save-all-button:hover:not(:disabled) {
   background: #00b347;
   transform: translateY(-1px);
+}
+
+.save-all-button:disabled {
+  background: #666;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.7;
+}
+
+.save-button.secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.save-button.secondary:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.cancel-changes-button {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  margin-left: 0.5rem;
+}
+
+.cancel-changes-button:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.cancel-changes-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
@@ -1046,6 +1088,7 @@
   z-index: 1000;
 }
 
+.modal,
 .modal-content {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -1055,6 +1098,10 @@
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
+}
+
+.unsaved-changes-modal {
+  max-width: 600px;
 }
 
 .modal-content h3 {

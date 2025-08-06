@@ -88,7 +88,17 @@
       "segmentName": "Segment Name",
       "segmentDescription": "Description",
       "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "cancelChanges": "Cancel",
       "cancel": "Cancel",
+      "saveSuccess": {
+        "title": "Changes Saved",
+        "message": "Client segment assignments have been saved successfully."
+      },
+      "saveError": {
+        "title": "Save Failed",
+        "message": "Failed to save client segment assignments. Please try again."
+      },
       "selectMultiple": "Select Multiple",
       "assignToSegment": "Assign to Segment",
       "selectedClients": "Selected Clients",
@@ -96,6 +106,14 @@
       "confirmDelete": "Are you sure you want to delete this segment?",
       "reassignClients": "Reassign clients to:",
       "removeFromSegment": "Remove from segment"
+    },
+    "unsavedChanges": {
+      "title": "Unsaved Changes",
+      "message": "You have unsaved segment changes that will be lost if you continue. What would you like to do?",
+      "saveAndContinue": "Save & Continue",
+      "discardAndContinue": "Discard & Continue",
+      "cancel": "Cancel",
+      "saving": "Saving..."
     },
     "table": {
       "active": "Active",

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../components/auth/AuthContext';
+import { bankService } from '../../services/api';
+import AlertModal from '../../components/common/AlertModal';
 import './BankDashboard.css';
 
 // Interface for Settlement Instruction Letter
@@ -8,10 +11,16 @@ interface SettlementInstructionLetter {
   active: boolean;
   priority: number;
   ruleName: string;
-  clientSegment: string;
+  clientSegment: string; // This will be mapped from clientSegmentId
+  clientSegmentId?: string;
   product: string;
   documentUrl?: string;
   documentName?: string;
+  templateVariables?: string[];
+  conditions?: Record<string, any>;
+  createdAt?: string;
+  lastUpdatedAt?: string;
+  lastUpdatedBy?: string;
 }
 
 // Interface for Client
@@ -27,77 +36,28 @@ interface ClientSegment {
   id: string;
   name: string;
   description: string;  
-  clientCount: number;
+  clientCount?: number; // This will be calculated client-side
+  color?: string;
+  createdAt?: string;
+  lastUpdatedAt?: string;
+  lastUpdatedBy?: string;
 }
 
 const BankDashboard: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'letters' | 'segmentation'>('letters');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Settlement Instructions Letters state
-  const [settlementLetters, setSettlementLetters] = useState<SettlementInstructionLetter[]>([
-    {
-      id: '1',
-      active: true,
-      priority: 1,
-      ruleName: 'USD FX Spot Standard Letter',
-      clientSegment: 'Premium Clients',
-      product: 'FX SPOT',
-      documentUrl: 'sample-usd-fx-spot.docx',
-      documentName: 'USD_FX_Spot_Template.docx'
-    },
-    {
-      id: '2', 
-      active: true,
-      priority: 2,
-      ruleName: 'EUR Forward Generic Letter',
-      clientSegment: 'No Specific Segment',
-      product: 'FX FORWARD',
-      documentUrl: 'sample-eur-forward.docx',
-      documentName: 'EUR_Forward_Template.docx'
-    },
-    {
-      id: '3',
-      active: false,
-      priority: 3,
-      ruleName: 'CLP Corporate Client Letter',
-      clientSegment: 'Corporate Clients',
-      product: 'FX SWAP',
-      documentUrl: 'sample-clp-corporate.docx',
-      documentName: 'CLP_Corporate_Template.docx'
-    }
-  ]);
+  const [settlementLetters, setSettlementLetters] = useState<SettlementInstructionLetter[]>([]);
 
   // Client Segmentation state
-  const [clients, setClients] = useState<Client[]>([
-    { id: '1', name: 'Empresa Minera Los Andes S.A.', rut: '76.123.456-7', segment: 'Corporate Clients' },
-    { id: '2', name: 'Inversiones del Pacífico Ltda.', rut: '77.234.567-8', segment: 'Premium Clients' },
-    { id: '3', name: 'Constructora Valle Verde S.A.', rut: '78.345.678-9', segment: 'Corporate Clients' },
-    { id: '4', name: 'Comercial Santiago Norte Ltda.', rut: '79.456.789-0', segment: undefined },
-    { id: '5', name: 'Exportadora Frutas del Sur S.A.', rut: '76.567.890-1', segment: 'Premium Clients' },
-    { id: '6', name: 'Tecnología Innovadora Chile Ltda.', rut: '77.678.901-K', segment: undefined },
-    { id: '7', name: 'Servicios Financieros Andinos S.A.', rut: '78.789.012-3', segment: 'Corporate Clients' },
-    { id: '8', name: 'Importadora Textil Metropolitana Ltda.', rut: '79.890.123-4', segment: undefined },
-    { id: '9', name: 'Compañía Naviera del Sur S.A.', rut: '80.123.456-7', segment: 'Premium Clients' },
-    { id: '10', name: 'Industrias Químicas del Norte Ltda.', rut: '81.234.567-8', segment: 'Corporate Clients' },
-    { id: '11', name: 'Servicios Logísticos Integrados S.A.', rut: '82.345.678-9', segment: undefined },
-    { id: '12', name: 'Desarrollos Inmobiliarios Central Ltda.', rut: '83.456.789-0', segment: 'Premium Clients' },
-    { id: '13', name: 'Consultora Estratégica Empresarial S.A.', rut: '84.567.890-1', segment: 'Corporate Clients' },
-    { id: '14', name: 'Manufacturas Textiles Avanzadas Ltda.', rut: '85.678.901-K', segment: undefined },
-    { id: '15', name: 'Grupo Financiero Metropolitano S.A.', rut: '86.789.012-3', segment: 'Premium Clients' },
-    { id: '16', name: 'Transportes y Distribución Nacional Ltda.', rut: '87.890.123-4', segment: 'Corporate Clients' },
-    { id: '17', name: 'Energías Renovables del Pacífico S.A.', rut: '88.123.456-7', segment: undefined },
-    { id: '18', name: 'Comercializadora de Productos Agrícolas Ltda.', rut: '89.234.567-8', segment: 'Premium Clients' },
-    { id: '19', name: 'Soluciones Tecnológicas Empresariales S.A.', rut: '90.345.678-9', segment: 'Corporate Clients' },
-    { id: '20', name: 'Inversiones y Desarrollo Urbano Ltda.', rut: '91.456.789-0', segment: undefined }
-  ]);
-
-  const [clientSegments, setClientSegments] = useState<ClientSegment[]>([
-    { id: '1', name: 'Premium Clients', description: 'High-value clients with preferential treatment', clientCount: 2 },
-    { id: '2', name: 'Corporate Clients', description: 'Large corporate entities and institutions', clientCount: 3 },
-    { id: '3', name: 'SME Clients', description: 'Small and medium enterprise clients', clientCount: 0 }
-  ]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientSegments, setClientSegments] = useState<ClientSegment[]>([]);
+  const [clientAssignments, setClientAssignments] = useState<Record<string, string[]>>({});
 
   // Document preview state
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
@@ -127,6 +87,161 @@ const BankDashboard: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<{client: Client, x: number, y: number} | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+
+  // Save state for client segmentation
+  const [isSavingSegments, setIsSavingSegments] = useState(false);
+  
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingTabChange, setPendingTabChange] = useState<string | null>(null);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'warning' as 'info' | 'warning' | 'error' | 'success'
+  });
+
+  // Data loading functions
+  const loadSettlementLetters = async () => {
+    if (!user?.profile?.organization?.id) return;
+    
+    try {
+      const response = await bankService.getSettlementLetters(user.profile.organization.id);
+      if (response.success && response.data) {
+        // Map API response to component interface
+        const mappedLetters = response.data.map(letter => ({
+          ...letter,
+          id: letter.id || `letter-${Date.now()}-${Math.random()}`, // Ensure ID exists
+          clientSegment: getSegmentNameById(letter.clientSegmentId) || 'No Specific Segment'
+        }));
+        setSettlementLetters(mappedLetters);
+      }
+    } catch (error) {
+      console.error('Error loading settlement letters:', error);
+      setError('Failed to load settlement letters');
+    }
+  };
+
+  const loadClientSegments = async () => {
+    if (!user?.profile?.organization?.id) return;
+    
+    try {
+      const response = await bankService.getClientSegments(user.profile.organization.id);
+      if (response.success && response.data) {
+        // Ensure IDs exist
+        const segmentsWithIds = response.data.map(segment => ({
+          ...segment,
+          id: segment.id || `segment-${Date.now()}-${Math.random()}`
+        }));
+        setClientSegments(segmentsWithIds);
+      }
+    } catch (error) {
+      console.error('Error loading client segments:', error);
+      setError('Failed to load client segments');
+    }
+  };
+
+  const loadClientAssignments = async () => {
+    if (!user?.profile?.organization?.id) return;
+    
+    try {
+      const response = await bankService.getClientSegmentAssignments(user.profile.organization.id);
+      if (response.success && response.data) {
+        setClientAssignments(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading client assignments:', error);
+      setError('Failed to load client assignments');
+    }
+  };
+
+  const loadClients = async (assignments?: Record<string, string[]>, segments?: ClientSegment[]) => {
+    // Use provided assignments or fall back to state
+    const assignmentsToUse = assignments || clientAssignments;
+    // Use provided segments or fall back to state
+    const segmentsToUse = segments || clientSegments;
+    
+    try {
+      const response = await bankService.getAllClients();
+      if (response.success && response.data) {
+        // Transform client data from database to match our Client interface
+        const clientsWithSegments = response.data.map(client => {
+          // Find which segment this client is assigned to
+          let assignedSegment: string | undefined;
+          for (const [segmentId, clientIds] of Object.entries(assignmentsToUse)) {
+            if (clientIds.includes(client.id)) {
+              const segment = segmentsToUse.find(s => s.id === segmentId);
+              assignedSegment = segment?.name;
+              break;
+            }
+          }
+          
+          return {
+            id: client.id,
+            name: client.name,
+            rut: client.taxId,
+            segment: assignedSegment
+          };
+        });
+        
+        setClients(clientsWithSegments);
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      setError('Failed to load clients');
+    }
+  };
+
+  const loadAllData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Load segments first and store them
+      const segmentsResponse = await bankService.getClientSegments(user?.profile?.organization?.id || '');
+      let loadedSegments: ClientSegment[] = [];
+      if (segmentsResponse.success && segmentsResponse.data) {
+        const segmentsWithIds = segmentsResponse.data.map(segment => ({
+          ...segment,
+          id: segment.id || `segment-${Date.now()}-${Math.random()}`
+        }));
+        setClientSegments(segmentsWithIds);
+        loadedSegments = segmentsWithIds;
+      }
+      
+      // Load assignments and pass both assignments and segments to loadClients
+      const assignmentsResponse = await bankService.getClientSegmentAssignments(user?.profile?.organization?.id || '');
+      if (assignmentsResponse.success && assignmentsResponse.data) {
+        setClientAssignments(assignmentsResponse.data);
+        await loadClients(assignmentsResponse.data, loadedSegments);
+      }
+      
+      await loadSettlementLetters();
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setError('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper functions
+  const getSegmentNameById = (segmentId?: string) => {
+    if (!segmentId) return null;
+    const segment = clientSegments.find(s => s.id === segmentId);
+    return segment?.name || null;
+  };
+
+
+  // Load data on component mount and when user changes
+  useEffect(() => {
+    if (user?.profile?.organization?.id) {
+      loadAllData();
+    }
+  }, [user?.profile?.organization?.id]);
 
   // Helper function to get sorted and grouped letters
   const getSortedAndGroupedLetters = () => {
@@ -226,8 +341,18 @@ const BankDashboard: React.FC = () => {
     setLetterForm({});
   };
 
-  const handleDeleteLetter = (letterId: string) => {
-    setSettlementLetters(prev => prev.filter(letter => letter.id !== letterId));
+  const handleDeleteLetter = async (letterId: string) => {
+    if (!user?.profile?.organization?.id) return;
+    
+    try {
+      const response = await bankService.deleteSettlementLetter(user.profile.organization.id, letterId);
+      if (response.success) {
+        setSettlementLetters(prev => prev.filter(letter => letter.id !== letterId));
+      }
+    } catch (error) {
+      console.error('Error deleting settlement letter:', error);
+      setError('Failed to delete settlement letter');
+    }
   };
 
   // Drag and drop handlers
@@ -278,25 +403,166 @@ const BankDashboard: React.FC = () => {
   // Client segmentation handlers
   const handleClientSegmentChange = (clientId: string, newSegment: string | null | undefined) => {
     setPendingChanges(prev => ({ ...prev, [clientId]: newSegment }));
+    setHasUnsavedChanges(true);
   };
 
-  const handleSaveChanges = () => {
-    setClients(prev => 
-      prev.map(client => {
-        const hasPendingChange = client.id in pendingChanges;
-        const newSegment = hasPendingChange ? pendingChanges[client.id] : client.segment;
-        return {
-          ...client,
-          segment: newSegment || undefined
-        };
-      })
-    );
-    updateSegmentCounts();
-    setPendingChanges({});
+  const handleSaveChanges = async () => {
+    if (!user?.profile?.organization?.id) return;
+    
+    // Prevent double-clicking
+    if (isSavingSegments) return;
+    
+    setIsSavingSegments(true);
+    
+    try {
+      const assignments: Array<{ clientId: string; segmentId: string }> = [];
+      const removals: Array<{ clientId: string; segmentId: string }> = [];
+
+      // Process each pending change
+      for (const [clientId, newSegmentName] of Object.entries(pendingChanges)) {
+        const client = clients.find(c => c.id === clientId);
+        const oldSegmentName = client?.segment;
+
+        // If newSegmentName is null/undefined and there was an old segment, 
+        // it means we're removing the client from their segment
+        if (!newSegmentName && oldSegmentName) {
+          const oldSegment = clientSegments.find(s => s.name === oldSegmentName);
+          if (oldSegment?.id) {
+            removals.push({ clientId, segmentId: oldSegment.id });
+          }
+        }
+        // If there's a new segment, just assign (backend will handle removal from old segment)
+        else if (newSegmentName) {
+          const newSegment = clientSegments.find(s => s.name === newSegmentName);
+          if (newSegment?.id) {
+            assignments.push({ clientId, segmentId: newSegment.id });
+          }
+        }
+      }
+
+      // Execute removals first (only for clients being unassigned completely)
+      for (const removal of removals) {
+        await bankService.removeClientFromSegment(
+          user.profile.organization.id,
+          removal.clientId,
+          removal.segmentId
+        );
+      }
+
+      // Then execute assignments (backend handles removal from old segment automatically)
+      for (const assignment of assignments) {
+        await bankService.assignClientToSegment(user.profile.organization.id, {
+          client_id: assignment.clientId,
+          segment_id: assignment.segmentId
+        });
+      }
+
+      // Update local state after successful API calls
+      setClients(prev => 
+        prev.map(client => {
+          const hasPendingChange = client.id in pendingChanges;
+          const newSegment = hasPendingChange ? pendingChanges[client.id] : client.segment;
+          return {
+            ...client,
+            segment: newSegment || undefined
+          };
+        })
+      );
+
+      // Update client assignments state
+      setClientAssignments(prev => {
+        const updated = { ...prev };
+        
+        // Remove from old assignments
+        for (const removal of removals) {
+          if (updated[removal.segmentId]) {
+            updated[removal.segmentId] = updated[removal.segmentId].filter(
+              clientId => clientId !== removal.clientId
+            );
+          }
+        }
+
+        // Add to new assignments
+        for (const assignment of assignments) {
+          if (!updated[assignment.segmentId]) {
+            updated[assignment.segmentId] = [];
+          }
+          if (!updated[assignment.segmentId].includes(assignment.clientId)) {
+            updated[assignment.segmentId].push(assignment.clientId);
+          }
+        }
+
+        return updated;
+      });
+
+      updateSegmentCounts();
+      setPendingChanges({});
+      setHasUnsavedChanges(false);
+
+      // Show success message
+      setAlertModal({
+        isOpen: true,
+        title: t('bank.segmentation.saveSuccess.title'),
+        message: t('bank.segmentation.saveSuccess.message'),
+        type: 'success'
+      });
+
+      // Reload all data to ensure we have the latest state
+      await loadAllData();
+
+    } catch (error) {
+      console.error('Error saving client segment changes:', error);
+      setAlertModal({
+        isOpen: true,
+        title: t('bank.segmentation.saveError.title'),
+        message: t('bank.segmentation.saveError.message'),
+        type: 'error'
+      });
+    } finally {
+      setIsSavingSegments(false);
+    }
   };
 
   const handleCancelChanges = () => {
     setPendingChanges({});
+    setHasUnsavedChanges(false);
+  };
+
+  // Unsaved changes handlers
+  const handleTabChange = (newTab: 'letters' | 'segmentation') => {
+    if (hasUnsavedChanges && activeTab === 'segmentation') {
+      setPendingTabChange(newTab);
+      setShowUnsavedChangesModal(true);
+    } else {
+      setActiveTab(newTab);
+    }
+  };
+
+  const handleSaveAndContinue = async () => {
+    await handleSaveChanges();
+    if (pendingTabChange) {
+      setActiveTab(pendingTabChange as 'letters' | 'segmentation');
+      setPendingTabChange(null);
+    }
+    setShowUnsavedChangesModal(false);
+  };
+
+  const handleDiscardAndContinue = () => {
+    // Reset pending changes
+    setPendingChanges({});
+    setHasUnsavedChanges(false);
+    
+    // Navigate to pending tab
+    if (pendingTabChange) {
+      setActiveTab(pendingTabChange as 'letters' | 'segmentation');
+      setPendingTabChange(null);
+    }
+    setShowUnsavedChangesModal(false);
+  };
+
+  const handleCancelNavigation = () => {
+    setPendingTabChange(null);
+    setShowUnsavedChangesModal(false);
   };
 
   const updateSegmentCounts = () => {
@@ -382,22 +648,43 @@ const BankDashboard: React.FC = () => {
     setShowDeleteConfirm(segment);
   };
 
-  const confirmDeleteSegment = (removeClients: boolean) => {
-    if (!showDeleteConfirm) return;
+  const confirmDeleteSegment = async (removeClients: boolean) => {
+    if (!showDeleteConfirm || !user?.profile?.organization?.id) return;
 
-    if (removeClients) {
-      // Remove clients from segment
-      setClients(prev =>
-        prev.map(client => ({
-          ...client,
-          segment: client.segment === showDeleteConfirm.name ? undefined : client.segment
-        }))
-      );
+    try {
+      if (removeClients) {
+        // Remove all clients from this segment first
+        const clientsInSegment = clientAssignments[showDeleteConfirm.id] || [];
+        for (const clientId of clientsInSegment) {
+          await bankService.removeClientFromSegment(user.profile.organization.id, clientId, showDeleteConfirm.id);
+        }
+        
+        // Update local state
+        setClients(prev =>
+          prev.map(client => ({
+            ...client,
+            segment: client.segment === showDeleteConfirm.name ? undefined : client.segment
+          }))
+        );
+      }
+
+      // Delete the segment
+      const response = await bankService.deleteClientSegment(user.profile.organization.id, showDeleteConfirm.id);
+      if (response.success) {
+        setClientSegments(prev => prev.filter(s => s.id !== showDeleteConfirm.id));
+        // Remove from assignments
+        setClientAssignments(prev => {
+          const updated = { ...prev };
+          delete updated[showDeleteConfirm.id];
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting segment:', error);
+      setError('Failed to delete segment');
+    } finally {
+      setShowDeleteConfirm(null);
     }
-
-    // Remove segment
-    setClientSegments(prev => prev.filter(s => s.id !== showDeleteConfirm.id));
-    setShowDeleteConfirm(null);
   };
 
   const getClientsBySegment = () => {
@@ -427,9 +714,6 @@ const BankDashboard: React.FC = () => {
 
     return clientsBySegment;
   };
-
-  const hasUnsavedChanges = Object.keys(pendingChanges).length > 0;
-
 
   // Filter clients based on search query
   const filteredClients = clients.filter(client => 
@@ -472,7 +756,7 @@ const BankDashboard: React.FC = () => {
       return;
     }
 
-    // Update client segment through pending changes
+    // Only update pending changes (no API call yet)
     handleClientSegmentChange(draggedClient.id, targetSegment);
     
     // Clear all drag states
@@ -549,18 +833,41 @@ const BankDashboard: React.FC = () => {
     }));
   };
 
+  if (loading) {
+    return (
+      <div className="bank-dashboard">
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p>Loading bank data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bank-dashboard">
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p style={{ color: 'var(--color-error)' }}>Error: {error}</p>
+          <button onClick={loadAllData} style={{ marginTop: '1rem' }}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bank-dashboard">
       <div className="bank-tabs">
         <button
           className={`tab-button ${activeTab === 'letters' ? 'active' : ''}`}
-          onClick={() => setActiveTab('letters')}
+          onClick={() => handleTabChange('letters')}
         >
           {t('bank.letters.title')}
         </button>
         <button
           className={`tab-button ${activeTab === 'segmentation' ? 'active' : ''}`}
-          onClick={() => setActiveTab('segmentation')}
+          onClick={() => handleTabChange('segmentation')}
         >
           {t('bank.segmentation.title')}
         </button>
@@ -796,9 +1103,22 @@ const BankDashboard: React.FC = () => {
                     + {t('bank.segmentation.addSegment')}
                   </button>
                   {hasUnsavedChanges && (
-                    <button className="save-all-button" onClick={handleSaveChanges}>
-                      {t('bank.segmentation.saveChanges')}
-                    </button>
+                    <>
+                      <button 
+                        className="save-all-button" 
+                        onClick={handleSaveChanges}
+                        disabled={isSavingSegments}
+                      >
+                        {isSavingSegments ? t('bank.segmentation.saving') : t('bank.segmentation.saveChanges')}
+                      </button>
+                      <button 
+                        className="cancel-changes-button" 
+                        onClick={handleCancelChanges}
+                        disabled={isSavingSegments}
+                      >
+                        {t('bank.segmentation.cancelChanges')}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -853,7 +1173,7 @@ const BankDashboard: React.FC = () => {
                       
                       return (
                         <div 
-                          key={client.id} 
+                          key={`unassigned-${client.id}`} 
                           className={`draggable-client ${hasChange ? 'has-change' : ''}`}
                           draggable
                           onDragStart={(e) => handleClientDragStart(e, client)}
@@ -904,7 +1224,7 @@ const BankDashboard: React.FC = () => {
                             <>
                               {displayClients.map(client => (
                                 <div 
-                                  key={client.id} 
+                                  key={`expanded-no-segment-${client.id}`} 
                                   className="client-preview draggable"
                                     draggable
                                     onDragStart={(e) => handleClientPreviewDragStart(e, client)}
@@ -1001,7 +1321,7 @@ const BankDashboard: React.FC = () => {
                                 <>
                                   {displayClients.map(client => (
                                     <div 
-                                      key={client.id} 
+                                      key={`collapsed-${segment.name}-${client.id}`} 
                                       className="client-preview draggable"
                                         draggable
                                         onDragStart={(e) => handleClientPreviewDragStart(e, client)}
@@ -1073,9 +1393,9 @@ const BankDashboard: React.FC = () => {
             <div className="modal-content">
               <h3>{t('bank.segmentation.deleteSegment')}</h3>
               <p>{t('bank.segmentation.confirmDelete')}</p>
-              <p><strong>{showDeleteConfirm.name}</strong> ({showDeleteConfirm.clientCount} clients)</p>
+              <p><strong>{showDeleteConfirm.name}</strong> ({showDeleteConfirm.clientCount ?? 0} clients)</p>
               
-              {showDeleteConfirm.clientCount > 0 && (
+              {(showDeleteConfirm.clientCount ?? 0) > 0 && (
                 <div className="reassignment-options">
                   <p>{t('bank.segmentation.reassignClients')}</p>
                   <button 
@@ -1091,7 +1411,7 @@ const BankDashboard: React.FC = () => {
                 <button 
                   className="delete-confirm-button"
                   onClick={() => confirmDeleteSegment(false)}
-                  disabled={showDeleteConfirm.clientCount > 0}
+                  disabled={(showDeleteConfirm.clientCount ?? 0) > 0}
                 >
                   {t('bank.segmentation.deleteSegment')}
                 </button>
@@ -1137,6 +1457,48 @@ const BankDashboard: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Unsaved Changes Modal */}
+      {showUnsavedChangesModal && (
+        <div className="modal-overlay">
+          <div className="modal unsaved-changes-modal">
+            <h3>{t('bank.unsavedChanges.title')}</h3>
+            <p>{t('bank.unsavedChanges.message')}</p>
+            <div className="modal-actions">
+              <button 
+                className="save-button primary"
+                onClick={handleSaveAndContinue}
+                disabled={isSavingSegments}
+              >
+                {isSavingSegments ? t('bank.unsavedChanges.saving') : t('bank.unsavedChanges.saveAndContinue')}
+              </button>
+              <button 
+                className="save-button secondary"
+                onClick={handleDiscardAndContinue}
+                disabled={isSavingSegments}
+              >
+                {t('bank.unsavedChanges.discardAndContinue')}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={handleCancelNavigation}
+                disabled={isSavingSegments}
+              >
+                {t('bank.unsavedChanges.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Alert Modal for success/error messages */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 };

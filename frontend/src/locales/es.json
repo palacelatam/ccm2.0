@@ -88,7 +88,17 @@
       "segmentName": "Nombre del Segmento",
       "segmentDescription": "Descripción",
       "saveChanges": "Guardar Cambios",
+      "saving": "Guardando...",
+      "cancelChanges": "Cancelar",
       "cancel": "Cancelar",
+      "saveSuccess": {
+        "title": "Cambios Guardados",
+        "message": "Las asignaciones de segmentos de clientes se han guardado exitosamente."
+      },
+      "saveError": {
+        "title": "Error al Guardar",
+        "message": "No se pudieron guardar las asignaciones de segmentos de clientes. Por favor, inténtelo de nuevo."
+      },
       "selectMultiple": "Selección Múltiple",
       "assignToSegment": "Asignar a Segmento",
       "selectedClients": "Clientes Seleccionados",
@@ -96,6 +106,14 @@
       "confirmDelete": "¿Está seguro de que desea eliminar este segmento?",
       "reassignClients": "Reasignar clientes a:",
       "removeFromSegment": "Remover del segmento"
+    },
+    "unsavedChanges": {
+      "title": "Cambios No Guardados",
+      "message": "Tiene cambios de segmentos no guardados que se perderán si continúa. ¿Qué desea hacer?",
+      "saveAndContinue": "Guardar y Continuar",
+      "discardAndContinue": "Descartar y Continuar",
+      "cancel": "Cancelar",
+      "saving": "Guardando..."
     },
     "table": {
       "active": "Activa",

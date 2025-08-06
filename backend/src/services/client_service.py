@@ -2,7 +2,7 @@
 Client service for managing client settings and related data
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from google.cloud.firestore import DocumentReference
 import logging
 from datetime import datetime
@@ -24,6 +24,47 @@ class ClientService:
     
     def __init__(self):
         self.db = get_firestore_client()
+    
+    # ========== Client Management Methods ==========
+    
+    def get_all_clients(self) -> List[Dict[str, Any]]:
+        """Get all clients (independent of banks)"""
+        try:
+            clients_docs = self.db.collection('clients').stream()
+            
+            clients = []
+            for doc in clients_docs:
+                client_data = doc.to_dict()
+                client_data['id'] = doc.id
+                
+                # Handle DocumentReference objects - convert them to strings or resolve them
+                if 'bankId' in client_data:
+                    if hasattr(client_data['bankId'], 'path'):
+                        # It's a DocumentReference, get the ID from the path
+                        client_data['bankId'] = client_data['bankId'].path.split('/')[-1]
+                
+                if 'lastUpdatedBy' in client_data:
+                    if hasattr(client_data['lastUpdatedBy'], 'path'):
+                        # It's a DocumentReference, get the ID from the path
+                        client_data['lastUpdatedBy'] = client_data['lastUpdatedBy'].path.split('/')[-1]
+                
+                clients.append(client_data)
+            
+            logger.info(f"Found {len(clients)} clients")
+            return clients
+            
+        except Exception as e:
+            logger.error(f"Error getting all clients: {e}")
+            return []
+    
+    async def client_exists(self, client_id: str) -> bool:
+        """Check if client exists"""
+        try:
+            client_doc = self.db.collection('clients').document(client_id).get()
+            return client_doc.exists
+        except Exception as e:
+            logger.error(f"Error checking if client {client_id} exists: {e}")
+            return False
     
     # ========== Client Settings Methods ==========
     

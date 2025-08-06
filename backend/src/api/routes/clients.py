@@ -3,11 +3,12 @@ Client management routes
 """
 
 from fastapi import APIRouter, Request, HTTPException, status, Path
-from typing import List
+from typing import List, Dict, Any
 import logging
 
 from api.middleware.auth_middleware import get_auth_context, require_permission
 from services.client_service import ClientService
+from services.bank_service import BankService
 from models.base import APIResponse
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
@@ -19,6 +20,21 @@ from models.client import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/clients", tags=["clients"])
+
+
+@router.get("", response_model=APIResponse[List[Dict[str, Any]]])
+async def get_all_clients(request: Request):
+    """Get all clients (independent of banks)"""
+    auth_context = get_auth_context(request)
+    
+    client_service = ClientService()
+    clients = client_service.get_all_clients()
+    
+    return APIResponse(
+        success=True,
+        data=clients,
+        message="Clients retrieved successfully"
+    )
 
 
 def validate_client_access(auth_context, client_id: str):
