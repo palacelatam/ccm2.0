@@ -34,6 +34,7 @@ def validate_bank_access(auth_context, bank_id: str):
 # ========== Bank Management Endpoints ==========
 
 @router.get("/{bank_id}", response_model=APIResponse[Bank])
+@require_permission("manage_bank_settings")
 async def get_bank(
     request: Request,
     bank_id: str = Path(..., description="Bank ID")
@@ -92,6 +93,7 @@ async def update_bank(
 # ========== Client Segmentation Endpoints ==========
 
 @router.get("/{bank_id}/client-segments", response_model=APIResponse[List[ClientSegment]])
+@require_permission("manage_client_segments")
 async def get_client_segments(
     request: Request,
     bank_id: str = Path(..., description="Bank ID")
@@ -118,6 +120,7 @@ async def get_client_segments(
 
 
 @router.get("/{bank_id}/client-segments/{segment_id}", response_model=APIResponse[ClientSegment])
+@require_permission("manage_client_segments")
 async def get_client_segment(
     request: Request,
     bank_id: str = Path(..., description="Bank ID"),
@@ -242,6 +245,7 @@ async def delete_client_segment(
 # ========== Settlement Instruction Letters Endpoints ==========
 
 @router.get("/{bank_id}/settlement-letters", response_model=APIResponse[List[SettlementInstructionLetter]])
+@require_permission("manage_instruction_letters")
 async def get_settlement_letters(
     request: Request,
     bank_id: str = Path(..., description="Bank ID")
@@ -268,6 +272,7 @@ async def get_settlement_letters(
 
 
 @router.get("/{bank_id}/settlement-letters/{letter_id}/document/preview", response_model=APIResponse[dict])
+@require_permission("manage_instruction_letters")
 async def preview_settlement_letter_document(
     request: Request,
     bank_id: str = Path(..., description="Bank ID"),
@@ -342,6 +347,7 @@ async def preview_settlement_letter_document(
 
 
 @router.get("/{bank_id}/settlement-letters/{letter_id}", response_model=APIResponse[SettlementInstructionLetter])
+@require_permission("manage_instruction_letters")
 async def get_settlement_letter(
     request: Request,
     bank_id: str = Path(..., description="Bank ID"),
@@ -560,6 +566,7 @@ async def delete_settlement_letter(
 # ========== Client Segment Assignment Endpoints ==========
 
 @router.get("/{bank_id}/client-assignments", response_model=APIResponse[Dict[str, List[str]]])
+@require_permission("manage_client_segments")
 async def get_client_segment_assignments(
     request: Request,
     bank_id: str = Path(..., description="Bank ID")
@@ -677,6 +684,7 @@ async def remove_client_from_segment(
 # ========== Bank System Settings Endpoints ==========
 
 @router.get("/{bank_id}/system-settings", response_model=APIResponse[BankSystemSettings])
+@require_permission("manage_bank_settings")
 async def get_bank_system_settings(
     request: Request,
     bank_id: str = Path(..., description="Bank ID")
