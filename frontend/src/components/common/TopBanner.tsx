@@ -58,13 +58,22 @@ const TopBanner: React.FC = () => {
               
               {/* Bank Admin Panel - Only for bank_admin */}
               {user?.role === 'bank_admin' && (
-                <Link 
-                  to="/bank" 
-                  className={`menu-item ${location.pathname === '/bank' ? 'active' : ''}`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {t('navigation.bankAdmin')}
-                </Link>
+                <>
+                  <Link 
+                    to="/bank" 
+                    className={`menu-item ${location.pathname === '/bank' ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {t('navigation.bankAdmin')}
+                  </Link>
+                  <Link 
+                    to="/fx-analytics" 
+                    className={`menu-item ${location.pathname === '/fx-analytics' ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {t('navigation.fxAnalytics')}
+                  </Link>
+                </>
               )}
             </div>
           )}

@@ -67,8 +67,8 @@ class SettlementInstructionLetter(BaseFirestoreModel):
     rule_name: str = Field(..., description="Template rule name")
     product: str = Field(..., description="Financial product type")
     client_segment_id: Optional[str] = Field(None, description="Associated client segment ID")
-    document_name: str = Field(..., description="Original document filename")
-    document_url: str = Field(..., description="Cloud storage URL for the document")
+    document_name: Optional[str] = Field(None, description="Original document filename")
+    document_url: Optional[str] = Field(None, description="Cloud storage URL for the document")
     document_storage_path: Optional[str] = Field(None, description="Cloud storage path for generating signed URLs")
     document_size: Optional[int] = Field(None, description="Document file size in bytes")
     document_content_type: Optional[str] = Field(None, description="Document MIME content type")
@@ -84,8 +84,8 @@ class SettlementInstructionLetterCreate(BaseModel):
     rule_name: str
     product: str
     client_segment_id: Optional[str] = None
-    document_name: str
-    document_url: str
+    document_name: Optional[str] = None
+    document_url: Optional[str] = None
     template_variables: List[str] = Field(default_factory=list)
     conditions: Dict[str, Any] = Field(default_factory=dict)
 
@@ -99,6 +99,10 @@ class SettlementInstructionLetterUpdate(BaseModel):
     client_segment_id: Optional[str] = None
     document_name: Optional[str] = None
     document_url: Optional[str] = None
+    document_storage_path: Optional[str] = None
+    document_size: Optional[int] = None
+    document_content_type: Optional[str] = None
+    document_uploaded_at: Optional[str] = None
     template_variables: Optional[List[str]] = None
     conditions: Optional[Dict[str, Any]] = None
 

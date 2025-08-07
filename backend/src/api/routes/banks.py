@@ -346,6 +346,103 @@ async def preview_settlement_letter_document(
         )
 
 
+@router.delete("/{bank_id}/settlement-letters/{letter_id}/document", response_model=APIResponse[dict])
+@require_permission("manage_instruction_letters")
+async def delete_settlement_letter_document(
+    request: Request,
+    bank_id: str = Path(..., description="Bank ID"),
+    letter_id: str = Path(..., description="Letter ID")
+):
+    """Delete the settlement letter document from storage and update database"""
+    try:
+        auth_context = get_auth_context(request)
+        validate_bank_access(auth_context, bank_id)
+        
+        bank_service = BankService()
+        
+        # Get the settlement letter to retrieve the document storage path
+        letter = bank_service.get_settlement_letter(bank_id, letter_id)
+        if letter is None:
+            return APIResponse(
+                success=False,
+                data={},
+                message="Settlement letter not found"
+            )
+        
+        # Check if the letter has a document_storage_path
+        storage_path = getattr(letter, 'document_storage_path', None)
+        
+        if not storage_path:
+            return APIResponse(
+                success=False,
+                data={},
+                message="No document found for this settlement letter"
+            )
+        
+        try:
+            # Delete document from Cloud Storage
+            storage_service = bank_service.storage_service
+            delete_result = await storage_service.delete_settlement_document(storage_path)
+            
+            if not delete_result["success"]:
+                logger.error(f"Failed to delete document from storage: {delete_result.get('error', 'Unknown error')}")
+                return APIResponse(
+                    success=False,
+                    data={},
+                    message=f"Failed to delete document from storage: {delete_result.get('error', 'Unknown error')}"
+                )
+            
+            # Update the settlement letter to remove document references
+            from models.bank import SettlementInstructionLetterUpdate
+            
+            letter_update = SettlementInstructionLetterUpdate(
+                document_name=None,
+                document_url=None,
+                document_storage_path=None,
+                document_size=None,
+                document_content_type=None,
+                document_uploaded_at=None
+            )
+            
+            updated_letter = bank_service.update_settlement_letter(
+                bank_id, letter_id, letter_update, auth_context.uid
+            )
+            
+            if updated_letter is None:
+                logger.warning(f"Document deleted from storage but failed to update database for letter {letter_id}")
+                return APIResponse(
+                    success=False,
+                    data={},
+                    message="Document deleted from storage but failed to update database record"
+                )
+            
+            return APIResponse(
+                success=True,
+                data={
+                    "document_path": storage_path,
+                    "deleted_from_storage": True,
+                    "database_updated": True
+                },
+                message="Document deleted successfully"
+            )
+            
+        except Exception as delete_error:
+            logger.error(f"Error deleting document {storage_path}: {delete_error}")
+            return APIResponse(
+                success=False,
+                data={},
+                message=f"Failed to delete document: {str(delete_error)}"
+            )
+        
+    except Exception as e:
+        logger.error(f"Error in delete document endpoint: {e}")
+        return APIResponse(
+            success=False,
+            data={},
+            message=f"Error: {str(e)}"
+        )
+
+
 @router.get("/{bank_id}/settlement-letters/{letter_id}", response_model=APIResponse[SettlementInstructionLetter])
 @require_permission("manage_instruction_letters")
 async def get_settlement_letter(
@@ -532,6 +629,99 @@ async def update_settlement_letter(
         data=updated_letter,
         message="Settlement letter updated successfully"
     )
+
+
+@router.put("/{bank_id}/settlement-letters/{letter_id}/with-document", response_model=APIResponse[SettlementInstructionLetter])
+@require_permission("manage_instruction_letters")
+async def update_settlement_letter_with_document(
+    request: Request,
+    bank_id: str = Path(..., description="Bank ID"),
+    letter_id: str = Path(..., description="Letter ID"),
+    # Form fields for the letter data
+    rule_name: str = Form(..., description="Settlement instruction rule name"),
+    product: str = Form(..., description="Product type"),
+    client_segment_id: str = Form(None, description="Client segment ID"),
+    priority: int = Form(1, description="Priority order"),
+    active: bool = Form(True, description="Whether the letter is active"),
+    template_variables: str = Form("[]", description="JSON array of template variables"),
+    conditions: str = Form("{}", description="JSON object of conditions"),
+    # File upload
+    document: UploadFile = File(..., description="PDF document to upload")
+):
+    """Update settlement instruction letter with document replacement"""
+    auth_context = get_auth_context(request)
+    validate_bank_access(auth_context, bank_id)
+    
+    bank_service = BankService()
+    
+    if not bank_service.bank_exists(bank_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bank not found"
+        )
+    
+    # Validate file type
+    if document.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are allowed"
+        )
+    
+    try:
+        # Read file content
+        file_content = await document.read()
+        
+        # Parse JSON fields
+        import json
+        try:
+            template_variables_list = json.loads(template_variables) if template_variables else []
+            conditions_dict = json.loads(conditions) if conditions else {}
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON format: {str(e)}"
+            )
+        
+        # Create settlement letter update data object
+        letter_update = SettlementInstructionLetterUpdate(
+            rule_name=rule_name,
+            product=product,
+            client_segment_id=client_segment_id,
+            priority=priority,
+            active=active,
+            template_variables=template_variables_list,
+            conditions=conditions_dict
+        )
+        
+        # Update letter with document
+        updated_letter = await bank_service.update_settlement_letter_with_document(
+            bank_id=bank_id,
+            letter_id=letter_id,
+            letter_update=letter_update,
+            file_content=file_content,
+            filename=document.filename,
+            content_type=document.content_type,
+            updated_by_uid=auth_context.uid
+        )
+        
+        if updated_letter is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to update settlement letter with document"
+            )
+        
+        return APIResponse(
+            success=True,
+            data=updated_letter,
+            message="Settlement letter with document updated successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error updating settlement letter with document: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error while updating settlement letter"
+        )
 
 
 @router.delete("/{bank_id}/settlement-letters/{letter_id}", response_model=APIResponse[dict])

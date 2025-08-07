@@ -1,0 +1,4 @@
+Trade ID,Client Name,Counterparty Name,Trade Date,Value Date,Product Type,Currency Pair,Notional Amount,Rate,Side
+T001,Acme Corp,Bank A,2025-08-01,2025-08-03,FX Spot,USD/CLP,1000000,920.5,Buy
+T002,Global Foods Ltd,Bank B,2025-08-01,2025-08-05,FX Forward,EUR/USD,500000,1.095,Sell
+T003,Green Mining Co,Bank C,2025-08-02,2025-08-06,FX Swap,USD/CLP,750000,921.75,Buy

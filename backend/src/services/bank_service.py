@@ -4,6 +4,7 @@ Bank service for managing bank data, client segmentation, and settlement instruc
 
 from typing import Optional, List, Dict, Any
 from google.cloud.firestore import DocumentReference
+from pydantic import ValidationError
 import logging
 from datetime import datetime
 
@@ -247,7 +248,11 @@ class BankService:
                 if hasattr(letter_data['lastUpdatedBy'], 'path'):
                     letter_data['lastUpdatedBy'] = letter_data['lastUpdatedBy'].path.split('/')[-1]
             
-            return SettlementInstructionLetter(**letter_data)
+            try:
+                return SettlementInstructionLetter(**letter_data)
+            except ValidationError as ve:
+                logger.error(f"Validation error creating SettlementInstructionLetter from data {letter_data}: {ve}")
+                return None
             
         except Exception as e:
             logger.error(f"Error getting settlement letter {letter_id} for bank {bank_id}: {e}")
@@ -338,7 +343,7 @@ class BankService:
             letter_ref = (self.db.collection('banks').document(bank_id)
                          .collection('settlementInstructionLetters').document(letter_id))
             
-            update_dict = letter_update.model_dump(exclude_unset=True)
+            update_dict = letter_update.model_dump(exclude_unset=True, exclude_none=False)
             update_dict.update({
                 'last_updated_at': datetime.now(),
                 'last_updated_by': updated_by_uid
@@ -350,6 +355,80 @@ class BankService:
             
         except Exception as e:
             logger.error(f"Error updating settlement letter {letter_id} for bank {bank_id}: {e}")
+            return None
+
+    async def update_settlement_letter_with_document(
+        self, 
+        bank_id: str, 
+        letter_id: str,
+        letter_update: SettlementInstructionLetterUpdate,
+        file_content: bytes,
+        filename: str,
+        content_type: str,
+        updated_by_uid: str
+    ) -> Optional[SettlementInstructionLetter]:
+        """Update settlement instruction letter with document replacement"""
+        try:
+            # Get current letter to check for existing document
+            current_letter = self.get_settlement_letter(bank_id, letter_id)
+            if current_letter is None:
+                logger.error(f"Settlement letter {letter_id} not found for update with document")
+                return None
+            
+            # If there's an existing document, delete it first
+            old_storage_path = getattr(current_letter, 'document_storage_path', None)
+            if old_storage_path:
+                try:
+                    delete_result = await self.storage_service.delete_settlement_document(old_storage_path)
+                    if not delete_result["success"]:
+                        logger.warning(f"Failed to delete old document {old_storage_path}: {delete_result.get('error')}")
+                    else:
+                        logger.info(f"Successfully deleted old document {old_storage_path}")
+                except Exception as delete_error:
+                    logger.warning(f"Error deleting old document {old_storage_path}: {delete_error}")
+            
+            # Upload the new document to Cloud Storage
+            segment_id = letter_update.client_segment_id if letter_update.client_segment_id else current_letter.clientSegmentId or "default"
+            
+            upload_result = await self.storage_service.upload_settlement_document(
+                file_content=file_content,
+                filename=filename,
+                content_type=content_type,
+                bank_id=bank_id,
+                segment_id=segment_id,
+                uploaded_by=updated_by_uid
+            )
+            
+            if not upload_result["success"]:
+                logger.error(f"Failed to upload new document: {upload_result.get('error')}")
+                return None
+            
+            # Update the letter with new document information
+            letter_ref = (self.db.collection('banks').document(bank_id)
+                         .collection('settlementInstructionLetters').document(letter_id))
+            
+            update_dict = letter_update.model_dump(exclude_unset=True, exclude_none=False)
+            update_dict.update({
+                # New document storage information
+                'document_name': filename,
+                'document_storage_path': upload_result["storage_path"],
+                'document_url': upload_result["public_url"],
+                'document_size': upload_result["file_size"],
+                'document_content_type': content_type,
+                'document_uploaded_at': upload_result["uploaded_at"],
+                # Standard metadata
+                'last_updated_at': datetime.now(),
+                'last_updated_by': updated_by_uid
+            })
+            
+            letter_ref.update(update_dict)
+            
+            logger.info(f"Updated settlement letter {letter_id} with new document {upload_result['storage_path']}")
+            
+            return self.get_settlement_letter(bank_id, letter_id)
+            
+        except Exception as e:
+            logger.error(f"Error updating settlement letter {letter_id} with document for bank {bank_id}: {e}")
             return None
     
     def delete_settlement_letter(self, bank_id: str, letter_id: str) -> bool:

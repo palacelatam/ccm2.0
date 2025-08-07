@@ -63,6 +63,14 @@ const BankDashboard: React.FC = () => {
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<SettlementInstructionLetter | null>(null);
   const [previewErrorMessage, setPreviewErrorMessage] = useState<string>('');
+  
+  // Document deletion state
+  const [showDeleteDocumentConfirm, setShowDeleteDocumentConfirm] = useState<SettlementInstructionLetter | null>(null);
+  const [isDeletingDocument, setIsDeletingDocument] = useState(false);
+  
+  // Letter deletion state
+  const [showDeleteLetterConfirm, setShowDeleteLetterConfirm] = useState<SettlementInstructionLetter | null>(null);
+  const [isDeletingLetter, setIsDeletingLetter] = useState(false);
 
   // Form states
   const [showLetterForm, setShowLetterForm] = useState(false);
@@ -329,6 +337,60 @@ const BankDashboard: React.FC = () => {
     setPreviewErrorMessage('');
   };
 
+  // Document deletion handlers
+  const handleDeleteDocument = (letter: SettlementInstructionLetter) => {
+    setShowDeleteDocumentConfirm(letter);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!showDeleteDocumentConfirm || !user?.profile?.organization?.id) return;
+
+    setIsDeletingDocument(true);
+    
+    try {
+      const response = await bankService.deleteSettlementLetterDocument(
+        user.profile.organization.id, 
+        showDeleteDocumentConfirm.id
+      );
+      
+      if (response.success) {
+        // Update the local state to remove document references
+        setSettlementLetters(prev =>
+          prev.map(letter => 
+            letter.id === showDeleteDocumentConfirm.id
+              ? {
+                  ...letter,
+                  documentName: undefined,
+                  documentUrl: undefined
+                }
+              : letter
+          )
+        );
+        
+        // Show success message
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: t('bank.letters.documentDeleteSuccess'),
+          type: 'success'
+        });
+      } else {
+        throw new Error(response.message || 'Failed to delete document');
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to delete document',
+        type: 'error'
+      });
+    } finally {
+      setIsDeletingDocument(false);
+      setShowDeleteDocumentConfirm(null);
+    }
+  };
+
   // Form handlers
   const handleAddLetter = () => {
     setEditingLetter(null);
@@ -371,7 +433,29 @@ const BankDashboard: React.FC = () => {
           conditions: letterForm.conditions || {}
         };
 
-        const response = await bankService.updateSettlementLetter(user?.profile?.organization?.id || '', editingLetter.id!, updateData);
+        let response;
+        
+        if (uploadedFile) {
+          // Use the new endpoint with file upload for document replacement
+          setIsUploadingDocument(true);
+          
+          const letterData = {
+            rule_name: letterForm.ruleName,
+            product: letterForm.product,
+            client_segment_id: letterForm.clientSegmentId,
+            priority: letterForm.priority || 1,
+            active: letterForm.active || true,
+            template_variables: letterForm.templateVariables || [],
+            conditions: letterForm.conditions || {}
+          };
+          
+          response = await bankService.updateSettlementLetterWithDocument(user?.profile?.organization?.id || '', editingLetter.id!, letterData, uploadedFile);
+          
+          setIsUploadingDocument(false);
+        } else {
+          // Use the original endpoint without file upload
+          response = await bankService.updateSettlementLetter(user?.profile?.organization?.id || '', editingLetter.id!, updateData);
+        }
         
         if (response.success) {
           // Map API response to local interface
@@ -518,17 +602,45 @@ const BankDashboard: React.FC = () => {
     setFilePreviewUrl(null);
   };
 
-  const handleDeleteLetter = async (letterId: string) => {
-    if (!user?.profile?.organization?.id) return;
+  const handleDeleteLetter = (letter: SettlementInstructionLetter) => {
+    setShowDeleteLetterConfirm(letter);
+  };
+
+  const confirmDeleteLetter = async () => {
+    if (!showDeleteLetterConfirm || !user?.profile?.organization?.id) return;
+    
+    setIsDeletingLetter(true);
     
     try {
-      const response = await bankService.deleteSettlementLetter(user.profile.organization.id, letterId);
+      const response = await bankService.deleteSettlementLetter(
+        user.profile.organization.id, 
+        showDeleteLetterConfirm.id
+      );
+      
       if (response.success) {
-        setSettlementLetters(prev => prev.filter(letter => letter.id !== letterId));
+        setSettlementLetters(prev => prev.filter(letter => letter.id !== showDeleteLetterConfirm.id));
+        
+        // Show success message
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Settlement instruction letter deleted successfully',
+          type: 'success'
+        });
+      } else {
+        throw new Error(response.message || 'Failed to delete settlement letter');
       }
     } catch (error) {
       console.error('Error deleting settlement letter:', error);
-      setError('Failed to delete settlement letter');
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to delete settlement letter',
+        type: 'error'
+      });
+    } finally {
+      setIsDeletingLetter(false);
+      setShowDeleteLetterConfirm(null);
     }
   };
 
@@ -1130,7 +1242,7 @@ const BankDashboard: React.FC = () => {
                       <div className="table-cell">{letter.clientSegment}</div>
                       <div className="table-cell">{letter.product}</div>
                       <div className="table-cell center">
-                        {letter.documentUrl && (
+                        {letter.documentUrl ? (
                           <button 
                             className="document-preview-button"
                             onClick={() => handleDocumentPreview(letter)}
@@ -1138,11 +1250,13 @@ const BankDashboard: React.FC = () => {
                           >
                             📄
                           </button>
+                        ) : (
+                          <span className="no-doc-text">—</span>
                         )}
                       </div>
                       <div className="table-cell actions">
                         <button className="edit-button" onClick={() => handleEditLetter(letter)}>✏️</button>
-                        <button className="delete-button" onClick={() => handleDeleteLetter(letter.id)}>🗑️</button>
+                        <button className="delete-button" onClick={() => handleDeleteLetter(letter)}>🗑️</button>
                       </div>
                     </div>
                   );
@@ -1700,6 +1814,68 @@ const BankDashboard: React.FC = () => {
                 disabled={isSavingSegments}
               >
                 {t('bank.unsavedChanges.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteDocumentConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>{t('bank.letters.deleteDocument')}</h3>
+            <p>{t('bank.letters.confirmDeleteDocument')}</p>
+            <p><strong>Rule:</strong> {showDeleteDocumentConfirm.ruleName}</p>
+            <p><strong>Document:</strong> {showDeleteDocumentConfirm.documentName}</p>
+            <p className="warning-text">{t('bank.letters.documentDeleteWarning')}</p>
+            
+            <div className="modal-actions">
+              <button 
+                className="delete-confirm-button"
+                onClick={confirmDeleteDocument}
+                disabled={isDeletingDocument}
+              >
+                {isDeletingDocument ? t('bank.letters.deletingDocument') : t('bank.letters.deleteDocument')}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => setShowDeleteDocumentConfirm(null)}
+                disabled={isDeletingDocument}
+              >
+                {t('bank.letters.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteLetterConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Delete Settlement Letter</h3>
+            <p>Are you sure you want to delete this settlement instruction letter rule?</p>
+            <p><strong>Rule:</strong> {showDeleteLetterConfirm.ruleName}</p>
+            <p><strong>Product:</strong> {showDeleteLetterConfirm.product}</p>
+            <p><strong>Segment:</strong> {showDeleteLetterConfirm.clientSegment}</p>
+            {showDeleteLetterConfirm.documentName && (
+              <p><strong>Document:</strong> {showDeleteLetterConfirm.documentName}</p>
+            )}
+            <p className="warning-text">⚠️ This action cannot be undone. The entire rule and any associated document will be permanently deleted.</p>
+            
+            <div className="modal-actions">
+              <button 
+                className="delete-confirm-button"
+                onClick={confirmDeleteLetter}
+                disabled={isDeletingLetter}
+              >
+                {isDeletingLetter ? 'Deleting...' : 'Delete Rule'}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => setShowDeleteLetterConfirm(null)}
+                disabled={isDeletingLetter}
+              >
+                Cancel
               </button>
             </div>
           </div>

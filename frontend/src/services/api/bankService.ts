@@ -251,6 +251,49 @@ class BankService {
   }
 
   /**
+   * Update settlement instruction letter with document replacement
+   */
+  async updateSettlementLetterWithDocument(
+    bankId: string, 
+    letterId: string,
+    letterData: {
+      rule_name: string;
+      product: string;
+      client_segment_id?: string;
+      priority?: number;
+      active?: boolean;
+      template_variables?: string[];
+      conditions?: Record<string, any>;
+    },
+    file: File
+  ): Promise<APIResponse<SettlementInstructionLetter>> {
+    const formData = new FormData();
+    
+    // Add form fields
+    formData.append('rule_name', letterData.rule_name);
+    formData.append('product', letterData.product);
+    formData.append('priority', String(letterData.priority || 1));
+    formData.append('active', String(letterData.active !== false)); // Default to true
+    
+    if (letterData.client_segment_id) {
+      formData.append('client_segment_id', letterData.client_segment_id);
+    }
+    
+    if (letterData.template_variables) {
+      formData.append('template_variables', JSON.stringify(letterData.template_variables));
+    }
+    
+    if (letterData.conditions) {
+      formData.append('conditions', JSON.stringify(letterData.conditions));
+    }
+    
+    // Add the PDF file
+    formData.append('document', file);
+    
+    return apiClient.putFormData(`/api/v1/banks/${bankId}/settlement-letters/${letterId}/with-document`, formData);
+  }
+
+  /**
    * Delete settlement instruction letter
    */
   async deleteSettlementLetter(bankId: string, letterId: string): Promise<APIResponse<{}>> {
@@ -263,6 +306,13 @@ class BankService {
   async previewSettlementLetterDocument(bankId: string, letterId: string, expirationMinutes?: number): Promise<APIResponse<{signed_url: string, expires_in_minutes: number, document_name: string}>> {
     const params = expirationMinutes ? `?expiration_minutes=${expirationMinutes}` : '';
     return apiClient.get(`/api/v1/banks/${bankId}/settlement-letters/${letterId}/document/preview${params}`);
+  }
+
+  /**
+   * Delete settlement instruction letter document
+   */
+  async deleteSettlementLetterDocument(bankId: string, letterId: string): Promise<APIResponse<{document_path: string, deleted_from_storage: boolean, database_updated: boolean}>> {
+    return apiClient.delete(`/api/v1/banks/${bankId}/settlement-letters/${letterId}/document`);
   }
 
   // ========== Client Assignment Methods ==========
