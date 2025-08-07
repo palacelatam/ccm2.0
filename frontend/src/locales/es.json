@@ -108,8 +108,31 @@
       "banks": "bancos",
       "trades": "operaciones",
       "ofTotalVolume": "del volumen total",
-      "missedOpportunities": "Oportunidades Perdidas",
-      "missedDescription": "Operaciones donde cotizó pero no ganó"
+      "missedOpportunities": "Trades Perdidos",
+      "missedDescription": "Operaciones donde cotizó pero no ganó",
+      "missedTrades": {
+        "title": "Trades Perdidos",
+        "client": "Cliente",
+        "product": "Producto",
+        "currencyPair": "Par de Divisas",
+        "tradeDate": "Fecha de Trade",
+        "volume": "Volumen ($M)",
+        "direction": "Dirección",
+        "yourQuote": "Su Cotización",
+        "searchTrades": "Buscar Trades",
+        "clearSearch": "Limpiar",
+        "allClients": "Todos los Clientes",
+        "allProducts": "Todos los Productos",
+        "allPairs": "Todos los Pares",
+        "allDirections": "Todas las Direcciones",
+        "searchClients": "Buscar clientes...",
+        "counterparty": "Contraparte",
+        "rate": "Tasa",
+        "difference": "Diferencia",
+        "date": "Fecha",
+        "noTradesFound": "No se encontraron operaciones que coincidan con sus criterios de búsqueda.",
+        "useFilters": "Use los filtros de búsqueda arriba para encontrar operaciones que coincidan con sus criterios."
+      }
     },
     "segmentation": {
       "title": "Segmentación de Clientes",

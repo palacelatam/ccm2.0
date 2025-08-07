@@ -172,6 +172,18 @@ const FXAnalytics: React.FC = () => {
     setSearchResults(results);
   };
 
+  const clearSearch = () => {
+    setSearchClient('');
+    setSearchClientTerm('');
+    setSearchProduct('');
+    setSearchCurrencyPair('');
+    setSearchDate('');
+    setSearchVolume('');
+    setSearchDirection('');
+    setSearchYourQuote('');
+    setSearchResults([]);
+  };
+
   const products = useMemo(() => {
     const uniqueProducts = [...new Set(tradeData.map(trade => trade['Product Type']))];
     return ['All', ...uniqueProducts.filter(product => product && product.trim() !== '')];
@@ -222,7 +234,8 @@ const FXAnalytics: React.FC = () => {
     }
     
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - parseInt(selectedPeriod));
+    const days = parseInt(selectedPeriod);
+    cutoffDate.setTime(cutoffDate.getTime() - (days * 24 * 60 * 60 * 1000));
     filtered = filtered.filter(trade => {
       const tradeDate = new Date(trade['Trade Date']);
       return tradeDate >= cutoffDate;
@@ -622,7 +635,7 @@ const FXAnalytics: React.FC = () => {
             <div className="missed-opportunities-header">
               {missedOpportunitiesExpanded && (
                 <>
-                  <h3>{t('bank.analytics.missedOpportunities', 'Missed Opportunities')}</h3>
+                  <h3>{t('bank.analytics.missedTrades.title', 'Missed Trades')}</h3>
                   <button 
                     className="expand-toggle"
                     onClick={() => setMissedOpportunitiesExpanded(false)}
@@ -643,7 +656,7 @@ const FXAnalytics: React.FC = () => {
               <div className="search-filters">
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Client</label>
+                  <label>{t('bank.analytics.missedTrades.client', 'Client')}</label>
                   <div className="searchable-dropdown-small">
                     <input
                       type="text"
@@ -651,7 +664,7 @@ const FXAnalytics: React.FC = () => {
                       onChange={handleSearchClientChange}
                       onFocus={() => setShowSearchDropdown(true)}
                       onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                      placeholder="Search clients..."
+                      placeholder={t('bank.analytics.missedTrades.searchClients', 'Search clients...')}
                       className="filter-input"
                     />
                     {showSearchDropdown && (
@@ -660,7 +673,7 @@ const FXAnalytics: React.FC = () => {
                           className="dropdown-item-small"
                           onClick={() => handleSearchClientSelect('')}
                         >
-                          All Clients
+                          {t('bank.analytics.missedTrades.allClients', 'All Clients')}
                         </div>
                         {filteredSearchClients.map(client => (
                           <div 
@@ -679,13 +692,13 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Product</label>
+                  <label>{t('bank.analytics.missedTrades.product', 'Product')}</label>
                   <select 
                     className="filter-select"
                     value={searchProduct}
                     onChange={(e) => setSearchProduct(e.target.value)}
                   >
-                    <option value="">All Products</option>
+                    <option value="">{t('bank.analytics.missedTrades.allProducts', 'All Products')}</option>
                     {products.slice(1).map(product => (
                       <option key={product} value={product}>{product}</option>
                     ))}
@@ -695,13 +708,13 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Currency Pair</label>
+                  <label>{t('bank.analytics.missedTrades.currencyPair', 'Currency Pair')}</label>
                   <select 
                     className="filter-select"
                     value={searchCurrencyPair}
                     onChange={(e) => setSearchCurrencyPair(e.target.value)}
                   >
-                    <option value="">All Pairs</option>
+                    <option value="">{t('bank.analytics.missedTrades.allPairs', 'All Pairs')}</option>
                     {currencyPairs.slice(1).map(pair => (
                       <option key={pair} value={pair}>{pair}</option>
                     ))}
@@ -711,7 +724,7 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Date</label>
+                  <label>{t('bank.analytics.missedTrades.tradeDate', 'Trade Date')}</label>
                   <input 
                     type="date" 
                     className="filter-input"
@@ -723,7 +736,7 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Volume ($M)</label>
+                  <label>{t('bank.analytics.missedTrades.volume', 'Volume ($M)')}</label>
                   <input 
                     type="number" 
                     placeholder="e.g. 5.5"
@@ -738,13 +751,13 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Direction</label>
+                  <label>{t('bank.analytics.missedTrades.direction', 'Direction')}</label>
                   <select 
                     className="filter-select"
                     value={searchDirection}
                     onChange={(e) => setSearchDirection(e.target.value)}
                   >
-                    <option value="">All Directions</option>
+                    <option value="">{t('bank.analytics.missedTrades.allDirections', 'All Directions')}</option>
                     {directions.slice(1).map(direction => (
                       <option key={direction} value={direction}>{direction}</option>
                     ))}
@@ -754,7 +767,7 @@ const FXAnalytics: React.FC = () => {
               
               <div className="filter-row">
                 <div className="filter-group-small">
-                  <label>Your Quote</label>
+                  <label>{t('bank.analytics.missedTrades.yourQuote', 'Your Quote')}</label>
                   <input 
                     type="number" 
                     placeholder="e.g. 950.5"
@@ -767,33 +780,38 @@ const FXAnalytics: React.FC = () => {
                 </div>
               </div>
               
-              <button className="search-button" onClick={performSearch}>
-                Search Trades
-              </button>
+              <div className="search-buttons">
+                <button className="search-button" onClick={performSearch}>
+                  {t('bank.analytics.missedTrades.searchTrades', 'Search Trades')}
+                </button>
+                <button className="clear-button" onClick={clearSearch}>
+                  {t('bank.analytics.missedTrades.clearSearch', 'Clear')}
+                </button>
+              </div>
             </div>
             )}
             
             {missedOpportunitiesExpanded && (
               <div className="opportunities-table">
               <div className="table-header">
-                <div className="header-cell">Client</div>
-                <div className="header-cell">Product</div>
-                <div className="header-cell">Currency</div>
-                <div className="header-cell">Volume</div>
-                <div className="header-cell">Direction</div>
-                <div className="header-cell">Counterparty</div>
-                <div className="header-cell">Rate</div>
-                {searchYourQuote && <div className="header-cell">Difference</div>}
-                <div className="header-cell">Date</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.client', 'Client')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.product', 'Product')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.currencyPair', 'Currency Pair')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.volume', 'Volume')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.direction', 'Direction')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.counterparty', 'Counterparty')}</div>
+                <div className="header-cell">{t('bank.analytics.missedTrades.rate', 'Rate')}</div>
+                {searchYourQuote && <div className="header-cell">{t('bank.analytics.missedTrades.difference', 'Difference')}</div>}
+                <div className="header-cell">{t('bank.analytics.missedTrades.date', 'Date')}</div>
               </div>
               
               {searchResults.length === 0 && (searchClient || searchProduct || searchCurrencyPair || searchDate || searchVolume) ? (
                 <div className="search-results-placeholder">
-                  <p>No trades found matching your search criteria.</p>
+                  <p>{t('bank.analytics.missedTrades.noTradesFound', 'No trades found matching your search criteria.')}</p>
                 </div>
               ) : searchResults.length === 0 ? (
                 <div className="search-results-placeholder">
-                  <p>Use the search filters above to find trades matching your criteria.</p>
+                  <p>{t('bank.analytics.missedTrades.useFilters', 'Use the search filters above to find trades matching your criteria.')}</p>
                 </div>
               ) : (
                 searchResults.slice(0, 20).map(trade => {

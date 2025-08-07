@@ -108,8 +108,31 @@
       "banks": "banks",
       "trades": "trades",
       "ofTotalVolume": "of total volume",
-      "missedOpportunities": "Missed Opportunities",
-      "missedDescription": "Trades where you quoted but did not win"
+      "missedOpportunities": "Missed Trades",
+      "missedDescription": "Trades where you quoted but did not win",
+      "missedTrades": {
+        "title": "Missed Trades",
+        "client": "Client",
+        "product": "Product",
+        "currencyPair": "Currency Pair",
+        "tradeDate": "Trade Date",
+        "volume": "Volume ($M)",
+        "direction": "Direction",
+        "yourQuote": "Your Quote",
+        "searchTrades": "Search Trades",
+        "clearSearch": "Clear",
+        "allClients": "All Clients",
+        "allProducts": "All Products",
+        "allPairs": "All Pairs",
+        "allDirections": "All Directions",
+        "searchClients": "Search clients...",
+        "counterparty": "Counterparty",
+        "rate": "Rate",
+        "difference": "Difference",
+        "date": "Date",
+        "noTradesFound": "No trades found matching your search criteria.",
+        "useFilters": "Use the search filters above to find trades matching your criteria."
+      }
     },
     "segmentation": {
       "title": "Client Segmentation",
