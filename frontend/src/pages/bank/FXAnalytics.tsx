@@ -22,6 +22,7 @@ interface RankingData {
   volume: number;
   tradeCount: number;
   marketShare: number;
+  averageDealSize: number;
   isCurrentBank: boolean;
 }
 
@@ -266,6 +267,7 @@ const FXAnalytics: React.FC = () => {
       volume: data.volume,
       tradeCount: data.count,
       marketShare: (data.volume / totalVolume) * 100,
+      averageDealSize: data.count > 0 ? data.volume / data.count : 0,
       isCurrentBank: bank === currentBank
     }));
     
@@ -324,13 +326,15 @@ const FXAnalytics: React.FC = () => {
     tooltip: {
       trigger: 'axis',
       formatter: (params: any) => {
-        const data = params[0];
+        const dataIndex = params[0].dataIndex;
+        const ranking = rankingData[dataIndex];
         return `
           <div>
-            <strong>${data.name}</strong><br/>
-            Volume: $${(data.value / 1000000).toFixed(2)}M<br/>
-            Market Share: ${rankingData[data.dataIndex].marketShare.toFixed(1)}%<br/>
-            Trade Count: ${rankingData[data.dataIndex].tradeCount}
+            <strong>${ranking.bank}</strong><br/>
+            Volume: $${(ranking.volume / 1000000).toFixed(2)}M<br/>
+            Market Share: ${ranking.marketShare.toFixed(1)}%<br/>
+            Trade Count: ${ranking.tradeCount}<br/>
+            Avg Deal Size: $${(ranking.averageDealSize / 1000000).toFixed(2)}M
           </div>
         `;
       }
@@ -346,8 +350,12 @@ const FXAnalytics: React.FC = () => {
         lineStyle: { color: '#ffffff' }
       }
     },
-    yAxis: {
+    yAxis: [{
       type: 'value',
+      name: 'Volume ($M)',
+      nameTextStyle: {
+        color: '#ffffff'
+      },
       axisLabel: {
         formatter: (value: number) => `$${(value / 1000000).toFixed(0)}M`,
         color: '#ffffff'
@@ -358,15 +366,47 @@ const FXAnalytics: React.FC = () => {
       splitLine: {
         lineStyle: { color: '#444444' }
       }
-    },
+    }, {
+      type: 'value',
+      name: 'Avg Deal Size ($M)',
+      nameTextStyle: {
+        color: '#ffffff'
+      },
+      axisLabel: {
+        formatter: (value: number) => `$${(value / 1000000).toFixed(1)}M`,
+        color: '#ffffff'
+      },
+      axisLine: {
+        lineStyle: { color: '#ffffff' }
+      },
+      splitLine: {
+        show: false
+      }
+    }],
     series: [{
+      name: 'Volume',
       type: 'bar',
+      yAxisIndex: 0,
       data: rankingData.map(d => ({
         value: d.volume,
         itemStyle: {
-          color: d.isCurrentBank ? '#4CAF50' : '#2196F3'
+          color: d.isCurrentBank ? '#FFB74D' : '#6B7280'
         }
       }))
+    }, {
+      name: 'Avg Deal Size',
+      type: 'line',
+      yAxisIndex: 1,
+      data: rankingData.map(d => d.averageDealSize),
+      lineStyle: {
+        color: '#00BCD4',
+        width: 3
+      },
+      itemStyle: {
+        color: '#00BCD4'
+      },
+      symbol: 'circle',
+      symbolSize: 6
     }]
   };
 
