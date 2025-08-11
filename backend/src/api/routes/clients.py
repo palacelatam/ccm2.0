@@ -2,7 +2,7 @@
 Client management routes
 """
 
-from fastapi import APIRouter, Request, HTTPException, status, Path, UploadFile, File
+from fastapi import APIRouter, Request, HTTPException, status, Path, UploadFile, File, Form
 from typing import List, Dict, Any
 import logging
 
@@ -671,17 +671,18 @@ async def get_all_email_confirmations(
 async def upload_trades(
     request: Request,
     client_id: str = Path(..., description="Client ID"),
-    file: UploadFile = File(..., description="Excel/CSV file with trade data")
+    file: UploadFile = File(..., description="CSV file with trade data"),
+    overwrite: bool = Form(False, description="Whether to overwrite existing unmatched trades")
 ):
-    """Upload Excel/CSV file with trade data"""
+    """Upload CSV file with trade data"""
     auth_context = get_auth_context(request)
     validate_client_access(auth_context, client_id)
     
-    # Check file type
-    if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+    # Check file type - now only CSV
+    if not file.filename.lower().endswith('.csv'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be Excel (.xlsx, .xls) or CSV (.csv) format"
+            detail="File must be CSV (.csv) format"
         )
     
     client_service = ClientService()
@@ -691,44 +692,44 @@ async def upload_trades(
         raise HTTPException(status_code=404, detail="Client not found")
     
     try:
-        # Create upload session
-        session_id = await client_service.create_upload_session(
+        # Read file content
+        csv_content = await file.read()
+        
+        # Try to decode with different encodings
+        try:
+            csv_string = csv_content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                csv_string = csv_content.decode('latin-1')
+            except UnicodeDecodeError:
+                try:
+                    csv_string = csv_content.decode('cp1252')
+                except UnicodeDecodeError:
+                    csv_string = csv_content.decode('utf-8', errors='replace')
+        
+        # Process CSV and insert trades
+        result = await client_service.process_csv_upload(
             client_id=client_id,
-            file_name=file.filename,
-            file_type="trades",
-            file_size=file.size,
-            uploaded_by=auth_context.user_uid
+            csv_content=csv_string,
+            overwrite_existing=overwrite,
+            uploaded_by=auth_context.uid,
+            filename=file.filename
         )
         
-        if not session_id:
+        if not result['success']:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create upload session"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"CSV processing failed: {'; '.join(result['errors'])}"
             )
-        
-        # TODO: Process file content (will be implemented in later phase)
-        # For now, just create a placeholder processing result
-        
-        await client_service.update_upload_session(
-            client_id=client_id,
-            session_id=session_id,
-            records_processed=0,
-            records_failed=0,
-            status="completed"
-        )
         
         return APIResponse(
             success=True,
-            data={
-                "upload_session_id": session_id,
-                "file_name": file.filename,
-                "file_size": file.size,
-                "records_processed": 0,
-                "message": "Upload session created successfully. File processing will be implemented in next phase."
-            },
-            message="Trade file upload initiated"
+            data=result,
+            message=f"Successfully processed {result['records_processed']} trades"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error uploading trade file for client {client_id}: {e}")
         raise HTTPException(
@@ -767,7 +768,7 @@ async def upload_emails(
             file_name=file.filename,
             file_type="emails",
             file_size=file.size,
-            uploaded_by=auth_context.user_uid
+            uploaded_by=auth_context.uid
         )
         
         if not session_id:
@@ -804,6 +805,59 @@ async def upload_emails(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process email file: {str(e)}"
+        )
+
+
+@router.delete("/{client_id}/unmatched-trades", response_model=APIResponse[Dict[str, Any]])
+async def delete_all_unmatched_trades(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Delete all unmatched trades for a client"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        # Get current count of unmatched trades before deletion
+        trades = await client_service.get_unmatched_trades(client_id)
+        trades_count = len(trades)
+        
+        if trades_count == 0:
+            return APIResponse(
+                success=True,
+                data={
+                    "trades_deleted": 0,
+                    "message": "No unmatched trades to delete"
+                },
+                message="No unmatched trades found"
+            )
+        
+        # Delete all unmatched trades
+        deleted_count = await client_service.delete_all_unmatched_trades(
+            client_id=client_id,
+            deleted_by=auth_context.uid
+        )
+        
+        return APIResponse(
+            success=True,
+            data={
+                "trades_deleted": deleted_count,
+                "message": f"Successfully deleted {deleted_count} unmatched trades"
+            },
+            message=f"Deleted {deleted_count} unmatched trades"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error deleting unmatched trades for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete unmatched trades: {str(e)}"
         )
 
 

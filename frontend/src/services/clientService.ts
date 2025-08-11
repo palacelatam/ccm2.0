@@ -181,9 +181,17 @@ class ClientService {
    * Upload trade file (Excel/CSV)
    */
   async uploadTradeFile(clientId: string, file: File): Promise<UploadResult> {
+    return this.uploadTradeFileWithOverwrite(clientId, file, false);
+  }
+
+  /**
+   * Upload trade file with overwrite option
+   */
+  async uploadTradeFileWithOverwrite(clientId: string, file: File, overwrite: boolean = false): Promise<UploadResult> {
     const token = await this.getAuthToken();
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('overwrite', overwrite.toString());
 
     const response = await fetch(`${this.baseURL}/${clientId}/upload-trades`, {
       method: 'POST',
@@ -199,7 +207,7 @@ class ClientService {
       
       try {
         const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.message || errorMessage;
+        errorMessage = errorJson.message || errorJson.detail || errorMessage;
       } catch {
         // Use default error message
       }
@@ -243,6 +251,17 @@ class ClientService {
 
     const result: APIResponse<UploadResult> = await response.json();
     return result.data;
+  }
+
+  /**
+   * Delete all unmatched trades for a client
+   */
+  async deleteAllUnmatchedTrades(clientId: string): Promise<{trades_deleted: number, message: string}> {
+    const response = await this.makeRequest<{trades_deleted: number, message: string}>(
+      `${this.baseURL}/${clientId}/unmatched-trades`,
+      { method: 'DELETE' }
+    );
+    return response.data;
   }
 
   /**

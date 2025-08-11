@@ -1,38 +1,5 @@
-Uncaught runtime errors:
-×
-ERROR
-Objects are not valid as a React child (found: [object HTMLDivElement]). If you meant to render a collection of children, use an array instead.
-    at throwOnInvalidObjectType (http://localhost:3000/static/js/bundle.js:252028:13)
-    at reconcileChildFibers (http://localhost:3000/static/js/bundle.js:252804:11)
-    at reconcileChildren (http://localhost:3000/static/js/bundle.js:257220:32)
-    at mountIndeterminateComponent (http://localhost:3000/static/js/bundle.js:258064:9)
-    at beginWork (http://localhost:3000/static/js/bundle.js:259299:20)
-    at HTMLUnknownElement.callCallback (http://localhost:3000/static/js/bundle.js:244280:18)
-    at Object.invokeGuardedCallbackDev (http://localhost:3000/static/js/bundle.js:244324:20)
-    at invokeGuardedCallback (http://localhost:3000/static/js/bundle.js:244381:35)
-    at beginWork$1 (http://localhost:3000/static/js/bundle.js:264280:11)
-    at performUnitOfWork (http://localhost:3000/static/js/bundle.js:263528:16)
-ERROR
-Objects are not valid as a React child (found: [object HTMLDivElement]). If you meant to render a collection of children, use an array instead.
-    at throwOnInvalidObjectType (http://localhost:3000/static/js/bundle.js:252028:13)
-    at reconcileChildFibers (http://localhost:3000/static/js/bundle.js:252804:11)
-    at reconcileChildren (http://localhost:3000/static/js/bundle.js:257220:32)
-    at mountIndeterminateComponent (http://localhost:3000/static/js/bundle.js:258064:9)
-    at beginWork (http://localhost:3000/static/js/bundle.js:259299:20)
-    at HTMLUnknownElement.callCallback (http://localhost:3000/static/js/bundle.js:244280:18)
-    at Object.invokeGuardedCallbackDev (http://localhost:3000/static/js/bundle.js:244324:20)
-    at invokeGuardedCallback (http://localhost:3000/static/js/bundle.js:244381:35)
-    at beginWork$1 (http://localhost:3000/static/js/bundle.js:264280:11)
-    at performUnitOfWork (http://localhost:3000/static/js/bundle.js:263528:16)
-ERROR
-Objects are not valid as a React child (found: [object HTMLDivElement]). If you meant to render a collection of children, use an array instead.
-    at throwOnInvalidObjectType (http://localhost:3000/static/js/bundle.js:252028:13)
-    at reconcileChildFibers (http://localhost:3000/static/js/bundle.js:252804:11)
-    at reconcileChildren (http://localhost:3000/static/js/bundle.js:257220:32)
-    at mountIndeterminateComponent (http://localhost:3000/static/js/bundle.js:258064:9)
-    at beginWork (http://localhost:3000/static/js/bundle.js:259299:20)
-    at beginWork$1 (http://localhost:3000/static/js/bundle.js:264258:18)
-    at performUnitOfWork (http://localhost:3000/static/js/bundle.js:263528:16)
-    at workLoopSync (http://localhost:3000/static/js/bundle.js:263451:9)
-    at renderRootSync (http://localhost:3000/static/js/bundle.js:263424:11)
-    at recoverFromConcurrentError (http://localhost:3000/static/js/bundle.js:262916:24)
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#00e7ff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>

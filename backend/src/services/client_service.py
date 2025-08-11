@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 
 from config.firebase_config import get_cmek_firestore_client
+from services.csv_parser import CSVParserService
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
@@ -27,6 +28,7 @@ class ClientService:
     
     def __init__(self):
         self.db = get_cmek_firestore_client()
+        self.csv_parser = CSVParserService()
     
     # ========== Client Management Methods ==========
     
@@ -518,11 +520,10 @@ class ClientService:
     # ========== Trade Management Methods ==========
     
     async def get_unmatched_trades(self, client_id: str) -> List[Dict[str, Any]]:
-        """Get all unmatched trades for a client"""
+        """Get all trades for a client (both matched and unmatched)"""
         try:
             trades_ref = self.db.collection('clients').document(client_id).collection('trades')
-            query = trades_ref.where('status', '==', 'unmatched')  # Let frontend handle sorting
-            docs = query.stream()
+            docs = trades_ref.stream()  # Get ALL trades, not just unmatched
             
             trades = []
             for doc in docs:
@@ -530,10 +531,10 @@ class ClientService:
                 trade_data['id'] = doc.id
                 trades.append(trade_data)  # Return raw dict to preserve v1.0 field names
             
-            logger.info(f"Retrieved {len(trades)} unmatched trades for client {client_id}")
+            logger.info(f"Retrieved {len(trades)} total trades for client {client_id}")
             return trades
         except Exception as e:
-            logger.error(f"Error getting unmatched trades for client {client_id}: {e}")
+            logger.error(f"Error getting trades for client {client_id}: {e}")
             return []
     
     async def save_trade_from_upload(self, client_id: str, trade_data: dict, upload_session_id: str) -> bool:
@@ -787,6 +788,175 @@ class ClientService:
             email_ref.update({'status': status, 'updatedAt': datetime.now()})
         except Exception as e:
             logger.error(f"Error updating email status for {email_id}: {e}")
+    
+    # ========== CSV Upload Methods ==========
+    
+    async def process_csv_upload(self, client_id: str, csv_content: str, 
+                                overwrite_existing: bool, uploaded_by: str, 
+                                filename: str) -> Dict[str, Any]:
+        """Process CSV upload and insert trade data"""
+        try:
+            # Parse CSV content
+            trades, parsing_errors = self.csv_parser.parse_csv_content(csv_content)
+            
+            if parsing_errors:
+                logger.warning(f"CSV parsing errors for client {client_id}: {parsing_errors}")
+            
+            # Validate required fields
+            validation_errors = self.csv_parser.validate_required_fields(trades)
+            if validation_errors:
+                return {
+                    'success': False,
+                    'errors': validation_errors,
+                    'records_processed': 0,
+                    'records_failed': len(validation_errors)
+                }
+            
+            # Create upload session
+            session_id = await self.create_upload_session(
+                client_id=client_id,
+                file_name=filename,
+                file_type="trades",
+                file_size=len(csv_content),
+                uploaded_by=uploaded_by
+            )
+            
+            records_processed = 0
+            records_failed = len(parsing_errors)
+            
+            # Process trades
+            if trades:
+                # If overwrite is true, delete existing unmatched trades
+                if overwrite_existing:
+                    await self._delete_unmatched_trades(client_id)
+                    logger.info(f"Deleted existing unmatched trades for client {client_id}")
+                
+                # Insert new trades
+                success_count = await self._insert_trades_batch(client_id, trades, session_id)
+                records_processed = success_count
+                records_failed += (len(trades) - success_count)
+            
+            # Update upload session
+            session_status = "completed" if records_failed == 0 else "completed_with_errors"
+            await self.update_upload_session(
+                client_id=client_id,
+                session_id=session_id,
+                records_processed=records_processed,
+                records_failed=records_failed,
+                status=session_status
+            )
+            
+            logger.info(f"CSV upload complete for client {client_id}: {records_processed} processed, {records_failed} failed")
+            
+            return {
+                'success': True,
+                'upload_session_id': session_id,
+                'file_name': filename,
+                'records_processed': records_processed,
+                'records_failed': records_failed,
+                'parsing_errors': parsing_errors,
+                'overwrite_applied': overwrite_existing,
+                'message': f"Successfully processed {records_processed} trades" + 
+                          (f" with {records_failed} errors" if records_failed > 0 else "")
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing CSV upload for client {client_id}: {e}")
+            return {
+                'success': False,
+                'errors': [str(e)],
+                'records_processed': 0,
+                'records_failed': 0
+            }
+    
+    async def delete_all_unmatched_trades(self, client_id: str, deleted_by: str) -> int:
+        """
+        Public method to delete all unmatched trades for a client
+        
+        Args:
+            client_id: ID of the client
+            deleted_by: UID of the user performing the deletion
+            
+        Returns:
+            Number of trades deleted
+        """
+        try:
+            # Use the existing private method
+            deleted_count = await self._delete_unmatched_trades(client_id)
+            
+            # Log the deletion action with user info
+            logger.info(f"User {deleted_by} deleted {deleted_count} unmatched trades for client {client_id}")
+            
+            return deleted_count
+        except Exception as e:
+            logger.error(f"Error in public delete method for client {client_id}: {e}")
+            raise e
+
+    async def _delete_unmatched_trades(self, client_id: str) -> int:
+        """Delete all unmatched trades for a client"""
+        try:
+            trades_ref = self.db.collection('clients').document(client_id).collection('trades')
+            
+            # First, let's see what trades exist and their status values
+            all_docs = trades_ref.stream()
+            all_trades_info = []
+            for doc in all_docs:
+                trade_data = doc.to_dict()
+                all_trades_info.append({
+                    'id': doc.id,
+                    'status': trade_data.get('status', 'NO_STATUS_FIELD'),
+                    'trade_number': trade_data.get('TradeNumber', 'NO_TRADE_NUMBER')
+                })
+            
+            logger.info(f"Found {len(all_trades_info)} total trades for client {client_id}")
+            for trade in all_trades_info:
+                logger.info(f"Trade {trade['id']}: status='{trade['status']}', trade_number='{trade['trade_number']}'")
+            
+            # Now delete trades with status 'unmatched'
+            query = trades_ref.where('status', '==', 'unmatched')
+            docs = query.stream()
+            
+            deleted_count = 0
+            for doc in docs:
+                logger.info(f"Deleting trade {doc.id} with status 'unmatched'")
+                doc.reference.delete()
+                deleted_count += 1
+            
+            logger.info(f"Deleted {deleted_count} unmatched trades for client {client_id}")
+            return deleted_count
+        except Exception as e:
+            logger.error(f"Error deleting unmatched trades for client {client_id}: {e}")
+            return 0
+    
+    async def _insert_trades_batch(self, client_id: str, trades: List[Dict[str, Any]], 
+                                  session_id: str) -> int:
+        """Insert trades in batch with error handling"""
+        try:
+            trades_ref = self.db.collection('clients').document(client_id).collection('trades')
+            success_count = 0
+            
+            for trade in trades:
+                try:
+                    # Add metadata
+                    trade_doc = {
+                        **trade,
+                        'uploadSessionId': session_id,
+                        'organizationId': client_id,
+                        'createdAt': datetime.now()
+                    }
+                    
+                    trades_ref.add(trade_doc)
+                    success_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Failed to insert trade {trade.get('TradeNumber', 'unknown')}: {e}")
+            
+            logger.info(f"Successfully inserted {success_count} trades for client {client_id}")
+            return success_count
+            
+        except Exception as e:
+            logger.error(f"Error inserting trades batch for client {client_id}: {e}")
+            return 0
     
     # ========== Utility Methods ==========
     

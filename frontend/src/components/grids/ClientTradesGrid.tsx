@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import { clientService, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
+import AlertModal from '../common/AlertModal';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
@@ -17,6 +18,13 @@ const ClientTradesGrid: React.FC = () => {
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [overwriteData, setOverwriteData] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState<{tradesCount: number, message: string} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get client ID from user context (assuming user has organization data)
   const clientId = user?.organization?.id || user?.id;
@@ -24,7 +32,7 @@ const ClientTradesGrid: React.FC = () => {
   useEffect(() => {
     if (!clientId) {
       setLoading(false);
-      setError('No client ID available');
+      setError(t('grid.messages.noClientId'));
       return;
     }
 
@@ -36,7 +44,7 @@ const ClientTradesGrid: React.FC = () => {
         setTrades(tradesData);
       } catch (error) {
         console.error('Error loading trades:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load trades');
+        setError(error instanceof Error ? error.message : t('grid.messages.uploadFailed'));
       } finally {
         setLoading(false);
       }
@@ -47,30 +55,40 @@ const ClientTradesGrid: React.FC = () => {
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
+      headerName: t('grid.columns.status'), 
+      field: 'status', 
+      width: 150, 
+      sortable: true, 
+      filter: true,
+      cellRenderer: StatusCellRenderer
+    },
+    { 
       headerName: t('grid.columns.tradeNumber'), 
       field: 'TradeNumber', 
-      width: 70, 
+      width: 90, 
       sortable: true, 
-      filter: true 
+      filter: true,
+      sort: 'asc',
+      sortIndex: 0
     },
     { 
       headerName: t('grid.columns.counterparty'), 
       field: 'CounterpartyName', 
-      width: 180, 
+      width: 140, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.productType'), 
       field: 'ProductType', 
-      width: 120, 
+      width: 90, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.tradeDate'), 
       field: 'TradeDate', 
-      width: 120,
+      width: 130,
       sortable: true, 
       filter: true,
       valueFormatter: (params) => {
@@ -84,7 +102,7 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.valueDate'), 
       field: 'ValueDate', 
-      width: 120,
+      width: 130,
       sortable: true, 
       filter: true,
       valueFormatter: (params) => {
@@ -98,21 +116,21 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.direction'), 
       field: 'Direction', 
-      width: 60, 
+      width: 70, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.currency1'), 
       field: 'Currency1', 
-      width: 90, 
+      width: 70, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.amount'), 
       field: 'QuantityCurrency1', 
-      width: 100, 
+      width: 130, 
       sortable: true, 
       filter: true, 
       valueFormatter: (params) => params.value.toLocaleString('en-US', {
@@ -123,7 +141,7 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.price'), 
       field: 'ForwardPrice', 
-      width: 110, 
+      width: 100, 
       sortable: true, 
       filter: true, 
       valueFormatter: (params) => params.value.toLocaleString('en-US', {
@@ -134,14 +152,14 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.currency2'), 
       field: 'Currency2', 
-      width: 90, 
+      width: 70, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.maturityDate'), 
       field: 'MaturityDate', 
-      width: 120,
+      width: 130,
       sortable: true, 
       filter: true,
       valueFormatter: (params) => {
@@ -155,28 +173,28 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.fixingReference'), 
       field: 'FixingReference', 
-      width: 100, 
+      width: 120, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.settlementType'), 
       field: 'SettlementType', 
-      width: 100, 
+      width: 130, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.settlementCurrency'), 
       field: 'SettlementCurrency', 
-      width: 100, 
+      width: 120, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.paymentDate'), 
       field: 'PaymentDate', 
-      width: 120,
+      width: 130,
       sortable: true, 
       filter: true,
       valueFormatter: (params) => {
@@ -190,18 +208,103 @@ const ClientTradesGrid: React.FC = () => {
     { 
       headerName: t('grid.columns.counterpartyPaymentMethod'), 
       field: 'CounterpartyPaymentMethod', 
-      width: 100, 
+      width: 160, 
       sortable: true, 
       filter: true 
     },
     { 
       headerName: t('grid.columns.ourPaymentMethod'), 
       field: 'OurPaymentMethod', 
-      width: 100, 
+      width: 140, 
       sortable: true, 
       filter: true 
     }
   ], [t]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !clientId) {
+      if (!clientId) setUploadMessage(t('grid.messages.noClientId'));
+      return;
+    }
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setUploadMessage(t('grid.messages.selectCsvFile'));
+      return;
+    }
+
+    setUploading(true);
+    setUploadMessage(null);
+
+    try {
+      // Use existing clientService method with overwrite parameter
+      const result = await clientService.uploadTradeFileWithOverwrite(clientId, file, overwriteData);
+      
+      // Refresh the trades data
+      const tradesData = await clientService.getUnmatchedTrades(clientId);
+      setTrades(tradesData);
+      
+      // Show success modal
+      setSuccessData({
+        tradesCount: result.records_processed,
+        message: `${t('grid.messages.successfullyProcessed').replace('{count}', result.records_processed.toString())}`
+      });
+      setShowSuccessModal(true);
+      setUploadMessage(null); // Clear any previous messages
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadMessage(error instanceof Error ? error.message : t('grid.messages.uploadFailed'));
+      setShowSuccessModal(false);
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleDeleteAllTrades = async () => {
+    if (!clientId) {
+      setUploadMessage(t('grid.messages.noClientId'));
+      return;
+    }
+
+    const confirmed = window.confirm(t('grid.messages.confirmDeleteTrades'));
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setUploadMessage(null);
+
+    try {
+      // Use the real delete endpoint
+      const result = await clientService.deleteAllUnmatchedTrades(clientId);
+      
+      // Refresh the trades data from database instead of clearing grid
+      const tradesData = await clientService.getUnmatchedTrades(clientId);
+      setTrades(tradesData);
+      
+      setSuccessData({
+        tradesCount: result.trades_deleted,
+        message: `${t('grid.messages.successfullyDeleted').replace('{count}', result.trades_deleted.toString())}`
+      });
+      setShowSuccessModal(true);
+      setUploadMessage(null);
+      
+    } catch (error) {
+      console.error('Delete error:', error);
+      setUploadMessage(error instanceof Error ? error.message : t('grid.messages.deleteFailed'));
+      setShowSuccessModal(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
@@ -226,7 +329,7 @@ const ClientTradesGrid: React.FC = () => {
   if (loading) {
     return (
       <div className="ag-theme-alpine-dark trade-grid loading-state">
-        <div className="loading-message">Loading trades...</div>
+        <div className="loading-message">{t('grid.messages.loading')}</div>
       </div>
     );
   }
@@ -235,12 +338,12 @@ const ClientTradesGrid: React.FC = () => {
     return (
       <div className="ag-theme-alpine-dark trade-grid error-state">
         <div className="error-message">
-          Error loading trades: {error}
+          {t('grid.messages.errorLoading')}: {error}
           <button 
             onClick={() => window.location.reload()} 
             className="retry-button"
           >
-            Retry
+            {t('grid.messages.retry')}
           </button>
         </div>
       </div>
@@ -248,28 +351,143 @@ const ClientTradesGrid: React.FC = () => {
   }
 
   return (
-    <div className="ag-theme-alpine-dark trade-grid">
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Upload Controls */}
+      <div className="grid-header-controls" style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        alignItems: 'center', 
+        borderBottom: '1px solid #333',
+        marginTop: '-16px',
+        marginBottom: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {uploadMessage && (
+            <div style={{ 
+              color: uploadMessage.includes('Successfully') ? '#28a745' : '#dc3545',
+              fontSize: '14px',
+              marginRight: '15px'
+            }}>
+              {uploadMessage}
+            </div>
+          )}
+          
+          <div className="upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={handleDeleteAllTrades}
+              disabled={uploading || deleting || trades.length === 0}
+              title={deleting ? t('grid.messages.deleting') : t('grid.messages.deleteAllUnmatched')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: (uploading || deleting || trades.length === 0) ? 'not-allowed' : 'pointer',
+                opacity: (uploading || deleting || trades.length === 0) ? 0.5 : 1,
+                transition: 'opacity 0.2s ease'
+              }}
+            >
+              {deleting ? (
+                <span style={{ fontSize: '16px' }}>⏳</span>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4a9eff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              )}
+            </button>
+            
+            <button 
+              onClick={triggerFileUpload}
+              disabled={uploading || deleting}
+              title={uploading ? t('grid.messages.uploading') : t('grid.messages.uploadCsvFile')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: (uploading || deleting) ? 'not-allowed' : 'pointer',
+                opacity: (uploading || deleting) ? 0.5 : 1,
+                transition: 'opacity 0.2s ease'
+              }}
+            >
+              {uploading ? (
+                <span style={{ fontSize: '16px' }}>⏳</span>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4a9eff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              )}
+            </button>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fff', fontSize: '14px', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                checked={overwriteData}
+                onChange={(e) => setOverwriteData(e.target.checked)}
+                disabled={uploading || deleting}
+              />
+              {t('grid.messages.overwriteExistingTrades')}
+            </label>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Grid Content */}
       {trades.length === 0 ? (
-        <div className="empty-state">
-          No unmatched trades found. Upload a trade file to get started.
+        <div className="empty-state" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3b3' }}>
+          {t('grid.messages.noTradesFound')}
         </div>
       ) : (
-        <AgGridReact
-          rowData={trades}
-          columnDefs={columnDefs}
-          getContextMenuItems={getContextMenuItems}
-          pagination={true}
-          paginationPageSize={100}
-          enableRangeSelection={true}
-          allowContextMenuWithControlKey={true}
-          suppressMovableColumns={false}
-          domLayout="autoHeight"
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-            minWidth: 80
-          }}
+        <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
+          <AgGridReact
+            rowData={trades}
+            columnDefs={columnDefs}
+            getContextMenuItems={getContextMenuItems}
+            pagination={true}
+            paginationPageSize={50}
+            enableRangeSelection={true}
+            allowContextMenuWithControlKey={true}
+            suppressMovableColumns={false}
+            domLayout="normal"
+            defaultColDef={{
+              sortable: true,
+              filter: true,
+              resizable: true,
+              minWidth: 80
+            }}
+            sortingOrder={['asc', 'desc']}
+          />
+        </div>
+      )}
+      
+      {/* Success Modal */}
+      {showSuccessModal && successData && (
+        <AlertModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          title={t('grid.messages.uploadSuccessful')}
+          message={successData.message}
+          type="success"
         />
       )}
     </div>

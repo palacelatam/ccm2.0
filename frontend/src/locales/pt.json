@@ -455,6 +455,25 @@
       "processed": "Processado",
       "error": "Erro",
       "default": "Desconhecido"
+    },
+    "messages": {
+      "loading": "Carregando operações...",
+      "errorLoading": "Erro ao carregar operações",
+      "retry": "Tentar novamente",
+      "noClientId": "ID do cliente não disponível",
+      "selectCsvFile": "Por favor selecione um arquivo CSV",
+      "uploading": "Carregando...",
+      "uploadCsvFile": "Carregar arquivo CSV",
+      "deleting": "Excluindo...",
+      "deleteAllUnmatched": "Excluir todas as operações não correspondidas",
+      "overwriteExistingTrades": "Sobrescrever operações existentes",
+      "noTradesFound": "Nenhuma operação encontrada. Carregue um arquivo para começar.",
+      "uploadSuccessful": "Carregamento Bem-sucedido",
+      "confirmDeleteTrades": "Tem certeza de que deseja excluir todas as operações não correspondidas? Esta ação não pode ser desfeita.",
+      "uploadFailed": "Falha no carregamento",
+      "deleteFailed": "Falha na exclusão",
+      "successfullyProcessed": "{count} operações processadas com sucesso",
+      "successfullyDeleted": "{count} operações não correspondidas excluídas com sucesso"
     }
   }
 }

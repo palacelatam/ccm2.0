@@ -487,6 +487,25 @@
       "processed": "Processed",
       "error": "Error",
       "default": "Unknown"
+    },
+    "messages": {
+      "loading": "Loading trades...",
+      "errorLoading": "Error loading trades",
+      "retry": "Retry",
+      "noClientId": "No client ID available",
+      "selectCsvFile": "Please select a CSV file",
+      "uploading": "Uploading...",
+      "uploadCsvFile": "Upload CSV file",
+      "deleting": "Deleting...",
+      "deleteAllUnmatched": "Delete all unmatched trades",
+      "overwriteExistingTrades": "Overwrite existing trades",
+      "noTradesFound": "No trades found. Upload a trade file to get started.",
+      "uploadSuccessful": "Upload Successful",
+      "confirmDeleteTrades": "Are you sure you want to delete all unmatched trades? This action cannot be undone.",
+      "uploadFailed": "Upload failed",
+      "deleteFailed": "Delete failed",
+      "successfullyProcessed": "Successfully processed {count} trades",
+      "successfullyDeleted": "Successfully deleted {count} unmatched trades"
     }
   }
 }
