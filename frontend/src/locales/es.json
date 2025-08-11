@@ -442,6 +442,7 @@
     },
     "columns": {
       "tradeId": "ID Trade",
+      "tradeNumber": "Número Trade",
       "counterparty": "Contraparte",
       "productType": "Tipo de Producto",
       "tradeDate": "Fecha de Trade",
@@ -461,6 +462,14 @@
       "status": "Estado",
       "confidence": "Confianza",
       "received": "Recibido",
+      "time": "Hora",
+      "sender": "Remitente",
+      "subject": "Asunto",
+      "bankTradeNumber": "Nº Trade Banco",
+      "emailId": "ID Email",
+      "matchReasons": "Razones de Coincidencia",
+      "discrepancies": "Discrepancias",
+      "matchDate": "Fecha de Coincidencia",
       "bank": "Banco",
       "source": "Origen"
     },

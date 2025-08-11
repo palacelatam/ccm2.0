@@ -2,7 +2,7 @@
 Client management routes
 """
 
-from fastapi import APIRouter, Request, HTTPException, status, Path
+from fastapi import APIRouter, Request, HTTPException, status, Path, UploadFile, File
 from typing import List, Dict, Any
 import logging
 
@@ -14,7 +14,8 @@ from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
     SettlementRule, SettlementRuleCreate, SettlementRuleUpdate,
-    DataMapping, DataMappingCreate, DataMappingUpdate
+    DataMapping, DataMappingCreate, DataMappingUpdate,
+    UnmatchedTrade, EmailConfirmation, TradeMatch, ProcessingResult
 )
 
 logger = logging.getLogger(__name__)
@@ -567,3 +568,286 @@ async def delete_data_mapping(
         data={},
         message="Data mapping deleted successfully"
     )
+
+
+# ========== Trade Management Endpoints ==========
+
+@router.get("/{client_id}/unmatched-trades", response_model=APIResponse[List[Dict[str, Any]]])
+async def get_unmatched_trades(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get all unmatched trades for client"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    trades = await client_service.get_unmatched_trades(client_id)
+    
+    return APIResponse(
+        success=True,
+        data=trades,
+        message=f"Retrieved {len(trades)} unmatched trades"
+    )
+
+
+@router.get("/{client_id}/email-confirmations", response_model=APIResponse[List[EmailConfirmation]])
+async def get_email_confirmations(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get all email confirmations for client"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    emails = await client_service.get_email_confirmations(client_id)
+    
+    return APIResponse(
+        success=True,
+        data=emails,
+        message=f"Retrieved {len(emails)} email confirmations"
+    )
+
+
+@router.get("/{client_id}/matches", response_model=APIResponse[List[TradeMatch]])
+async def get_matches(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get all trade matches for client"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    matches = await client_service.get_matches(client_id)
+    
+    return APIResponse(
+        success=True,
+        data=matches,
+        message=f"Retrieved {len(matches)} trade matches"
+    )
+
+
+@router.get("/{client_id}/matched-trades", response_model=APIResponse[List[Dict[str, Any]]])
+async def get_matched_trades(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get matched trades with enriched match information"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    matched_trades = await client_service.get_matched_trades(client_id)
+    
+    return APIResponse(
+        success=True,
+        data=matched_trades,
+        message=f"Retrieved {len(matched_trades)} matched trades"
+    )
+
+
+@router.get("/{client_id}/all-email-confirmations", response_model=APIResponse[List[Dict[str, Any]]])
+async def get_all_email_confirmations(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get all email confirmations with extracted trade data"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    emails = await client_service.get_all_email_confirmations(client_id)
+    
+    return APIResponse(
+        success=True,
+        data=emails,
+        message=f"Retrieved {len(emails)} email confirmations"
+    )
+
+
+@router.post("/{client_id}/upload-trades", response_model=APIResponse[Dict[str, Any]])
+async def upload_trades(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    file: UploadFile = File(..., description="Excel/CSV file with trade data")
+):
+    """Upload Excel/CSV file with trade data"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    # Check file type
+    if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be Excel (.xlsx, .xls) or CSV (.csv) format"
+        )
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        # Create upload session
+        session_id = await client_service.create_upload_session(
+            client_id=client_id,
+            file_name=file.filename,
+            file_type="trades",
+            file_size=file.size,
+            uploaded_by=auth_context.user_uid
+        )
+        
+        if not session_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create upload session"
+            )
+        
+        # TODO: Process file content (will be implemented in later phase)
+        # For now, just create a placeholder processing result
+        
+        await client_service.update_upload_session(
+            client_id=client_id,
+            session_id=session_id,
+            records_processed=0,
+            records_failed=0,
+            status="completed"
+        )
+        
+        return APIResponse(
+            success=True,
+            data={
+                "upload_session_id": session_id,
+                "file_name": file.filename,
+                "file_size": file.size,
+                "records_processed": 0,
+                "message": "Upload session created successfully. File processing will be implemented in next phase."
+            },
+            message="Trade file upload initiated"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error uploading trade file for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process trade file: {str(e)}"
+        )
+
+
+@router.post("/{client_id}/upload-emails", response_model=APIResponse[Dict[str, Any]])
+async def upload_emails(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    file: UploadFile = File(..., description="Email file (.msg/.pdf)")
+):
+    """Upload .msg/.pdf email files"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    # Check file type
+    if not file.filename.lower().endswith(('.msg', '.pdf')):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be email (.msg) or PDF (.pdf) format"
+        )
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        # Create upload session
+        session_id = await client_service.create_upload_session(
+            client_id=client_id,
+            file_name=file.filename,
+            file_type="emails",
+            file_size=file.size,
+            uploaded_by=auth_context.user_uid
+        )
+        
+        if not session_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create upload session"
+            )
+        
+        # TODO: Process email file (will be implemented in later phase)
+        # For now, just create a placeholder processing result
+        
+        await client_service.update_upload_session(
+            client_id=client_id,
+            session_id=session_id,
+            records_processed=0,
+            records_failed=0,
+            status="completed"
+        )
+        
+        return APIResponse(
+            success=True,
+            data={
+                "upload_session_id": session_id,
+                "file_name": file.filename,
+                "file_size": file.size,
+                "records_processed": 0,
+                "message": "Upload session created successfully. Email processing will be implemented in next phase."
+            },
+            message="Email file upload initiated"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error uploading email file for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process email file: {str(e)}"
+        )
+
+
+@router.post("/{client_id}/process-matches", response_model=APIResponse[Dict[str, Any]])
+async def process_matches(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Run matching algorithm on unmatched trades and emails"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        # Get unmatched trades and emails
+        trades = await client_service.get_unmatched_trades(client_id)
+        emails = await client_service.get_email_confirmations(client_id)
+        
+        # TODO: Implement actual matching algorithm in later phase
+        # For now, return placeholder data
+        
+        matches_found = 0
+        confidence_scores = []
+        
+        return APIResponse(
+            success=True,
+            data={
+                "unmatched_trades": len(trades),
+                "unmatched_emails": len(emails),
+                "matches_found": matches_found,
+                "confidence_scores": confidence_scores,
+                "message": "Matching algorithm will be implemented in next phase."
+            },
+            message=f"Processed {len(trades)} trades and {len(emails)} emails"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing matches for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process matches: {str(e)}"
+        )

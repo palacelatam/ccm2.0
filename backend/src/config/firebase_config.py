@@ -91,11 +91,11 @@ def get_cmek_firestore_client() -> Client:
             database='ccm-development'
         )
         
-        print("🔐 CMEK Firestore client initialized successfully")
+        print("CMEK Firestore client initialized successfully")
         return _cmek_db
         
     except Exception as e:
-        print(f"❌ Failed to initialize CMEK Firestore client: {e}")
+        print(f"Failed to initialize CMEK Firestore client: {e}")
         raise
 
 

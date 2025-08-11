@@ -3,6 +3,12 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as Fireba
 import { auth } from '../../config/firebase';
 import { userService, UserProfile } from '../../services/api';
 
+interface OrganizationInfo {
+  id: string;
+  name: string;
+  type: 'client' | 'bank';
+}
+
 interface User {
   id: string;
   name: string;
@@ -10,6 +16,7 @@ interface User {
   role: 'client_user' | 'client_admin' | 'bank_admin';
   profile?: UserProfile; // Add backend profile data
   permissions?: string[]; // Add backend permissions
+  organization?: OrganizationInfo; // Add organization info
 }
 
 interface AuthContextType {
@@ -77,12 +84,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role = 'client_user';
     }
 
+    // Extract organization info from profile or create fallback
+    let organization: OrganizationInfo | undefined;
+    if (profile?.organization) {
+      organization = {
+        id: profile.organization.id,
+        name: profile.organization.name,
+        type: profile.organization.type as 'client' | 'bank'
+      };
+    } else {
+      // Fallback organization info based on user ID for development
+      organization = {
+        id: firebaseUser.uid, // Use user UID as organization ID
+        name: firebaseUser.email?.split('@')[0] || 'Unknown Organization',
+        type: role === 'bank_admin' ? 'bank' : 'client'
+      };
+    }
+
     return {
       id: firebaseUser.uid,
       name: profile?.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
       email: firebaseUser.email || '',
       role,
-      profile
+      profile,
+      organization
     };
   };
 

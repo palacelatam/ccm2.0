@@ -3,7 +3,7 @@ Client service for managing client settings and related data
 """
 
 from typing import Optional, List, Dict, Any
-from google.cloud.firestore import DocumentReference
+from google.cloud.firestore import DocumentReference, Query
 import logging
 from datetime import datetime
 
@@ -13,7 +13,10 @@ from models.client import (
     BankAccount, BankAccountCreate, BankAccountUpdate,
     SettlementRule, SettlementRuleCreate, SettlementRuleUpdate,
     DataMapping, DataMappingCreate, DataMappingUpdate,
-    ClientUserOverride
+    ClientUserOverride,
+    UnmatchedTrade, UnmatchedTradeCreate,
+    EmailConfirmation, EmailConfirmationCreate,
+    TradeMatch, UploadSession, ProcessingResult
 )
 
 logger = logging.getLogger(__name__)
@@ -511,6 +514,279 @@ class ClientService:
                 
         except Exception as e:
             logger.error(f"Error unsetting default mappings for client {client_id}, file type {file_type}: {e}")
+    
+    # ========== Trade Management Methods ==========
+    
+    async def get_unmatched_trades(self, client_id: str) -> List[Dict[str, Any]]:
+        """Get all unmatched trades for a client"""
+        try:
+            trades_ref = self.db.collection('clients').document(client_id).collection('trades')
+            query = trades_ref.where('status', '==', 'unmatched')  # Let frontend handle sorting
+            docs = query.stream()
+            
+            trades = []
+            for doc in docs:
+                trade_data = doc.to_dict()
+                trade_data['id'] = doc.id
+                trades.append(trade_data)  # Return raw dict to preserve v1.0 field names
+            
+            logger.info(f"Retrieved {len(trades)} unmatched trades for client {client_id}")
+            return trades
+        except Exception as e:
+            logger.error(f"Error getting unmatched trades for client {client_id}: {e}")
+            return []
+    
+    async def save_trade_from_upload(self, client_id: str, trade_data: dict, upload_session_id: str) -> bool:
+        """Save trade from Excel/CSV upload"""
+        try:
+            trades_ref = self.db.collection('clients').document(client_id).collection('trades')
+            
+            trade_doc = {
+                **trade_data,
+                'status': 'unmatched',
+                'uploadSessionId': upload_session_id,
+                'createdAt': datetime.now(),
+                'organizationId': client_id  # For security rules
+            }
+            
+            trades_ref.add(trade_doc)
+            logger.info(f"Saved trade {trade_data.get('tradeNumber')} for client {client_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving trade for client {client_id}: {e}")
+            return False
+    
+    async def get_email_confirmations(self, client_id: str) -> List[EmailConfirmation]:
+        """Get all email confirmations for a client"""
+        try:
+            emails_ref = self.db.collection('clients').document(client_id).collection('emails')
+            docs = emails_ref.stream()  # Let frontend handle sorting
+            
+            emails = []
+            for doc in docs:
+                email_data = doc.to_dict()
+                email_data['id'] = doc.id
+                emails.append(EmailConfirmation(**email_data))
+            
+            logger.info(f"Retrieved {len(emails)} email confirmations for client {client_id}")
+            return emails
+        except Exception as e:
+            logger.error(f"Error getting email confirmations for client {client_id}: {e}")
+            return []
+    
+    async def save_email_confirmation(self, client_id: str, email_data: dict, llm_extracted_data: dict) -> str:
+        """Save email confirmation with LLM extracted data"""
+        try:
+            emails_ref = self.db.collection('clients').document(client_id).collection('emails')
+            
+            email_doc = {
+                **email_data,
+                'llmExtractedData': llm_extracted_data,
+                'status': 'unmatched',  # Start as unmatched
+                'createdAt': datetime.now(),
+                'organizationId': client_id
+            }
+            
+            doc_ref = emails_ref.add(email_doc)[1]
+            logger.info(f"Saved email confirmation {email_data.get('emailSubject')} for client {client_id}")
+            return doc_ref.id
+        except Exception as e:
+            logger.error(f"Error saving email confirmation for client {client_id}: {e}")
+            return None
+    
+    async def get_matches(self, client_id: str) -> List[TradeMatch]:
+        """Get all trade matches for a client"""
+        try:
+            matches_ref = self.db.collection('clients').document(client_id).collection('matches')
+            docs = matches_ref.stream()  # Let frontend handle sorting
+            
+            matches = []
+            for doc in docs:
+                match_data = doc.to_dict()
+                match_data['id'] = doc.id
+                matches.append(TradeMatch(**match_data))
+            
+            logger.info(f"Retrieved {len(matches)} matches for client {client_id}")
+            return matches
+        except Exception as e:
+            logger.error(f"Error getting matches for client {client_id}: {e}")
+            return []
+    
+    async def get_matched_trades(self, client_id: str) -> List[Dict[str, Any]]:
+        """Get matched trades with enriched match information"""
+        try:
+            # Get trades with status = 'matched'
+            trades_ref = self.db.collection('clients').document(client_id).collection('trades')
+            query = trades_ref.where('status', '==', 'matched')
+            trade_docs = query.stream()
+            
+            enriched_trades = []
+            for trade_doc in trade_docs:
+                trade_data = trade_doc.to_dict()
+                trade_data['id'] = trade_doc.id
+                
+                # Find the match for this trade
+                matches_ref = self.db.collection('clients').document(client_id).collection('matches')
+                match_query = matches_ref.where('tradeId', '==', trade_doc.id).limit(1).stream()
+                match_docs = list(match_query)
+                
+                if match_docs:
+                    match_data = match_docs[0].to_dict()
+                    # Add v1.0 style match fields
+                    trade_data['match_id'] = match_data.get('match_id', match_docs[0].id)
+                    trade_data['match_confidence'] = f"{int(match_data.get('confidenceScore', 0) * 100)}%"
+                    trade_data['match_reasons'] = match_data.get('matchReasons', [])
+                    trade_data['identified_at'] = match_data.get('identified_at', match_data.get('createdAt'))
+                
+                enriched_trades.append(trade_data)
+            
+            logger.info(f"Retrieved {len(enriched_trades)} matched trades for client {client_id}")
+            return enriched_trades
+        except Exception as e:
+            logger.error(f"Error getting matched trades for client {client_id}: {e}")
+            return []
+    
+    async def get_all_email_confirmations(self, client_id: str) -> List[Dict[str, Any]]:
+        """Get all email confirmations with extracted trade data"""
+        try:
+            emails_ref = self.db.collection('clients').document(client_id).collection('emails')
+            docs = emails_ref.stream()  # Let frontend handle sorting
+            
+            emails = []
+            for doc in docs:
+                email_data = doc.to_dict()
+                email_data['id'] = doc.id
+                
+                # Check if this email has a match
+                matches_ref = self.db.collection('clients').document(client_id).collection('matches')
+                match_query = matches_ref.where('emailId', '==', doc.id).limit(1).stream()
+                match_docs = list(match_query)
+                
+                if match_docs:
+                    match_data = match_docs[0].to_dict()
+                    email_data['matchId'] = match_docs[0].id
+                    email_data['matchStatus'] = 'matched'
+                    email_data['tradeId'] = match_data.get('tradeId')
+                else:
+                    email_data['matchStatus'] = 'unmatched'
+                
+                emails.append(email_data)
+            
+            logger.info(f"Retrieved {len(emails)} email confirmations for client {client_id}")
+            return emails
+        except Exception as e:
+            logger.error(f"Error getting email confirmations for client {client_id}: {e}")
+            return []
+    
+    async def create_match(self, client_id: str, trade_id: str, email_id: str, 
+                          confidence_score: int, match_reasons: List[str]) -> bool:
+        """Create a trade-email match"""
+        try:
+            matches_ref = self.db.collection('clients').document(client_id).collection('matches')
+            
+            match_doc = {
+                'tradeId': trade_id,
+                'emailId': email_id,
+                'confidenceScore': confidence_score,
+                'matchReasons': match_reasons,
+                'status': 'confirmed' if confidence_score >= 90 else 'review_needed',
+                'createdAt': datetime.now(),
+                'organizationId': client_id
+            }
+            
+            # Create match record
+            matches_ref.add(match_doc)
+            
+            # Update trade and email status
+            await self._update_trade_status(client_id, trade_id, 'matched')
+            await self._update_email_status(client_id, email_id, 'matched')
+            
+            logger.info(f"Created match between trade {trade_id} and email {email_id} with {confidence_score}% confidence")
+            return True
+        except Exception as e:
+            logger.error(f"Error creating match for client {client_id}: {e}")
+            return False
+    
+    async def get_upload_session(self, client_id: str, session_id: str) -> Optional[UploadSession]:
+        """Get upload session by ID"""
+        try:
+            session_doc = (self.db.collection('clients').document(client_id)
+                          .collection('uploadSessions').document(session_id).get())
+            
+            if not session_doc.exists:
+                return None
+            
+            session_data = session_doc.to_dict()
+            session_data['id'] = session_doc.id
+            return UploadSession(**session_data)
+        except Exception as e:
+            logger.error(f"Error getting upload session {session_id} for client {client_id}: {e}")
+            return None
+    
+    async def create_upload_session(self, client_id: str, file_name: str, file_type: str, 
+                                   file_size: int, uploaded_by: str) -> str:
+        """Create new upload session"""
+        try:
+            sessions_ref = self.db.collection('clients').document(client_id).collection('uploadSessions')
+            
+            session_doc = {
+                'fileName': file_name,
+                'fileType': file_type,
+                'fileSize': file_size,
+                'recordsProcessed': 0,
+                'recordsFailed': 0,
+                'status': 'processing',
+                'uploadedBy': uploaded_by,
+                'organizationId': client_id,
+                'createdAt': datetime.now()
+            }
+            
+            doc_ref = sessions_ref.add(session_doc)[1]
+            logger.info(f"Created upload session {doc_ref.id} for file {file_name}")
+            return doc_ref.id
+        except Exception as e:
+            logger.error(f"Error creating upload session for client {client_id}: {e}")
+            return None
+    
+    async def update_upload_session(self, client_id: str, session_id: str, 
+                                   records_processed: int, records_failed: int, 
+                                   status: str, error_message: str = None) -> bool:
+        """Update upload session progress"""
+        try:
+            session_ref = (self.db.collection('clients').document(client_id)
+                          .collection('uploadSessions').document(session_id))
+            
+            update_data = {
+                'recordsProcessed': records_processed,
+                'recordsFailed': records_failed,
+                'status': status,
+                'updatedAt': datetime.now()
+            }
+            
+            if error_message:
+                update_data['errorMessage'] = error_message
+            
+            session_ref.update(update_data)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating upload session {session_id} for client {client_id}: {e}")
+            return False
+    
+    async def _update_trade_status(self, client_id: str, trade_id: str, status: str):
+        """Update trade status"""
+        try:
+            trade_ref = self.db.collection('clients').document(client_id).collection('trades').document(trade_id)
+            trade_ref.update({'status': status, 'updatedAt': datetime.now()})
+        except Exception as e:
+            logger.error(f"Error updating trade status for {trade_id}: {e}")
+    
+    async def _update_email_status(self, client_id: str, email_id: str, status: str):
+        """Update email status"""
+        try:
+            email_ref = self.db.collection('clients').document(client_id).collection('emails').document(email_id)
+            email_ref.update({'status': status, 'updatedAt': datetime.now()})
+        except Exception as e:
+            logger.error(f"Error updating email status for {email_id}: {e}")
     
     # ========== Utility Methods ==========
     

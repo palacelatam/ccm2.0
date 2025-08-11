@@ -1,247 +1,278 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../auth/AuthContext';
+import { clientService, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
 
-interface MatchedTrade {
-  tradeId: string;
-  counterparty: string;
-  productType: string;
-  tradeDate: string;
-  valueDate: string;
-  direction: 'BUY' | 'SELL';
-  currency1: string;
-  currency2: string;
-  amount: number;
-  price: number;
-  maturityDate?: string;
-  fixingReference?: string;
-  settlementType: string;
-  settlementCurrency: string;
-  paymentDate: string;
-  ourPaymentMethod: string;
-  counterpartyPaymentMethod: string;
-  status: 'MATCHED' | 'DISPUTED' | 'PENDING';
-  confidence: number;
-}
-
-const mockMatchedTrades: MatchedTrade[] = [
-  {
-    tradeId: 'MT001',
-    counterparty: 'Banco Santander',
-    productType: 'FX SPOT',
-    tradeDate: '2024-01-15',
-    valueDate: '2024-01-17',
-    direction: 'BUY',
-    currency1: 'USD',
-    currency2: 'CLP',
-    amount: 1000000,
-    price: 890.50,
-    maturityDate: '2024-01-17',
-    fixingReference: 'SPOT',
-    settlementType: 'DVP',
-    settlementCurrency: 'CLP',
-    paymentDate: '2024-01-17',
-    ourPaymentMethod: 'SWIFT',
-    counterpartyPaymentMethod: 'ACH',
-    status: 'MATCHED',
-    confidence: 0.98
-  },
-  {
-    tradeId: 'MT002',
-    counterparty: 'Banco de Chile',
-    productType: 'FX FORWARD',
-    tradeDate: '2024-01-15',
-    valueDate: '2024-02-15',
-    direction: 'SELL',
-    currency1: 'EUR',
-    currency2: 'CLP',
-    amount: 500000,
-    price: 950.25,
-    maturityDate: '2024-02-15',
-    fixingReference: 'EURS/CLP-BCCH',
-    settlementType: 'NET',
-    settlementCurrency: 'EUR',
-    paymentDate: '2024-02-15',
-    ourPaymentMethod: 'WIRE',
-    counterpartyPaymentMethod: 'SWIFT',
-    status: 'DISPUTED',
-    confidence: 0.87
-  },
-  {
-    tradeId: 'MT003',
-    counterparty: 'BCI',
-    productType: 'FX SWAP',
-    tradeDate: '2024-01-16',
-    valueDate: '2024-01-18',
-    direction: 'BUY',
-    currency1: 'USD',
-    currency2: 'CLP',
-    amount: 750000,
-    price: 891.75,
-    maturityDate: '2024-04-18',
-    fixingReference: 'USD/CLP-BCCH',
-    settlementType: 'DVP',
-    settlementCurrency: 'USD',
-    paymentDate: '2024-01-18',
-    ourPaymentMethod: 'ACH',
-    counterpartyPaymentMethod: 'WIRE',
-    status: 'PENDING',
-    confidence: 0.92
-  }
-];
-
 const MatchedTradesGrid: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [trades, setTrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get client ID from user context
+  const clientId = user?.organization?.id || user?.id;
+
+  useEffect(() => {
+    if (!clientId) {
+      setLoading(false);
+      setError('No client ID available');
+      return;
+    }
+
+    const loadMatchedTrades = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const tradesData = await clientService.getMatchedTrades(clientId);
+        setTrades(tradesData);
+      } catch (error) {
+        console.error('Error loading matched trades:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load matched trades');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMatchedTrades();
+  }, [clientId]);
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
-      field: 'tradeId', 
-      headerName: t('grid.columns.tradeId'), 
-      width: 120, 
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'counterparty', 
-      headerName: t('grid.columns.counterparty'), 
-      width: 150,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'productType', 
-      headerName: t('grid.columns.productType'), 
-      width: 120, 
-      filter: 'agTextColumnFilter',
-      sortable: true,
-      resizable: true
-    },
-    { 
-      field: 'tradeDate', 
-      headerName: t('grid.columns.tradeDate'), 
-      width: 120, 
-      sortable: true,
-      filter: 'agDateColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'valueDate', 
-      headerName: t('grid.columns.valueDate'), 
-      width: 120, 
-      sortable: true,
-      filter: 'agDateColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'direction', 
-      headerName: t('grid.columns.direction'), 
-      width: 100,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'currency1', 
-      headerName: t('grid.columns.currency1'), 
-      width: 100,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'currency2', 
-      headerName: t('grid.columns.currency2'), 
-      width: 100,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'amount', 
-      headerName: t('grid.columns.amount'), 
-      width: 120, 
-      type: 'numericColumn',
-      valueFormatter: (params) => new Intl.NumberFormat('es-CL').format(params.value),
-      sortable: true,
-      filter: 'agNumberColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'price', 
-      headerName: t('grid.columns.price'), 
-      width: 120, 
-      type: 'numericColumn', 
-      valueFormatter: (params) => params.value.toFixed(4),
-      sortable: true,
-      filter: 'agNumberColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'status', 
-      headerName: t('grid.columns.status'), 
-      width: 100, 
-      cellRenderer: StatusCellRenderer,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'confidence', 
       headerName: t('grid.columns.confidence'), 
+      field: 'match_confidence', 
+      width: 120, 
+      sortable: true, 
+      filter: true,
+      cellRenderer: (params: any) => {
+        // Extract numeric value from string like "92%"
+        const confidenceStr = params.value || "0%";
+        const confidenceNum = parseInt(confidenceStr, 10);
+        
+        let color;
+        if (confidenceNum >= 90) {
+          color = '#4CAF50'; // Green
+        } else if (confidenceNum >= 70) {
+          color = '#FB9205'; // Orange
+        } else {
+          color = '#ff4444'; // Red
+        }
+        
+        return React.createElement('div', { 
+          style: { color: color, fontWeight: 'bold' } 
+        }, confidenceStr);
+      }
+    },
+    { 
+      headerName: t('grid.columns.tradeNumber'), 
+      field: 'TradeNumber', 
+      width: 70 
+    },
+    { 
+      headerName: t('grid.columns.counterparty'), 
+      field: 'CounterpartyName', 
+      width: 150 
+    },
+    { 
+      headerName: t('grid.columns.productType'), 
+      field: 'ProductType', 
+      width: 120 
+    },
+    { 
+      headerName: t('grid.columns.tradeDate'), 
+      field: 'TradeDate', 
+      width: 120,
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.valueDate'), 
+      field: 'ValueDate', 
+      width: 120,
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.direction'), 
+      field: 'Direction', 
+      width: 60 
+    },
+    { 
+      headerName: t('grid.columns.currency1'), 
+      field: 'Currency1', 
+      width: 100 
+    },
+    { 
+      headerName: t('grid.columns.amount'), 
+      field: 'QuantityCurrency1', 
+      width: 140,
+      valueFormatter: (params) => params.value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    },
+    { 
+      headerName: t('grid.columns.price'), 
+      field: 'ForwardPrice', 
       width: 100,
-      valueFormatter: (params) => `${(params.value * 100).toFixed(0)}%`,
-      sortable: true,
-      filter: 'agNumberColumnFilter',
-      resizable: true
+      valueFormatter: (params) => params.value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    },
+    { 
+      headerName: t('grid.columns.currency2'), 
+      field: 'Currency2', 
+      width: 100 
+    },
+    { 
+      headerName: t('grid.columns.maturityDate'), 
+      field: 'MaturityDate', 
+      width: 120,
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.fixingReference'), 
+      field: 'FixingReference', 
+      width: 140 
+    },
+    { 
+      headerName: t('grid.columns.settlementType'), 
+      field: 'SettlementType', 
+      width: 130 
+    },
+    { 
+      headerName: t('grid.columns.settlementCurrency'), 
+      field: 'SettlementCurrency', 
+      width: 140 
+    },
+    { 
+      headerName: t('grid.columns.paymentDate'), 
+      field: 'PaymentDate', 
+      width: 120,
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.counterpartyPaymentMethod'), 
+      field: 'CounterpartyPaymentMethod', 
+      width: 200 
+    },
+    { 
+      headerName: t('grid.columns.ourPaymentMethod'), 
+      field: 'OurPaymentMethod', 
+      width: 160 
     }
   ], [t]);
 
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
-      name: t('grid.contextMenu.verifyTrade'),
-      action: () => {/* Verify trade action */}
+      name: t('grid.contextMenu.viewTradeDetails'),
+      action: () => {/* View trade details action */}
     },
     {
-      name: t('grid.contextMenu.viewConfirmation'),
-      action: () => {/* View confirmation action */}
+      name: t('grid.contextMenu.viewEmailDetails'),
+      action: () => {/* View email details action */}
     },
     {
-      name: t('grid.contextMenu.dispute'),
-      action: () => {/* Dispute trade action */}
+      name: t('grid.contextMenu.reviewMatch'),
+      action: () => {/* Review match action */}
     },
     'separator',
     {
-      name: t('grid.contextMenu.viewDetails'),
-      action: () => {/* View details action */}
+      name: t('grid.contextMenu.confirmMatch'),
+      action: () => {/* Confirm match action */}
+    },
+    {
+      name: t('grid.contextMenu.disputeMatch'),
+      action: () => {/* Dispute match action */}
     }
   ], [t]);
 
+  if (loading) {
+    return (
+      <div className="ag-theme-alpine-dark trade-grid loading-state">
+        <div className="loading-message">Loading matched trades...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="ag-theme-alpine-dark trade-grid error-state">
+        <div className="error-message">
+          Error loading matched trades: {error}
+          <button 
+            onClick={() => window.location.reload()} 
+            className="retry-button"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ag-theme-alpine-dark trade-grid">
-      <AgGridReact
-        rowData={mockMatchedTrades}
-        columnDefs={columnDefs}
-        getContextMenuItems={getContextMenuItems}
-        pagination={true}
-        paginationPageSize={50}
-        enableRangeSelection={true}
-        allowContextMenuWithControlKey={true}
-        suppressMovableColumns={false}
-        domLayout="autoHeight"
-        defaultColDef={{
-          sortable: true,
-          filter: true,
-          resizable: true,
-          minWidth: 80
-        }}
-      />
+      {trades.length === 0 ? (
+        <div className="empty-state">
+          No matched trades found. Process matches to see matched trades here.
+        </div>
+      ) : (
+        <AgGridReact
+          rowData={trades}
+          columnDefs={columnDefs}
+          getContextMenuItems={getContextMenuItems}
+          pagination={true}
+          paginationPageSize={50}
+          enableRangeSelection={true}
+          allowContextMenuWithControlKey={true}
+          suppressMovableColumns={false}
+          domLayout="autoHeight"
+          defaultColDef={{
+            sortable: true,
+            filter: true,
+            resizable: true,
+            minWidth: 80
+          }}
+        />
+      )}
     </div>
   );
 };

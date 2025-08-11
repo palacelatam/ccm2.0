@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Frontend for Client Confirmation Manager 2.0",
+  "proxy": "http://localhost:8000",
   "dependencies": {
     "@types/papaparse": "^5.3.16",
     "@types/react": "^18.2.0",

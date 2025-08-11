@@ -1,185 +1,228 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../auth/AuthContext';
+import { clientService, EmailConfirmation, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
 
-interface Confirmation {
-  tradeId: string;
-  counterparty: string;
-  productType: string;
-  tradeDate: string;
-  valueDate: string;
-  direction: 'BUY' | 'SELL';
-  currency1: string;
-  currency2: string;
-  amount: number;
-  price: number;
-  maturityDate?: string;
-  fixingReference?: string;
-  settlementType: string;
-  settlementCurrency: string;
-  paymentDate: string;
-  ourPaymentMethod: string;
-  counterpartyPaymentMethod: string;
-  received: string;
-  bank: string;
-  status: 'PROCESSED' | 'PENDING' | 'UNRECOGNISED' | 'ERROR';
-}
-
-const mockConfirmations: Confirmation[] = [
-  {
-    tradeId: 'CONF001',
-    counterparty: 'Banco Santander',
-    productType: 'FX SPOT',
-    tradeDate: '2024-01-15',
-    valueDate: '2024-01-17',
-    direction: 'BUY',
-    currency1: 'USD',
-    currency2: 'CLP',
-    amount: 1000000,
-    price: 890.52,
-    maturityDate: '2024-01-17',
-    fixingReference: 'SPOT',
-    settlementType: 'DVP',
-    settlementCurrency: 'CLP',
-    paymentDate: '2024-01-17',
-    ourPaymentMethod: 'SWIFT',
-    counterpartyPaymentMethod: 'ACH',
-    received: '2024-01-15T10:45:00',
-    bank: 'Banco Santander',
-    status: 'PROCESSED'
-  },
-  {
-    tradeId: 'CONF002',
-    counterparty: 'Banco de Chile',
-    productType: 'FX FORWARD',
-    tradeDate: '2024-01-15',
-    valueDate: '2024-02-15',
-    direction: 'SELL',
-    currency1: 'EUR',
-    currency2: 'CLP',
-    amount: 500000,
-    price: 948.35,
-    maturityDate: '2024-02-15',
-    fixingReference: 'EURS/CLP-BCCH',
-    settlementType: 'NET',
-    settlementCurrency: 'EUR',
-    paymentDate: '2024-02-15',
-    ourPaymentMethod: 'WIRE',
-    counterpartyPaymentMethod: 'SWIFT',
-    received: '2024-01-15T14:22:00',
-    bank: 'Banco de Chile',
-    status: 'PROCESSED'
-  },
-  {
-    tradeId: 'CONF003',
-    counterparty: 'Banco Estado',
-    productType: 'FX NDF',
-    tradeDate: '2024-01-16',
-    valueDate: '2024-03-16',
-    direction: 'SELL',
-    currency1: 'BRL',
-    currency2: 'USD',
-    amount: 2000000,
-    price: 5.1250,
-    maturityDate: '2024-03-16',
-    fixingReference: 'BRL/USD-PTAX',
-    settlementType: 'CASH',
-    settlementCurrency: 'USD',
-    paymentDate: '2024-03-18',
-    ourPaymentMethod: 'WIRE',
-    counterpartyPaymentMethod: 'ACH',
-    received: '2024-01-16T09:15:00',
-    bank: 'Banco Estado',
-    status: 'UNRECOGNISED'
-  }
-];
+// Using v1.0 field structure for email confirmations with extracted trade data
 
 const ConfirmationsGrid: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [emails, setEmails] = useState<EmailConfirmation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get client ID from user context
+  const clientId = user?.organization?.id || user?.id;
+
+  useEffect(() => {
+    if (!clientId) {
+      setLoading(false);
+      setError('No client ID available');
+      return;
+    }
+
+    const loadEmails = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const emailsData = await clientService.getAllEmailConfirmations(clientId);
+        setEmails(emailsData);
+      } catch (error) {
+        console.error('Error loading email confirmations:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load email confirmations');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEmails();
+  }, [clientId]);
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
-      field: 'received', 
+      headerName: t('grid.columns.bankTradeNumber'), 
+      field: 'BankTradeNumber', 
+      width: 80 
+    },
+    {
+      headerName: t('grid.columns.status'),
+      field: 'status',
+      width: 110,
+      sortable: true,
+      filter: true,
+      cellRenderer: (params: any) => {
+        const status = params.value;
+        let color = '#FFFFFF';
+        
+        switch(status) {
+          case 'Confirmation OK':
+            color = '#4CAF50';
+            break;
+          case 'Difference':
+            color = '#ff4444';
+            break;
+          case 'Unrecognized':
+            color = '#FFFFFF';
+            break;
+          case 'Resolved':
+            color = '#00e7ff';
+            break;
+          case 'Tagged':
+            color = '#FB9205';
+            break;
+        }
+        
+        return React.createElement('div', { 
+          style: { color: color, fontWeight: 'bold' } 
+        }, status);
+      }
+    },
+    { 
+      headerName: t('grid.columns.sender'), 
+      field: 'EmailSender', 
+      width: 150 
+    },
+    { 
       headerName: t('grid.columns.received'), 
-      width: 140, 
-      sortable: true,
-      filter: 'agDateColumnFilter',
-      resizable: true,
-      valueFormatter: (params) => new Date(params.value).toLocaleString('es-CL')
+      field: 'EmailDate', 
+      width: 120 
     },
     { 
-      field: 'bank', 
-      headerName: t('grid.columns.bank'), 
-      width: 120, 
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
+      headerName: t('grid.columns.time'), 
+      field: 'EmailTime', 
+      width: 120 
     },
     { 
-      field: 'tradeId', 
-      headerName: t('grid.columns.tradeId'), 
-      width: 120, 
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
+      headerName: t('grid.columns.subject'), 
+      field: 'EmailSubject', 
+      width: 200 
     },
     { 
-      field: 'productType', 
+      headerName: t('grid.columns.counterparty'), 
+      field: 'CounterpartyName', 
+      width: 150
+    },
+    { 
       headerName: t('grid.columns.productType'), 
+      field: 'ProductType', 
+      width: 120
+    },
+    { 
+      headerName: t('grid.columns.tradeDate'), 
+      field: 'TradeDate', 
       width: 120,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
     },
     { 
-      field: 'currency1', 
+      headerName: t('grid.columns.valueDate'), 
+      field: 'ValueDate', 
+      width: 120,
+      sortable: true, 
+      filter: true,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.direction'), 
+      field: 'Direction', 
+      width: 100
+    },
+    { 
       headerName: t('grid.columns.currency1'), 
-      width: 100,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
+      field: 'Currency1', 
+      width: 100
     },
     { 
-      field: 'currency2', 
-      headerName: t('grid.columns.currency2'), 
-      width: 100,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
-    },
-    { 
-      field: 'amount', 
       headerName: t('grid.columns.amount'), 
-      width: 120, 
-      type: 'numericColumn',
-      sortable: true,
-      filter: 'agNumberColumnFilter',
-      resizable: true,
-      valueFormatter: (params) => new Intl.NumberFormat('es-CL').format(params.value)
+      field: 'QuantityCurrency1', 
+      width: 140,
+      valueFormatter: (params) => params.value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
     },
     { 
-      field: 'price', 
       headerName: t('grid.columns.price'), 
-      width: 120, 
-      type: 'numericColumn',
-      sortable: true,
-      filter: 'agNumberColumnFilter',
-      resizable: true,
-      valueFormatter: (params) => params.value.toFixed(4)
+      field: 'ForwardPrice', 
+      width: 120,
+      valueFormatter: (params) => params.value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
     },
     { 
-      field: 'status', 
-      headerName: t('grid.columns.status'), 
-      width: 120, 
-      cellRenderer: StatusCellRenderer,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      resizable: true
+      headerName: t('grid.columns.currency2'), 
+      field: 'Currency2', 
+      width: 100
+    },
+    { 
+      headerName: t('grid.columns.maturityDate'), 
+      field: 'MaturityDate', 
+      width: 120,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.fixingReference'), 
+      field: 'FixingReference', 
+      width: 140
+    },
+    { 
+      headerName: t('grid.columns.settlementType'), 
+      field: 'SettlementType', 
+      width: 130
+    },
+    { 
+      headerName: t('grid.columns.settlementCurrency'), 
+      field: 'SettlementCurrency', 
+      width: 140
+    },
+    { 
+      headerName: t('grid.columns.paymentDate'), 
+      field: 'PaymentDate', 
+      width: 120,
+      valueFormatter: (params) => {
+        if (!params.value) return '';
+        const [day, month, year] = params.value.split('-');
+        const date = new Date(year, month - 1, day);
+        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+        return `${dayName} ${day}-${month}-${year}`;
+      }
+    },
+    { 
+      headerName: t('grid.columns.counterpartyPaymentMethod'), 
+      field: 'CounterpartyPaymentMethod', 
+      width: 200
+    },
+    { 
+      headerName: t('grid.columns.ourPaymentMethod'), 
+      field: 'OurPaymentMethod', 
+      width: 160
     }
   ], [t]);
 
@@ -203,25 +246,55 @@ const ConfirmationsGrid: React.FC = () => {
     }
   ], [t]);
 
+  if (loading) {
+    return (
+      <div className="ag-theme-alpine-dark trade-grid loading-state">
+        <div className="loading-message">Loading email confirmations...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="ag-theme-alpine-dark trade-grid error-state">
+        <div className="error-message">
+          Error loading emails: {error}
+          <button 
+            onClick={() => window.location.reload()} 
+            className="retry-button"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ag-theme-alpine-dark trade-grid">
-      <AgGridReact
-        rowData={mockConfirmations}
-        columnDefs={columnDefs}
-        getContextMenuItems={getContextMenuItems}
-        pagination={true}
-        paginationPageSize={50}
-        enableRangeSelection={true}
-        allowContextMenuWithControlKey={true}
-        suppressMovableColumns={false}
-        domLayout="autoHeight"
-        defaultColDef={{
-          sortable: true,
-          filter: true,
-          resizable: true,
-          minWidth: 80
-        }}
-      />
+      {emails.length === 0 ? (
+        <div className="empty-state">
+          No email confirmations found. Upload email files to get started.
+        </div>
+      ) : (
+        <AgGridReact
+          rowData={emails}
+          columnDefs={columnDefs}
+          getContextMenuItems={getContextMenuItems}
+          pagination={true}
+          paginationPageSize={50}
+          enableRangeSelection={true}
+          allowContextMenuWithControlKey={true}
+          suppressMovableColumns={false}
+          domLayout="autoHeight"
+          defaultColDef={{
+            sortable: true,
+            filter: true,
+            resizable: true,
+            minWidth: 80
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -438,10 +438,16 @@
       "reject": "Reject",
       "edit": "Edit",
       "delete": "Delete",
-      "duplicate": "Duplicate"
+      "duplicate": "Duplicate",
+      "viewTradeDetails": "View Trade Details",
+      "viewEmailDetails": "View Email Details",
+      "reviewMatch": "Review Match",
+      "confirmMatch": "Confirm Match",
+      "disputeMatch": "Dispute Match"
     },
     "columns": {
       "tradeId": "Trade ID",
+      "tradeNumber": "Trade Number",
       "counterparty": "Counterparty",
       "productType": "Product Type",
       "tradeDate": "Trade Date",
@@ -461,6 +467,14 @@
       "status": "Status",
       "confidence": "Confidence",
       "received": "Received",
+      "time": "Time",
+      "sender": "Sender",
+      "subject": "Subject",
+      "bankTradeNumber": "Bank Trade #",
+      "emailId": "Email ID",
+      "matchReasons": "Match Reasons",
+      "discrepancies": "Discrepancies",
+      "matchDate": "Match Date",
       "bank": "Bank",
       "source": "Source"
     },
