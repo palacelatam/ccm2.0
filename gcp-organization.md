@@ -1,8 +1,8 @@
 # Google Cloud Platform: `palace.cl` Organization Architecture & Security Summary
 
-**Document Version:** 1.0  
-**Date:** August 2, 2025  
-**Author:** Gemini AI Assistant
+**Document Version:** 1.1  
+**Date:** August 11, 2025  
+**Author:** Gemini AI Assistant (Updated by Claude Code)
 
 ## 1.0 Introduction & Strategic Objectives
 
@@ -76,11 +76,12 @@ The organization follows a **"Simple, environment-oriented hierarchy"** model, d
 * **Folders:** The organization is structured into four top-level folders:
     * **`Production`**: Contains all projects and resources related to the live, customer-facing SaaS application. Access to this folder is the most restricted.
     * **`Non-Production`**: A container for all pre-production environments, including staging, QA, and user acceptance testing.
-    * **`Development`**: Houses sandbox projects for developers to experiment and build new features without affecting shared testing environments.
+    * **`Development`**: Houses sandbox projects for developers to experiment and build new features without affecting shared testing environments. Contains the `ccm-dev-pool` project with CMEK-enabled Firestore database for persistent development data.
     * **`Common`**: A dedicated folder for shared services and resources that span across all environments. This includes the VPC host projects, the centralized logging and monitoring project, and the KMS Autokey projects.
 * **Projects:** The Terraform deployment created a set of foundational projects, including:
     * **Host Projects:** `vpc-host-prod` and `vpc-host-nonprod`, located in the `Common` folder.
     * **Service Projects:** `prod1-service`, `prod2-service`, `nonprod1-service`, `nonprod2-service`, located in the `Production` and `Non-Production` folders respectively.
+    * **Development Service Project:** `ccm-dev-pool` (CCM2 - Dev Pool), located in the `Development` folder, used for client dashboard development with persistent CMEK-enabled Firestore.
     * **Central Services Project:** `central-logging-monitoring`, located in the `Common` folder.
     * **KMS Autokey Projects:** A dedicated project for managing encryption keys was created in each of the `Production`, `Non-Production`, and `Development` folders.
 
@@ -137,7 +138,13 @@ A multi-layered security strategy has been implemented across the organization.
 ### 6.3 Data Encryption Strategy
 
 * **Customer-Managed Encryption Keys (CMEK):** A policy of using CMEK has been adopted to provide a higher level of control over data encryption, a key requirement for financial services.
+* **Mandatory CMEK Policy:** Organization policy `constraints/gcp.restrictNonCmekServices` enforces CMEK usage across all services, ensuring no data is stored without customer-managed encryption.
 * **Cloud KMS with Autokey:** This feature was enabled to automate and simplify the management of CMEK. It automatically creates and manages keyrings, keys, and IAM roles on a per-environment basis, enforcing a policy that requires new resources to be protected with these keys.
+* **Development Environment CMEK Implementation:**
+    * **Project:** `ccm-dev-pool` 
+    * **KMS Keyring:** `ccm-dev-keyring` (location: `southamerica-west1`)
+    * **Firestore Key:** `firestore-key` with minimal IAM permissions granted to Google's managed Firestore service account
+    * **Database:** `ccm-development` Firestore database with CMEK encryption for persistent development data
 * **Post-Deployment Considerations for Autokey:**
     * If new environment folders are added in the future, KMS projects and policies for those folders must be configured manually.
     * When deploying resources via Terraform or APIs, a "key handle" must be created manually, a step that is automated when using the Cloud Console.
@@ -149,17 +156,48 @@ A multi-layered security strategy has been implemented across the organization.
 
 ---
 
-## 7.0 Deployment & Ongoing Management
+## 7.0 Development Environment Setup
 
-### 7.1 Terraform Deployment
+### 7.1 Client Dashboard Development Environment
+
+**Active Development Project:** `ccm-dev-pool` (Project Number: `1075260378031`)  
+**Location:** Development folder (ID: `802429588971`)  
+**Purpose:** Primary development environment for the CCM2.0 Client Dashboard application
+
+**Database Configuration:**
+* **Firestore Database:** `ccm-development`
+* **Type:** Native Firestore with CMEK encryption
+* **Location:** `southamerica-west1` (Santiago, Chile)
+* **Encryption Key:** `projects/ccm-dev-pool/locations/southamerica-west1/keyRings/ccm-dev-keyring/cryptoKeys/firestore-key`
+* **Connection Details:**
+  ```typescript
+  const projectId = "ccm-dev-pool";
+  const databaseId = "ccm-development";
+  ```
+
+**Security Implementation:**
+* CMEK encryption enforced by organization policy
+* Minimal IAM permissions following Google Cloud security best practices
+* Firestore service account (`service-1075260378031@gcp-sa-firestore.iam.gserviceaccount.com`) granted `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the encryption key
+
+**Development Benefits:**
+* Persistent data storage (no data loss on development environment restarts)
+* Production-like security configuration for realistic testing
+* Compliance with organizational CMEK requirements during development
+
+---
+
+## 8.0 Deployment & Ongoing Management
+
+### 8.1 Terraform Deployment
 
 * The entire foundation described in this document was deployed from a single, unified Terraform configuration that was generated and downloaded from the Google Cloud Foundation Setup guide.
 
-### 7.2 Terraform State Management
+### 8.2 Terraform State Management
 
 * During the download process, a Google Cloud Storage (GCS) bucket was created in the `southamerica-west1` region. This bucket is configured as the remote backend for the Terraform project, providing a secure and reliable location to store the Terraform state file.
 
-### 7.3 Future Management Strategy
+### 8.3 Future Management Strategy
 
 * All future changes to the foundational infrastructure should be managed through the Terraform code. The standard workflow is as follows:
     1.  **Edit Code:** Modify the `.tf` files to reflect the desired change.
@@ -167,3 +205,9 @@ A multi-layered security strategy has been implemented across the organization.
     3.  **Plan:** Run `terraform plan` to review the exact changes that will be made.
     4.  **Apply:** Run `terraform apply` to implement the changes.
 * This IaC-first approach prevents configuration drift, provides a full audit trail of changes, and ensures that the infrastructure remains consistent and well-documented over time. Manual changes via the GCP Console should be avoided for foundational resources.
+
+### 8.4 Development Environment Management
+
+* **Development Database:** The `ccm-development` Firestore database was created manually following Google Cloud security best practices for CMEK implementation.
+* **Future Development Projects:** Additional development projects should follow the same CMEK-enabled pattern using existing KMS infrastructure.
+* **Production Deployment:** When deploying to production, the same security configuration pattern should be replicated in the Production folder projects (`prod1-service`, `prod2-service`) using their respective KMS keys.

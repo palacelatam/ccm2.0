@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import logging
 from datetime import datetime
 
-from config.firebase_config import get_firestore_client
+from config.firebase_config import get_cmek_firestore_client
 from services.storage_service import StorageService
 from models.bank import (
     Bank, BankCreate, BankUpdate,
@@ -25,7 +25,7 @@ class BankService:
     """Service for bank management, client segmentation, and settlement letters"""
     
     def __init__(self):
-        self.db = get_firestore_client()
+        self.db = get_cmek_firestore_client()
         self.storage_service = StorageService()
     
     # ========== Bank Management Methods ==========

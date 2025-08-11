@@ -13,6 +13,7 @@ from .settings import get_settings
 
 # Global Firebase instances
 _db: Optional[Client] = None
+_cmek_db: Optional[Client] = None
 _app: Optional[firebase_admin.App] = None
 
 
@@ -64,6 +65,38 @@ def get_firestore_client() -> Client:
         initialize_firebase()
     
     return _db
+
+
+def get_cmek_firestore_client() -> Client:
+    """Get CMEK-enabled Firestore client instance for ccm-development database"""
+    global _cmek_db
+    
+    # Return cached client if available
+    if _cmek_db is not None:
+        return _cmek_db
+    
+    settings = get_settings()
+    
+    if settings.use_firebase_emulator:
+        print("⚠️  Warning: CMEK client requested but emulator mode is enabled")
+        return get_firestore_client()
+    
+    try:
+        # Use Google Cloud Firestore client directly for specific database
+        from google.cloud import firestore as gcp_firestore
+        
+        # Initialize with the specific database
+        _cmek_db = gcp_firestore.Client(
+            project=settings.firebase_project_id,
+            database='ccm-development'
+        )
+        
+        print("🔐 CMEK Firestore client initialized successfully")
+        return _cmek_db
+        
+    except Exception as e:
+        print(f"❌ Failed to initialize CMEK Firestore client: {e}")
+        raise
 
 
 def get_auth_client():

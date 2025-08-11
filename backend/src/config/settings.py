@@ -31,8 +31,10 @@ class Settings:
         # CORS
         self.allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
         
-        # Database
-        self.use_firebase_emulator = os.getenv("USE_FIREBASE_EMULATOR", "true").lower() == "true"
+        # Database Configuration
+        self.use_firebase_emulator = os.getenv("USE_FIREBASE_EMULATOR", "false").lower() == "true"
+        self.use_cmek_database = os.getenv("USE_CMEK_DATABASE", "true").lower() == "true"
+        self.firebase_database_id = os.getenv("FIREBASE_DATABASE_ID", "ccm-development")
         
         # Logging
         self.log_level = os.getenv("LOG_LEVEL", "INFO")

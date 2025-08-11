@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 from google.cloud.firestore import DocumentReference, DocumentSnapshot
 import logging
 
-from config.firebase_config import get_firestore_client, get_user_by_uid
+from config.firebase_config import get_cmek_firestore_client, get_user_by_uid
 from models.user import User, UserProfile, UserCreate, UserUpdate, Role
 from models.base import OrganizationReference
 
@@ -17,7 +17,7 @@ class UserService:
     """Service for user management operations"""
     
     def __init__(self):
-        self.db = get_firestore_client()
+        self.db = get_cmek_firestore_client()
     
     async def get_user_profile(self, uid: str) -> Optional[UserProfile]:
         """Get user profile by UID"""

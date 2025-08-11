@@ -7,7 +7,7 @@ from google.cloud.firestore import DocumentReference
 import logging
 from datetime import datetime
 
-from config.firebase_config import get_firestore_client
+from config.firebase_config import get_cmek_firestore_client
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
@@ -23,7 +23,7 @@ class ClientService:
     """Service for client settings and data management"""
     
     def __init__(self):
-        self.db = get_firestore_client()
+        self.db = get_cmek_firestore_client()
     
     # ========== Client Management Methods ==========
     
