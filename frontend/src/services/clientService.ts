@@ -66,6 +66,10 @@ export interface UploadResult {
   file_size: number;
   records_processed: number;
   message: string;
+  // Additional fields for email uploads
+  email_id?: string;
+  trades_extracted?: number;
+  confirmation_detected?: boolean;
 }
 
 export interface ProcessMatchesResult {

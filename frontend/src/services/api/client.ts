@@ -21,14 +21,15 @@ export class APIClient {
   /**
    * Get Firebase ID token for authentication
    */
-  private async getAuthToken(): Promise<string | null> {
+  private async getAuthToken(forceRefresh: boolean = false): Promise<string | null> {
     try {
       const user = auth.currentUser;
       if (!user) {
         throw new Error('No authenticated user');
       }
       
-      const token = await user.getIdToken();
+      // Force refresh token to get a fresh one with current timestamp
+      const token = await user.getIdToken(forceRefresh);
       return token;
     } catch (error) {
       console.error('Failed to get auth token:', error);
@@ -41,9 +42,10 @@ export class APIClient {
    */
   private async request<T>(
     endpoint: string, 
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount: number = 0
   ): Promise<APIResponse<T>> {
-    const token = await this.getAuthToken();
+    const token = await this.getAuthToken(retryCount > 0);
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -59,6 +61,18 @@ export class APIClient {
       ...options,
       headers,
     });
+
+    // Handle 401 Unauthorized with clock skew retry
+    if (response.status === 401 && retryCount === 0) {
+      const errorData = await response.json().catch(() => null);
+      // Check if it's a clock skew error
+      if (errorData?.message?.includes('Token used too early') || 
+          errorData?.message?.includes('Invalid token')) {
+        console.log('Token timing issue detected, refreshing token and retrying...');
+        // Retry once with a fresh token
+        return this.request<T>(endpoint, options, 1);
+      }
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ 

@@ -958,6 +958,190 @@ class ClientService:
             logger.error(f"Error inserting trades batch for client {client_id}: {e}")
             return 0
     
+    async def process_email_upload(self, client_id: str, email_data: Dict[str, Any], 
+                                   session_id: str, uploaded_by: str, filename: str) -> Dict[str, Any]:
+        """
+        Process uploaded email data and save to database
+        
+        Args:
+            client_id: ID of the client
+            email_data: Parsed email data from EmailParserService
+            session_id: Upload session ID
+            uploaded_by: UID of the user uploading
+            filename: Original filename
+            
+        Returns:
+            Processing result with email_id and other metadata
+        """
+        try:
+            # Extract email metadata and LLM data
+            email_metadata = email_data.get('email_metadata', {})
+            llm_extracted_data = email_data.get('llm_extracted_data', {})
+            
+            # Log the processed email data for debugging
+            logger.info(f"Processing email data for client {client_id}:")
+            logger.info(f"  Email metadata: {email_metadata}")
+            logger.info(f"  LLM extracted data: {llm_extracted_data}")
+            
+            # Save email confirmation record
+            email_id = await self._save_email_confirmation(
+                client_id=client_id,
+                email_metadata=email_metadata,
+                llm_extracted_data=llm_extracted_data,
+                session_id=session_id,
+                filename=filename
+            )
+            
+            logger.info(f"Saved email confirmation {email_id} for client {client_id}")
+            
+            return {
+                'email_id': email_id,
+                'trades_extracted': len(llm_extracted_data.get('Trades', [])),
+                'confirmation_detected': llm_extracted_data.get('Email', {}).get('Confirmation') == 'Yes',
+                'processed_at': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing email upload for client {client_id}: {e}")
+            raise e
+    
+    async def _save_email_confirmation(self, client_id: str, email_metadata: Dict[str, Any], 
+                                       llm_extracted_data: Dict[str, Any], session_id: str, 
+                                       filename: str) -> str:
+        """
+        Save email confirmation to database
+        
+        Args:
+            client_id: ID of the client
+            email_metadata: Raw email metadata
+            llm_extracted_data: LLM extracted structured data
+            session_id: Upload session ID
+            filename: Original filename
+            
+        Returns:
+            Email document ID
+        """
+        try:
+            emails_ref = self.db.collection('clients').document(client_id).collection('emails')
+            
+            # Create email document
+            email_doc = {
+                # Email metadata
+                'senderEmail': email_metadata.get('sender_email', ''),
+                'subject': email_metadata.get('subject', ''),
+                'bodyContent': email_metadata.get('body_content', ''),
+                'emailDate': email_metadata.get('date', ''),
+                'emailTime': email_metadata.get('time', ''),
+                'attachmentsText': email_metadata.get('attachments_text', ''),
+                
+                # LLM extracted data
+                'llmExtractedData': llm_extracted_data,
+                'confirmationDetected': llm_extracted_data.get('Email', {}).get('Confirmation') == 'Yes',
+                'tradesCount': llm_extracted_data.get('Email', {}).get('Num_trades', 0),
+                
+                # Processing metadata
+                'status': 'unmatched',  # Initial status
+                'uploadSessionId': session_id,
+                'filename': filename,
+                'organizationId': client_id,
+                'createdAt': datetime.now(),
+                'processedAt': datetime.now()
+            }
+            
+            # Add document and return ID
+            doc_ref = emails_ref.add(email_doc)[1]
+            return doc_ref.id
+            
+        except Exception as e:
+            logger.error(f"Error saving email confirmation for client {client_id}: {e}")
+            raise e
+    
+    async def get_email_confirmations(self, client_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all email confirmations for a client
+        
+        Args:
+            client_id: ID of the client
+            
+        Returns:
+            List of email confirmations
+        """
+        try:
+            emails_ref = self.db.collection('clients').document(client_id).collection('emails')
+            docs = emails_ref.stream()
+            
+            emails = []
+            for doc in docs:
+                raw_email_data = doc.to_dict()
+                
+                # Convert Firestore timestamps to strings
+                created_at = raw_email_data.get('createdAt', '')
+                if hasattr(created_at, 'strftime'):
+                    created_at = created_at.strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Start with basic email data structure
+                email_data = {
+                    'id': doc.id,
+                    'status': raw_email_data.get('status', 'unmatched'),
+                    'createdAt': created_at,
+                }
+                
+                # Extract data from LLM extracted data if available
+                llm_data = raw_email_data.get('llmExtractedData', {})
+                
+                # Add email fields from LLM data (these now have correct field names)
+                email_section = llm_data.get('Email', {})
+                email_data.update({
+                    'EmailSender': email_section.get('EmailSender', ''),
+                    'EmailDate': email_section.get('EmailDate', ''),
+                    'EmailTime': email_section.get('EmailTime', ''),
+                    'EmailSubject': email_section.get('EmailSubject', ''),
+                })
+                
+                # Add first trade data from LLM results if available (these now have correct field names)
+                trades = llm_data.get('Trades', [])
+                if trades and len(trades) > 0:
+                    first_trade = trades[0]
+                    email_data.update(first_trade)  # Direct copy since field names now match
+                else:
+                    # Add empty trade fields if no trades found
+                    email_data.update({
+                        'BankTradeNumber': '',
+                        'CounterpartyName': '',
+                        'ProductType': '',
+                        'Direction': '',
+                        'Currency1': '',
+                        'QuantityCurrency1': 0.0,
+                        'Currency2': '',
+                        'TradeDate': '',
+                        'ValueDate': '',
+                        'MaturityDate': '',
+                        'ForwardPrice': 0.0,
+                        'FixingReference': '',
+                        'SettlementType': '',
+                        'SettlementCurrency': '',
+                        'PaymentDate': '',
+                        'CounterpartyPaymentMethod': '',
+                        'OurPaymentMethod': ''
+                    })
+                
+                emails.append(email_data)
+            
+            # Sort by creation date (newest first)
+            emails.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
+            
+            logger.info(f"Retrieved {len(emails)} email confirmations for client {client_id}")
+            
+            # Log the first email for debugging (if any exist)
+            if emails:
+                logger.info(f"First email sample: {emails[0]}")
+            
+            return emails
+            
+        except Exception as e:
+            logger.error(f"Error getting email confirmations for client {client_id}: {e}")
+            return []
+    
     # ========== Utility Methods ==========
     
     async def client_exists(self, client_id: str) -> bool:

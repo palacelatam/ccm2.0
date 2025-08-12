@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#00e7ff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
+INFO:     127.0.0.1:56928 - "GET /api/v1/users/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56928 - "GET /api/v1/banks/banco-abc/client-segments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56928 - "GET /api/v1/banks/banco-abc/client-segments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56928 - "GET /api/v1/banks/banco-abc/client-assignments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56928 - "GET /api/v1/clients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56928 - "GET /api/v1/banks/banco-abc/settlement-letters HTTP/1.1" 200 OK

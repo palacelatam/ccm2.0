@@ -1,10 +1,11 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import { clientService, EmailConfirmation, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
+import AlertModal from '../common/AlertModal';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
@@ -17,6 +18,11 @@ const ConfirmationsGrid: React.FC = () => {
   const [emails, setEmails] = useState<EmailConfirmation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState<{tradesCount: number, message: string} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
@@ -44,6 +50,54 @@ const ConfirmationsGrid: React.FC = () => {
 
     loadEmails();
   }, [clientId]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !clientId) {
+      if (!clientId) setUploadMessage(t('grid.messages.noClientId'));
+      return;
+    }
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.msg') && !file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadMessage('Please select an MSG or PDF file');
+      return;
+    }
+
+    setUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const result = await clientService.uploadEmailFile(clientId, file);
+      
+      // Refresh the emails data
+      const emailsData = await clientService.getAllEmailConfirmations(clientId);
+      setEmails(emailsData);
+      
+      // Show success modal
+      setSuccessData({
+        tradesCount: result.trades_extracted || 0,
+        message: `Successfully processed email file with ${result.trades_extracted || 0} trades extracted`
+      });
+      setShowSuccessModal(true);
+      setUploadMessage(null);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadMessage(error instanceof Error ? error.message : 'Upload failed');
+      setShowSuccessModal(false);
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
@@ -271,28 +325,104 @@ const ConfirmationsGrid: React.FC = () => {
   }
 
   return (
-    <div className="ag-theme-alpine-dark trade-grid">
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Upload Controls */}
+      <div className="grid-header-controls" style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        alignItems: 'center', 
+        borderBottom: '1px solid #333',
+        marginTop: '-16px',
+        marginBottom: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {uploadMessage && (
+            <div style={{ 
+              color: uploadMessage.includes('Successfully') ? '#28a745' : '#dc3545',
+              fontSize: '14px',
+              marginRight: '15px'
+            }}>
+              {uploadMessage}
+            </div>
+          )}
+          
+          <div className="upload-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={triggerFileUpload}
+              disabled={uploading}
+              title={uploading ? 'Uploading...' : 'Upload MSG/PDF email file'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                opacity: uploading ? 0.5 : 1,
+                transition: 'opacity 0.2s ease'
+              }}
+            >
+              {uploading ? (
+                <span style={{ fontSize: '16px' }}>⏳</span>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4a9eff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              )}
+            </button>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".msg,.pdf"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Grid Content */}
       {emails.length === 0 ? (
-        <div className="empty-state">
-          No email confirmations found. Upload email files to get started.
+        <div className="empty-state" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3b3' }}>
+          No email confirmations found. Upload MSG or PDF email files to get started.
         </div>
       ) : (
-        <AgGridReact
-          rowData={emails}
-          columnDefs={columnDefs}
-          getContextMenuItems={getContextMenuItems}
-          pagination={true}
-          paginationPageSize={50}
-          enableRangeSelection={true}
-          allowContextMenuWithControlKey={true}
-          suppressMovableColumns={false}
-          domLayout="autoHeight"
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-            minWidth: 80
-          }}
+        <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
+          <AgGridReact
+            rowData={emails}
+            columnDefs={columnDefs}
+            getContextMenuItems={getContextMenuItems}
+            pagination={true}
+            paginationPageSize={50}
+            enableRangeSelection={true}
+            allowContextMenuWithControlKey={true}
+            suppressMovableColumns={false}
+            domLayout="normal"
+            defaultColDef={{
+              sortable: true,
+              filter: true,
+              resizable: true,
+              minWidth: 80
+            }}
+            sortingOrder={['asc', 'desc']}
+          />
+        </div>
+      )}
+      
+      {/* Success Modal */}
+      {showSuccessModal && successData && (
+        <AlertModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          title="Upload Successful"
+          message={successData.message}
+          type="success"
         />
       )}
     </div>

@@ -259,9 +259,106 @@ const BankDashboard: React.FC = () => {
 
   // Load data on component mount and when user changes
   useEffect(() => {
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (!user?.profile?.organization?.id || !isMounted) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Load segments first and store them
+        const segmentsResponse = await bankService.getClientSegments(user.profile.organization.id);
+        if (!isMounted) return; // Exit if component unmounted
+        
+        let loadedSegments: ClientSegment[] = [];
+        if (segmentsResponse.success && segmentsResponse.data) {
+          const segmentsWithIds = segmentsResponse.data.map(segment => ({
+            ...segment,
+            id: segment.id || `segment-${Date.now()}-${Math.random()}`
+          }));
+          setClientSegments(segmentsWithIds);
+          loadedSegments = segmentsWithIds;
+        }
+        
+        // Load assignments and pass both assignments and segments to loadClients
+        const assignmentsResponse = await bankService.getClientSegmentAssignments(user.profile.organization.id);
+        if (!isMounted) return; // Exit if component unmounted
+        
+        if (assignmentsResponse.success && assignmentsResponse.data) {
+          setClientAssignments(assignmentsResponse.data);
+          
+          // Load clients with the fresh data
+          const clientsResponse = await bankService.getAllClients();
+          if (!isMounted) return; // Exit if component unmounted
+          
+          if (clientsResponse.success && clientsResponse.data) {
+            const clientsWithSegments = clientsResponse.data.map(client => {
+              let assignedSegment: string | undefined;
+              for (const [segmentId, clientIds] of Object.entries(assignmentsResponse.data)) {
+                if (clientIds.includes(client.id)) {
+                  const segment = loadedSegments.find(s => s.id === segmentId);
+                  assignedSegment = segment?.name;
+                  break;
+                }
+              }
+              
+              return {
+                id: client.id,
+                name: client.name,
+                rut: client.taxId,
+                segment: assignedSegment
+              };
+            });
+            
+            setClients(clientsWithSegments);
+          }
+        }
+        
+        // Load settlement letters
+        const lettersResponse = await bankService.getSettlementLetters(user.profile.organization.id);
+        if (!isMounted) return; // Exit if component unmounted
+        
+        if (lettersResponse.success && lettersResponse.data) {
+          const mappedLetters = lettersResponse.data.map((letter: any) => ({
+            id: letter.id || `letter-${Date.now()}-${Math.random()}`,
+            active: letter.active,
+            priority: letter.priority,
+            ruleName: letter.rule_name || letter.ruleName,
+            product: letter.product,
+            clientSegmentId: letter.client_segment_id || letter.clientSegmentId,
+            documentName: letter.document_name || letter.documentName,
+            documentUrl: letter.document_url || letter.documentUrl,
+            templateVariables: letter.template_variables || letter.templateVariables || [],
+            conditions: letter.conditions || {},
+            createdAt: letter.createdAt || letter.created_at,
+            lastUpdatedAt: letter.lastUpdatedAt || letter.last_updated_at,
+            lastUpdatedBy: letter.lastUpdatedBy || letter.last_updated_by,
+            clientSegment: loadedSegments.find(s => s.id === (letter.client_segment_id || letter.clientSegmentId))?.name || 'No Specific Segment'
+          }));
+          setSettlementLetters(mappedLetters);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading data:', error);
+          setError('Failed to load data');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     if (user?.profile?.organization?.id) {
-      loadAllData();
+      loadData();
     }
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, [user?.profile?.organization?.id]);
 
   // Helper function to get sorted and grouped letters
@@ -795,9 +892,6 @@ const BankDashboard: React.FC = () => {
         message: t('bank.segmentation.saveSuccess.message'),
         type: 'success'
       });
-
-      // Reload all data to ensure we have the latest state
-      await loadAllData();
 
     } catch (error) {
       console.error('Error saving client segment changes:', error);

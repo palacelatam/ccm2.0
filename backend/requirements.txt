@@ -12,6 +12,10 @@ pydantic[email]==2.5.0
 pydantic-settings==2.1.0
 python-multipart==0.0.6
 
+# Email and document processing
+extract_msg==0.47.0
+PyPDF2==3.0.1
+
 # Environment management
 python-dotenv==1.0.0
 

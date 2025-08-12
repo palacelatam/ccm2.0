@@ -201,7 +201,7 @@ class BankService:
         """Get all settlement instruction letters for a bank"""
         try:
             letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
-            letters_docs = letters_ref.order_by('priority').order_by('rule_name').stream()
+            letters_docs = letters_ref.stream()
             
             letters = []
             for doc in letters_docs:
@@ -218,6 +218,10 @@ class BankService:
                     if hasattr(letter_data['lastUpdatedBy'], 'path'):
                         # It's a DocumentReference, get the ID from the path
                         letter_data['lastUpdatedBy'] = letter_data['lastUpdatedBy'].path.split('/')[-1]
+                
+                # Handle field name mapping from database (camelCase) to model (snake_case)
+                if 'ruleName' in letter_data:
+                    letter_data['rule_name'] = letter_data['ruleName']
                 
                 letters.append(SettlementInstructionLetter(**letter_data))
             

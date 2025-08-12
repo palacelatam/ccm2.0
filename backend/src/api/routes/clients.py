@@ -9,6 +9,7 @@ import logging
 from api.middleware.auth_middleware import get_auth_context, require_permission
 from services.client_service import ClientService
 from services.bank_service import BankService
+from services.email_parser import EmailParserService
 from models.base import APIResponse
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
@@ -777,13 +778,49 @@ async def upload_emails(
                 detail="Failed to create upload session"
             )
         
-        # TODO: Process email file (will be implemented in later phase)
-        # For now, just create a placeholder processing result
+        # Read file content
+        file_content = await file.read()
+        
+        # Process email file using EmailParserService
+        email_parser = EmailParserService()
+        email_data, parser_errors = email_parser.process_email_file(
+            file_content=file_content,
+            filename=file.filename
+        )
+        
+        if parser_errors:
+            await client_service.update_upload_session(
+                client_id=client_id,
+                session_id=session_id,
+                records_processed=0,
+                records_failed=1,
+                status="failed"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email processing failed: {'; '.join(parser_errors)}"
+            )
+        
+        # Process extracted email data and save to database
+        result = await client_service.process_email_upload(
+            client_id=client_id,
+            email_data=email_data,
+            session_id=session_id,
+            uploaded_by=auth_context.uid,
+            filename=file.filename
+        )
+        
+        # Get count of trades extracted from email
+        extracted_trades_count = 0
+        if email_data and 'llm_extracted_data' in email_data:
+            llm_data = email_data['llm_extracted_data']
+            if 'Trades' in llm_data:
+                extracted_trades_count = len(llm_data['Trades'])
         
         await client_service.update_upload_session(
             client_id=client_id,
             session_id=session_id,
-            records_processed=0,
+            records_processed=extracted_trades_count,
             records_failed=0,
             status="completed"
         )
@@ -792,12 +829,13 @@ async def upload_emails(
             success=True,
             data={
                 "upload_session_id": session_id,
+                "email_id": result.get('email_id'),
                 "file_name": file.filename,
                 "file_size": file.size,
-                "records_processed": 0,
-                "message": "Upload session created successfully. Email processing will be implemented in next phase."
+                "trades_extracted": extracted_trades_count,
+                "confirmation_detected": email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes'
             },
-            message="Email file upload initiated"
+            message=f"Successfully processed email file with {extracted_trades_count} trades extracted"
         )
         
     except Exception as e:
@@ -858,6 +896,38 @@ async def delete_all_unmatched_trades(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete unmatched trades: {str(e)}"
+        )
+
+
+@router.get("/{client_id}/email-confirmations", response_model=APIResponse[List[Dict[str, Any]]])
+async def get_email_confirmations(
+    request: Request,
+    client_id: str = Path(..., description="Client ID")
+):
+    """Get all email confirmations for a client"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        emails = await client_service.get_email_confirmations(client_id)
+        
+        return APIResponse(
+            success=True,
+            data=emails,
+            message=f"Retrieved {len(emails)} email confirmations"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving email confirmations for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve email confirmations: {str(e)}"
         )
 
 
