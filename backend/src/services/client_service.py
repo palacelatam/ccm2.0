@@ -648,33 +648,150 @@ class ClientService:
             return []
     
     async def get_all_email_confirmations(self, client_id: str) -> List[Dict[str, Any]]:
-        """Get all email confirmations with extracted trade data"""
+        """Get all email confirmations with extracted trade data, flattened for frontend display"""
         try:
             emails_ref = self.db.collection('clients').document(client_id).collection('emails')
             docs = emails_ref.stream()  # Let frontend handle sorting
             
-            emails = []
+            flattened_records = []
             for doc in docs:
                 email_data = doc.to_dict()
-                email_data['id'] = doc.id
+                email_id = doc.id
                 
-                # Check if this email has a match
+                # Check if this email has matches
                 matches_ref = self.db.collection('clients').document(client_id).collection('matches')
-                match_query = matches_ref.where('emailId', '==', doc.id).limit(1).stream()
+                match_query = matches_ref.where('emailId', '==', email_id).stream()
                 match_docs = list(match_query)
                 
-                if match_docs:
-                    match_data = match_docs[0].to_dict()
-                    email_data['matchId'] = match_docs[0].id
-                    email_data['matchStatus'] = 'matched'
-                    email_data['tradeId'] = match_data.get('tradeId')
-                else:
-                    email_data['matchStatus'] = 'unmatched'
+                # Create match lookup for this email
+                email_matches = {}
+                for match_doc in match_docs:
+                    match_data = match_doc.to_dict()
+                    trade_id = match_data.get('tradeId')
+                    if trade_id:
+                        email_matches[trade_id] = {
+                            'matchId': match_doc.id,
+                            'matchStatus': 'matched',
+                            'confidenceScore': match_data.get('confidenceScore', 0),
+                            'matchReasons': match_data.get('matchReasons', [])
+                        }
                 
-                emails.append(email_data)
+                # Extract LLM data if present (check both possible field names)
+                llm_data = email_data.get('llmExtractedData', {}) or email_data.get('llm_extracted_data', {})
+                
+                # DEBUG: Use print to ensure we see the output
+                print(f"🔍 DEBUG - Email ID: {email_id}")
+                print(f"🔍 DEBUG - Raw email_data keys: {list(email_data.keys())}")
+                print(f"🔍 DEBUG - llmExtractedData present: {'llmExtractedData' in email_data}")
+                print(f"🔍 DEBUG - llm_extracted_data present: {'llm_extracted_data' in email_data}")
+                print(f"🔍 DEBUG - llm_data type: {type(llm_data)}")
+                print(f"🔍 DEBUG - llm_data content: {llm_data}")
+                
+                email_info = llm_data.get('Email', {})
+                trades = llm_data.get('Trades', [])
+                
+                print(f"🔍 DEBUG - Email info extracted: {email_info}")
+                print(f"🔍 DEBUG - Trades extracted: {trades}")
+                print(f"🔍 DEBUG - Number of trades: {len(trades)}")
+                
+                # Base email fields from both email document and LLM extracted data
+                base_email_fields = {
+                    'id': email_id,
+                    'emailId': email_id,
+                    'createdAt': email_data.get('createdAt'),
+                    'filename': email_data.get('filename', ''),
+                    
+                    # Email metadata - prefer LLM extracted data, fallback to email document
+                    'EmailSender': email_info.get('EmailSender') or email_data.get('sender_email', ''),
+                    'EmailDate': email_info.get('EmailDate') or email_data.get('date', ''),
+                    'EmailTime': email_info.get('EmailTime') or email_data.get('time', ''),
+                    'EmailSubject': email_info.get('EmailSubject') or email_data.get('subject', ''),
+                    'EmailBody': email_data.get('body', ''),
+                    'Confirmation': email_info.get('Confirmation', 'Unknown'),
+                    'Num_trades': email_info.get('Num_trades', len(trades))
+                }
+                
+                if trades:
+                    # Create one record per trade (flattened structure)
+                    for i, trade in enumerate(trades):
+                        trade_record = {
+                            **base_email_fields,
+                            # Create unique ID for each trade within the email
+                            'id': f"{email_id}_trade_{i}",
+                            'tradeIndex': i,
+                            
+                            # Trade-specific fields from LLM extraction
+                            'BankTradeNumber': trade.get('BankTradeNumber', ''),
+                            'CounterpartyName': trade.get('CounterpartyName', ''),
+                            'ProductType': trade.get('ProductType', ''),
+                            'TradeDate': trade.get('TradeDate', ''),
+                            'ValueDate': trade.get('ValueDate', ''),
+                            'Direction': trade.get('Direction', ''),
+                            'Currency1': trade.get('Currency1', ''),
+                            'QuantityCurrency1': trade.get('QuantityCurrency1', 0),
+                            'Currency2': trade.get('Currency2', ''),
+                            'QuantityCurrency2': trade.get('QuantityCurrency2', 0),
+                            'ExchangeRate': trade.get('ExchangeRate', 0),
+                            'MaturityDate': trade.get('MaturityDate', ''),
+                            'ForwardPrice': trade.get('ForwardPrice', 0),
+                            'FixingReference': trade.get('FixingReference', ''),
+                            'SettlementType': trade.get('SettlementType', ''),
+                            'SettlementCurrency': trade.get('SettlementCurrency', ''),
+                            'PaymentDate': trade.get('PaymentDate', ''),
+                            'CounterpartyPaymentMethod': trade.get('CounterpartyPaymentMethod', ''),
+                            'OurPaymentMethod': trade.get('OurPaymentMethod', ''),
+                        }
+                        
+                        # Check if this specific trade has a match
+                        bank_trade_number = trade.get('BankTradeNumber', '')
+                        if bank_trade_number and bank_trade_number in email_matches:
+                            match_info = email_matches[bank_trade_number]
+                            trade_record.update({
+                                'matchId': match_info['matchId'],
+                                'status': 'Confirmation OK',
+                                'matchStatus': match_info['matchStatus'],
+                                'confidenceScore': match_info['confidenceScore'],
+                                'matchReasons': match_info['matchReasons']
+                            })
+                        else:
+                            trade_record.update({
+                                'status': 'Unrecognized',
+                                'matchStatus': 'unmatched'
+                            })
+                        
+                        flattened_records.append(trade_record)
+                else:
+                    # Email with no trades extracted - create single record
+                    email_record = {
+                        **base_email_fields,
+                        'status': 'Unrecognized',
+                        'matchStatus': 'unmatched',
+                        # Empty trade fields
+                        'BankTradeNumber': '',
+                        'CounterpartyName': '',
+                        'ProductType': '',
+                        'TradeDate': '',
+                        'ValueDate': '',
+                        'Direction': '',
+                        'Currency1': '',
+                        'QuantityCurrency1': 0,
+                        'Currency2': '',
+                        'QuantityCurrency2': 0,
+                        'ExchangeRate': 0,
+                        'MaturityDate': '',
+                        'ForwardPrice': 0,
+                        'FixingReference': '',
+                        'SettlementType': '',
+                        'SettlementCurrency': '',
+                        'PaymentDate': '',
+                        'CounterpartyPaymentMethod': '',
+                        'OurPaymentMethod': '',
+                    }
+                    
+                    flattened_records.append(email_record)
             
-            logger.info(f"Retrieved {len(emails)} email confirmations for client {client_id}")
-            return emails
+            logger.info(f"Retrieved {len(flattened_records)} trade records from email confirmations for client {client_id}")
+            return flattened_records
         except Exception as e:
             logger.error(f"Error getting email confirmations for client {client_id}: {e}")
             return []
