@@ -16,6 +16,9 @@ python-multipart==0.0.6
 extract_msg==0.47.0
 PyPDF2==3.0.1
 
+# LLM services
+anthropic==0.39.0
+
 # Environment management
 python-dotenv==1.0.0
 

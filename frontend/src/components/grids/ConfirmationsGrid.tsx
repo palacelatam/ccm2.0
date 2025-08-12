@@ -39,15 +39,6 @@ const ConfirmationsGrid: React.FC = () => {
         setLoading(true);
         setError(null);
         const emailsData = await clientService.getAllEmailConfirmations(clientId);
-        
-        // DEBUG: Log the received data structure
-        console.log('=== EMAIL CONFIRMATIONS DEBUG ===');
-        console.log('Number of records received:', emailsData.length);
-        console.log('First record (if any):', emailsData.length > 0 ? emailsData[0] : 'No records');
-        console.log('All record keys (first record):', emailsData.length > 0 ? Object.keys(emailsData[0]) : 'No keys');
-        console.log('Raw data:', emailsData);
-        console.log('=== END DEBUG ===');
-        
         setEmails(emailsData);
       } catch (error) {
         console.error('Error loading email confirmations:', error);
@@ -79,19 +70,8 @@ const ConfirmationsGrid: React.FC = () => {
     try {
       const result = await clientService.uploadEmailFile(clientId, file);
       
-      // DEBUG: Log upload result
-      console.log('=== UPLOAD RESULT DEBUG ===');
-      console.log('Upload result:', result);
-      console.log('=== END UPLOAD DEBUG ===');
-      
       // Refresh the emails data
       const emailsData = await clientService.getAllEmailConfirmations(clientId);
-      
-      // DEBUG: Log refreshed data
-      console.log('=== REFRESHED DATA DEBUG ===');
-      console.log('Refreshed email data:', emailsData);
-      console.log('=== END REFRESH DEBUG ===');
-      
       setEmails(emailsData);
       
       // Show success modal

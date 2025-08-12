@@ -1,12 +1,14 @@
 """
 LLM Service for processing email confirmations and extracting trade data
-Placeholder for integration with actual LLM service (OpenAI, Claude, etc.)
+Supports multiple LLM providers: Anthropic Claude, GCP Vertex AI, OpenAI
 """
 
 import json
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+
+from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +17,47 @@ class LLMService:
     """Service for LLM-based email processing and trade data extraction"""
     
     def __init__(self):
-        # Initialize LLM client here (OpenAI, Claude, etc.)
-        self.client = None  # Placeholder for actual LLM client
+        self.settings = get_settings()
+        self.client = None
+        self._initialize_client()
+    
+    def _initialize_client(self):
+        """Initialize the appropriate LLM client based on configuration"""
+        try:
+            if self.settings.llm_provider == "anthropic":
+                self._initialize_anthropic()
+            elif self.settings.llm_provider == "vertex":
+                self._initialize_vertex()
+            else:
+                logger.warning(f"Unsupported LLM provider: {self.settings.llm_provider}")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM client: {e}")
+            self.client = None
+    
+    def _initialize_anthropic(self):
+        """Initialize Anthropic Claude client"""
+        if not self.settings.anthropic_api_key:
+            logger.warning("ANTHROPIC_API_KEY not found in environment variables")
+            return
+        
+        try:
+            import anthropic
+            self.client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+            
+            # Debug: Check available methods
+            available_methods = [method for method in dir(self.client) if not method.startswith('_')]
+            logger.info(f"Anthropic client methods: {available_methods}")
+            
+            logger.info("Anthropic Claude client initialized successfully")
+        except ImportError:
+            logger.error("Anthropic package not installed. Run: pip install anthropic")
+        except Exception as e:
+            logger.error(f"Failed to initialize Anthropic client: {e}")
+    
+    def _initialize_vertex(self):
+        """Initialize GCP Vertex AI client (for future implementation)"""
+        logger.info("Vertex AI initialization - TODO: Implement when needed")
+        # TODO: Implement Vertex AI initialization
     
     def process_email_data(self, formatted_email_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -63,20 +104,87 @@ Email Body:
         return formatted_text
     
     def _call_llm_service(self, prompt: str) -> str:
-        """
-        Call the actual LLM service
-        This is a placeholder - replace with actual LLM API calls
-        """
-        # In a real implementation, this would call OpenAI, Claude, or other LLM service
-        # For now, return a mock response that follows the expected format
+        """Call the configured LLM service"""
+        if not self.client:
+            logger.warning("No LLM client available, using fallback")
+            return self._get_mock_response()
         
-        logger.info("LLM Service called (mock implementation)")
-        
-        # Mock response - in production this would be the actual LLM response
+        try:
+            if self.settings.llm_provider == "anthropic":
+                return self._call_anthropic(prompt)
+            elif self.settings.llm_provider == "vertex":
+                return self._call_vertex(prompt)
+            else:
+                logger.warning(f"Unsupported provider {self.settings.llm_provider}, using fallback")
+                return self._get_mock_response()
+        except Exception as e:
+            logger.error(f"LLM API call failed: {e}")
+            return self._get_mock_response()
+    
+    def _call_anthropic(self, prompt: str) -> str:
+        """Call Anthropic Claude API"""
+        try:
+            logger.info(f"Calling Anthropic Claude model: {self.settings.anthropic_model}")
+            
+            # Check if client has messages attribute (newer SDK)
+            if hasattr(self.client, 'messages'):
+                logger.info("Using Anthropic Messages API")
+                response = self.client.messages.create(
+                    model=self.settings.anthropic_model,
+                    max_tokens=4000,
+                    temperature=0.1,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                response_text = response.content[0].text
+            else:
+                # Use completions API (available in the client)
+                logger.info("Using Anthropic Completions API")
+                
+                # The completions API needs the model to be compatible
+                # For Claude Sonnet 4, we need to try a different approach
+                # Let's check if this is an older SDK version
+                if hasattr(self.client, 'completions'):
+                    # Format prompt for completions API
+                    formatted_prompt = f"\n\nHuman: {prompt}\n\nAssistant:"
+                    
+                    response = self.client.completions.create(
+                        model="claude-2.1",  # Use a model that works with completions API
+                        prompt=formatted_prompt,
+                        max_tokens_to_sample=4000,
+                        temperature=0.1,
+                        stop_sequences=["\n\nHuman:"]
+                    )
+                    response_text = response.completion
+                else:
+                    raise AttributeError("Cannot find appropriate API method on Anthropic client")
+            
+            logger.info("Anthropic API call successful")
+            return response_text
+            
+        except Exception as e:
+            logger.error(f"Anthropic API error: {e}")
+            # Log more details about the client
+            logger.error(f"Client type: {type(self.client)}")
+            logger.error(f"Client attributes: {[attr for attr in dir(self.client) if not attr.startswith('_')]}")
+            raise
+    
+    def _call_vertex(self, prompt: str) -> str:
+        """Call GCP Vertex AI API (future implementation)"""
+        # TODO: Implement Vertex AI call
+        logger.info("Vertex AI call - TODO: Implement")
+        raise NotImplementedError("Vertex AI implementation coming soon")
+    
+    def _get_mock_response(self) -> str:
+        """Get mock response for fallback scenarios"""
         mock_response = {
             "Email": {
-                "EmailSubject": "Trade Confirmation - USD/CLP Forward",
-                "EmailSender": "confirmations@bank.com",
+                "EmailSubject": "Trade Confirmation - Mock Response",
+                "EmailSender": "mock@bank.com",
                 "EmailDate": datetime.now().strftime('%d-%m-%Y'),
                 "EmailTime": datetime.now().strftime('%H:%M:%S'),
                 "Confirmation": "Yes",
@@ -84,8 +192,8 @@ Email Body:
             },
             "Trades": [
                 {
-                    "BankTradeNumber": "FX202401001",
-                    "CounterpartyName": "Banco Santander",
+                    "BankTradeNumber": "MOCK001",
+                    "CounterpartyName": "Mock Bank",
                     "ProductType": "Forward",
                     "Direction": "Buy",
                     "Currency1": "USD",

@@ -1,27 +1,7 @@
 INFO:     Application startup complete.
 CMEK Firestore client initialized successfully
-INFO:     127.0.0.1:49320 - "GET /api/v1/users/me HTTP/1.1" 200 OK
-C:\Users\bencl\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\cloud\firestore_v1\base_collection.py:295: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
-  return query.where(field_path, op_string, value)
-🔍 DEBUG - Email ID: KdERh1TejUqpwtJiFp1m
-🔍 DEBUG - Raw email_data keys: ['organizationId', 'subject', 'processedAt', 'llmExtractedData', 'status', 'filename', 'senderEmail', 'uploadSessionId', 'confirmationDetected', 'emailTime', 'tradesCount', 'emailDate', 'createdAt', 'attachmentsText', 'bodyContent']
-🔍 DEBUG - llm_extracted_data present: False
-🔍 DEBUG - llm_data type: <class 'dict'>
-🔍 DEBUG - llm_data content: {}
-🔍 DEBUG - Email info extracted: {}
-🔍 DEBUG - Trades extracted: []
-🔍 DEBUG - Number of trades: 0
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/matched-trades HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/all-email-confirmations HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/unmatched-trades HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/matched-trades HTTP/1.1" 200 OK
-🔍 DEBUG - Email ID: KdERh1TejUqpwtJiFp1m
-🔍 DEBUG - Raw email_data keys: ['organizationId', 'subject', 'processedAt', 'llmExtractedData', 'status', 'filename', 'senderEmail', 'uploadSessionId', 'confirmationDetected', 'emailTime', 'tradesCount', 'emailDate', 'createdAt', 'attachmentsText', 'bodyContent']
-🔍 DEBUG - llm_extracted_data present: False
-🔍 DEBUG - llm_data type: <class 'dict'>
-🔍 DEBUG - llm_data content: {}
-🔍 DEBUG - Email info extracted: {}
-🔍 DEBUG - Trades extracted: []
-🔍 DEBUG - Number of trades: 0
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/all-email-confirmations HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/unmatched-trades HTTP/1.1" 200 OK
+Anthropic API error: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-2.1'}}
+Client type: <class 'anthropic.Anthropic'>
+Client attributes: ['AI_PROMPT', 'HUMAN_PROMPT', 'api_key', 'auth_headers', 'auth_token', 'base_url', 'close', 'completions', 'copy', 'count_tokens', 'custom_auth', 'default_headers', 'delete', 'get', 'get_api_list', 'get_tokenizer', 'is_closed', 'max_retries', 'patch', 'platform_headers', 'post', 'put', 'qs', 'request', 'timeout', 'user_agent', 'with_options', 'with_raw_response']
+LLM API call failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-2.1'}}
+INFO:     None:0 - "POST /api/v1/clients/xyz-corp/upload-emails HTTP/1.1" 200 OK

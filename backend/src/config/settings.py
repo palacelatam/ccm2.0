@@ -38,6 +38,16 @@ class Settings:
         
         # Logging
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
+        
+        # LLM Configuration
+        self.llm_provider = os.getenv("LLM_PROVIDER", "anthropic")  # anthropic, vertex, openai
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        self.anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        
+        # GCP Vertex AI (for future use)
+        self.vertex_project_id = os.getenv("VERTEX_PROJECT_ID", self.firebase_project_id)
+        self.vertex_location = os.getenv("VERTEX_LOCATION", "us-central1")
+        self.vertex_model = os.getenv("VERTEX_MODEL", "claude-3-5-sonnet@20241022")
 
 
 # Global settings instance

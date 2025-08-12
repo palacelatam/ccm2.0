@@ -678,21 +678,8 @@ class ClientService:
                 
                 # Extract LLM data if present (check both possible field names)
                 llm_data = email_data.get('llmExtractedData', {}) or email_data.get('llm_extracted_data', {})
-                
-                # DEBUG: Use print to ensure we see the output
-                print(f"🔍 DEBUG - Email ID: {email_id}")
-                print(f"🔍 DEBUG - Raw email_data keys: {list(email_data.keys())}")
-                print(f"🔍 DEBUG - llmExtractedData present: {'llmExtractedData' in email_data}")
-                print(f"🔍 DEBUG - llm_extracted_data present: {'llm_extracted_data' in email_data}")
-                print(f"🔍 DEBUG - llm_data type: {type(llm_data)}")
-                print(f"🔍 DEBUG - llm_data content: {llm_data}")
-                
                 email_info = llm_data.get('Email', {})
                 trades = llm_data.get('Trades', [])
-                
-                print(f"🔍 DEBUG - Email info extracted: {email_info}")
-                print(f"🔍 DEBUG - Trades extracted: {trades}")
-                print(f"🔍 DEBUG - Number of trades: {len(trades)}")
                 
                 # Base email fields from both email document and LLM extracted data
                 base_email_fields = {
