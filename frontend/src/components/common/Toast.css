@@ -33,7 +33,7 @@
 }
 
 .toast-header-warning {
-  background-color: #d97706;
+  background-color: #eab308;
 }
 
 .toast-header-info {
@@ -53,6 +53,18 @@
   font-size: 14px;
   font-weight: 600;
   color: white;
+}
+
+.toast-header-warning .toast-title {
+  color: black;
+}
+
+.toast-header-warning .toast-icon {
+  color: black;
+}
+
+.toast-header-warning .toast-close {
+  color: black;
 }
 
 .toast-close {

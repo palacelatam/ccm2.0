@@ -869,24 +869,46 @@ async def upload_emails(
                         )
                         
                         # Process match results
+                        duplicates_found = 0
                         for match_result in match_results:
                             if match_result['matched_client_trade'] is not None:
-                                # Create match record in database
-                                await client_service.create_match(
-                                    client_id=client_id,
-                                    trade_id=match_result['matched_client_trade'].get('id', ''),
-                                    email_id=result.get('email_id', ''),
-                                    confidence_score=match_result['confidence'] / 100,  # Convert percentage to decimal
-                                    match_reasons=match_result['match_reasons']
-                                )
-                                matches_found += 1
-                                matched_trade_numbers.append(match_result['matched_client_trade'].get('TradeNumber', ''))
+                                client_trade_id = match_result['matched_client_trade'].get('id', '')
+                                client_trade_number = match_result['matched_client_trade'].get('TradeNumber', '')
                                 
-                                logger.info(f"Auto-match created - Trade: {match_result['matched_client_trade'].get('TradeNumber')}, "
-                                          f"Confidence: {match_result['confidence']}%, Status: {match_result['status']}")
+                                # Check if this client trade already has a match (duplicate detection)
+                                existing_match = await client_service.check_existing_match(client_id, client_trade_id)
+                                
+                                if existing_match:
+                                    # This client trade already has a match - mark as duplicate
+                                    duplicates_found += 1
+                                    
+                                    # Store duplicate information for display purposes
+                                    await client_service.mark_email_as_duplicate(
+                                        client_id=client_id,
+                                        email_id=result.get('email_id', ''),
+                                        duplicate_trade_id=client_trade_id,
+                                        duplicate_trade_number=client_trade_number,
+                                        existing_match_id=existing_match.get('id')
+                                    )
+                                    
+                                    logger.warning(f"Duplicate detected - Trade {client_trade_number} (ID: {client_trade_id}) already has an existing match (Match ID: {existing_match.get('id')}). Email trade marked as duplicate.")
+                                else:
+                                    # No existing match - create new match record
+                                    await client_service.create_match(
+                                        client_id=client_id,
+                                        trade_id=client_trade_id,
+                                        email_id=result.get('email_id', ''),
+                                        confidence_score=match_result['confidence'] / 100,  # Convert percentage to decimal
+                                        match_reasons=match_result['match_reasons']
+                                    )
+                                    matches_found += 1
+                                    matched_trade_numbers.append(client_trade_number)
+                                    
+                                    logger.info(f"Auto-match created - Trade: {client_trade_number}, "
+                                              f"Confidence: {match_result['confidence']}%, Status: {match_result['status']}")
                 
-                if matches_found > 0:
-                    logger.info(f"Auto-matching completed: {matches_found} matches found for uploaded email")
+                if matches_found > 0 or duplicates_found > 0:
+                    logger.info(f"Auto-matching completed: {matches_found} matches found, {duplicates_found} duplicates detected for uploaded email")
                 else:
                     logger.info("Auto-matching completed: No matches found for uploaded email")
                     
@@ -913,6 +935,7 @@ async def upload_emails(
                 "file_size": file.size,
                 "trades_extracted": extracted_trades_count,
                 "matches_found": matches_found,
+                "duplicates_found": duplicates_found,
                 "confirmation_detected": email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes',
                 "counterparty_name": counterparty_name,
                 "matched_trade_numbers": matched_trade_numbers

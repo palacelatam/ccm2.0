@@ -71,6 +71,7 @@ export interface UploadResult {
   trades_extracted?: number;
   confirmation_detected?: boolean;
   matches_found?: number;
+  duplicates_found?: number;
   counterparty_name?: string;
   matched_trade_numbers?: string[];
 }

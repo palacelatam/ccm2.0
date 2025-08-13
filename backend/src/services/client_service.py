@@ -786,6 +786,12 @@ class ClientService:
                         if match_found and best_match:
                             # Compare fields to determine if it's "Confirmation OK" or "Difference"
                             status, differing_fields = self._compare_trade_fields(trade, best_match['clientTradeData'])
+                            
+                            # Note: Duplicate detection happens during the matching process
+                            # If an email trade would match a client trade that's already matched,
+                            # no match record gets created, so duplicates will show as 'Unrecognized'
+                            # We could enhance this later to detect and mark true duplicates
+                            
                             trade_record.update({
                                 'matchId': best_match['matchId'],
                                 'status': status,
@@ -797,10 +803,18 @@ class ClientService:
                             # Remove this match so it's not reused for other email trades
                             email_matches.pop(next(iter(email_matches)), None)
                         else:
-                            trade_record.update({
-                                'status': 'Unrecognized',
-                                'matchStatus': 'unmatched'
-                            })
+                            # Check if this email has been marked as containing duplicates
+                            if email_data.get('hasDuplicates', False):
+                                trade_record.update({
+                                    'status': 'Duplicate',
+                                    'matchStatus': 'duplicate',
+                                    'duplicateInfo': email_data.get('duplicateInfo', {})
+                                })
+                            else:
+                                trade_record.update({
+                                    'status': 'Unrecognized',
+                                    'matchStatus': 'unmatched'
+                                })
                         
                         flattened_records.append(trade_record)
                 else:
@@ -867,6 +881,68 @@ class ClientService:
         except Exception as e:
             logger.error(f"Error creating match for client {client_id}: {e}")
             return False
+    
+    async def check_existing_match(self, client_id: str, trade_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Check if a client trade already has an existing match
+        
+        Args:
+            client_id: ID of the client
+            trade_id: ID of the client trade to check
+            
+        Returns:
+            Match document if exists, None otherwise
+        """
+        try:
+            matches_ref = self.db.collection('clients').document(client_id).collection('matches')
+            query = matches_ref.where('tradeId', '==', trade_id).limit(1)
+            docs = query.stream()
+            
+            match_docs = list(docs)
+            if match_docs:
+                match_data = match_docs[0].to_dict()
+                match_data['id'] = match_docs[0].id
+                logger.info(f"Found existing match for trade {trade_id}: Match ID {match_data['id']}")
+                return match_data
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error checking existing match for trade {trade_id}: {e}")
+            return None
+    
+    async def mark_email_as_duplicate(self, client_id: str, email_id: str, 
+                                     duplicate_trade_id: str, duplicate_trade_number: str,
+                                     existing_match_id: str):
+        """
+        Mark an email as containing duplicate trades
+        
+        Args:
+            client_id: ID of the client
+            email_id: ID of the email document
+            duplicate_trade_id: ID of the client trade that was already matched
+            duplicate_trade_number: Trade number for logging
+            existing_match_id: ID of the existing match record
+        """
+        try:
+            email_ref = self.db.collection('clients').document(client_id).collection('emails').document(email_id)
+            
+            # Update email document with duplicate information
+            email_ref.update({
+                'hasDuplicates': True,
+                'duplicateInfo': {
+                    'duplicateTradeId': duplicate_trade_id,
+                    'duplicateTradeNumber': duplicate_trade_number,
+                    'existingMatchId': existing_match_id,
+                    'detectedAt': datetime.now(),
+                },
+                'updatedAt': datetime.now()
+            })
+            
+            logger.info(f"Marked email {email_id} as containing duplicates (Trade: {duplicate_trade_number})")
+            
+        except Exception as e:
+            logger.error(f"Error marking email {email_id} as duplicate: {e}")
     
     async def get_upload_session(self, client_id: str, session_id: str) -> Optional[UploadSession]:
         """Get upload session by ID"""

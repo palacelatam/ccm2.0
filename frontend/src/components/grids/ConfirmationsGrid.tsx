@@ -135,17 +135,29 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         onDataChange();
       }
       
-      // Show success toast
+      // Show appropriate toast based on results
       const tradesCount = result.trades_extracted || 0;
       const matchesCount = result.matches_found || 0;
+      const duplicatesCount = result.duplicates_found || 0;
       
       // Use the enhanced data from the backend response
       const counterpartyName = result.counterparty_name || 'Unknown';
       const clientTradeNumbers = (result.matched_trade_numbers && result.matched_trade_numbers.length > 0) ? 
         ` (${result.matched_trade_numbers.join(', ')})` : '';
       
-      const message = `Successfully processed email file from ${counterpartyName} with ${tradesCount} trades extracted and ${matchesCount} matches found${clientTradeNumbers}`;
-      showToastNotification(message, 'success');
+      // Determine toast type and message based on duplicates
+      let toastType: 'success' | 'warning' | 'error' = 'success';
+      let message = '';
+      
+      if (duplicatesCount > 0) {
+        toastType = 'warning';
+        const duplicateWord = duplicatesCount === 1 ? 'duplicate' : 'duplicates';
+        message = `Warning: ${duplicatesCount} ${duplicateWord} detected in email from ${counterpartyName}. These trades were already processed previously. ${matchesCount} new matches created${clientTradeNumbers}`;
+      } else {
+        message = `Successfully processed email file from ${counterpartyName} with ${tradesCount} trades extracted and ${matchesCount} matches found${clientTradeNumbers}`;
+      }
+      
+      showToastNotification(message, toastType);
       setUploadMessage(null);
       
     } catch (error) {
@@ -200,6 +212,9 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             break;
           case 'Matched':
             color = '#4CAF50'; // Same as Confirmation OK
+            break;
+          case 'Duplicate':
+            color = '#FFA500'; // Orange for duplicates
             break;
           default:
             color = '#FFFFFF'; // Default fallback
