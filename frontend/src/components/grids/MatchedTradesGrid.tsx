@@ -24,6 +24,25 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
 
+  // Helper function to create cell renderer with difference highlighting
+  const createCellRenderer = (fieldName: string) => (params: any) => {
+    const value = params.value || '';
+    const differingFields = params.data?.differingFields || [];
+    const hasDifference = differingFields.includes(fieldName);
+    
+    return React.createElement('div', {
+      style: {
+        backgroundColor: hasDifference ? '#ff0000' : 'transparent', // Red background for differences
+        color: hasDifference ? '#ffffff' : 'inherit', // White text for differences
+        padding: '2px 4px',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    }, value);
+  };
+
   const loadMatchedTrades = useCallback(async (preserveGridState = false) => {
     if (!clientId) {
       setLoading(false);
@@ -106,7 +125,8 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
     { 
       headerName: t('grid.columns.productType'), 
       field: 'ProductType', 
-      width: 120 
+      width: 120,
+      cellRenderer: createCellRenderer('ProductType')
     },
     { 
       headerName: t('grid.columns.tradeDate'), 
@@ -114,12 +134,29 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
       width: 120,
       sortable: true, 
       filter: true,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('TradeDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
@@ -139,35 +176,74 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
     { 
       headerName: t('grid.columns.direction'), 
       field: 'Direction', 
-      width: 60 
+      width: 60,
+      cellRenderer: createCellRenderer('Direction')
     },
     { 
       headerName: t('grid.columns.currency1'), 
       field: 'Currency1', 
-      width: 100 
+      width: 100,
+      cellRenderer: createCellRenderer('Currency1')
     },
     { 
       headerName: t('grid.columns.amount'), 
       field: 'QuantityCurrency1', 
       width: 140,
-      valueFormatter: (params) => params.value.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
+      cellRenderer: (params: any) => {
+        const value = params.value || 0;
+        const formattedValue = value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('QuantityCurrency1');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
+      }
     },
     { 
       headerName: t('grid.columns.price'), 
       field: 'ForwardPrice', 
       width: 100,
-      valueFormatter: (params) => params.value.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })
+      cellRenderer: (params: any) => {
+        const value = params.value || 0;
+        const formattedValue = value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('ForwardPrice');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
+      }
     },
     { 
       headerName: t('grid.columns.currency2'), 
       field: 'Currency2', 
-      width: 100 
+      width: 100,
+      cellRenderer: createCellRenderer('Currency2')
     },
     { 
       headerName: t('grid.columns.maturityDate'), 
@@ -186,17 +262,20 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
     { 
       headerName: t('grid.columns.fixingReference'), 
       field: 'FixingReference', 
-      width: 140 
+      width: 140,
+      cellRenderer: createCellRenderer('FixingReference')
     },
     { 
       headerName: t('grid.columns.settlementType'), 
       field: 'SettlementType', 
-      width: 130 
+      width: 130,
+      cellRenderer: createCellRenderer('SettlementType')
     },
     { 
       headerName: t('grid.columns.settlementCurrency'), 
       field: 'SettlementCurrency', 
-      width: 140 
+      width: 140,
+      cellRenderer: createCellRenderer('SettlementCurrency')
     },
     { 
       headerName: t('grid.columns.paymentDate'), 
@@ -215,12 +294,14 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
     { 
       headerName: t('grid.columns.counterpartyPaymentMethod'), 
       field: 'CounterpartyPaymentMethod', 
-      width: 200 
+      width: 200,
+      cellRenderer: createCellRenderer('CounterpartyPaymentMethod')
     },
     { 
       headerName: t('grid.columns.ourPaymentMethod'), 
       field: 'OurPaymentMethod', 
-      width: 160 
+      width: 160,
+      cellRenderer: createCellRenderer('OurPaymentMethod')
     }
   ], [t]);
 

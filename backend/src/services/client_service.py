@@ -2,9 +2,10 @@
 Client service for managing client settings and related data
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from google.cloud.firestore import DocumentReference, Query
 import logging
+import re
 from datetime import datetime
 
 from config.firebase_config import get_cmek_firestore_client
@@ -638,6 +639,33 @@ class ClientService:
                     trade_data['match_confidence'] = f"{int(match_data.get('confidenceScore', 0) * 100)}%"
                     trade_data['match_reasons'] = match_data.get('matchReasons', [])
                     trade_data['identified_at'] = match_data.get('identified_at', match_data.get('createdAt'))
+                    
+                    # Get differing fields by comparing with the matched email trade
+                    email_id = match_data.get('emailId')
+                    if email_id:
+                        try:
+                            # Get the email document
+                            email_ref = self.db.collection('clients').document(client_id).collection('emails').document(email_id)
+                            email_doc = email_ref.get()
+                            if email_doc.exists:
+                                email_data = email_doc.to_dict()
+                                llm_data = email_data.get('llmExtractedData', {}) or email_data.get('llm_extracted_data', {})
+                                email_trades = llm_data.get('Trades', [])
+                                
+                                # For simplicity, compare with the first email trade (could be improved with better matching)
+                                if email_trades:
+                                    email_trade = email_trades[0]  # Assuming first trade corresponds to this match
+                                    _, differing_fields = self._compare_trade_fields(email_trade, trade_data)
+                                    trade_data['differingFields'] = differing_fields
+                                else:
+                                    trade_data['differingFields'] = []
+                            else:
+                                trade_data['differingFields'] = []
+                        except Exception as e:
+                            logger.warning(f"Error fetching differing fields for matched trade {trade_doc.id}: {e}")
+                            trade_data['differingFields'] = []
+                    else:
+                        trade_data['differingFields'] = []
                 
                 enriched_trades.append(trade_data)
             
@@ -663,18 +691,30 @@ class ClientService:
                 match_query = matches_ref.where('emailId', '==', email_id).stream()
                 match_docs = list(match_query)
                 
-                # Create match lookup for this email
+                # Create match lookup for this email - get actual client trade data
                 email_matches = {}
                 for match_doc in match_docs:
                     match_data = match_doc.to_dict()
                     trade_id = match_data.get('tradeId')
                     if trade_id:
-                        email_matches[trade_id] = {
-                            'matchId': match_doc.id,
-                            'matchStatus': 'matched',
-                            'confidenceScore': match_data.get('confidenceScore', 0),
-                            'matchReasons': match_data.get('matchReasons', [])
-                        }
+                        # Get the actual client trade data
+                        try:
+                            trade_ref = self.db.collection('clients').document(client_id).collection('trades').document(trade_id)
+                            trade_doc = trade_ref.get()
+                            if trade_doc.exists:
+                                client_trade_data = trade_doc.to_dict()
+                                # Use TradeNumber as the key for easier lookup
+                                trade_number = client_trade_data.get('TradeNumber', '')
+                                if trade_number:
+                                    email_matches[trade_number] = {
+                                        'matchId': match_doc.id,
+                                        'matchStatus': 'matched',
+                                        'confidenceScore': match_data.get('confidenceScore', 0),
+                                        'matchReasons': match_data.get('matchReasons', []),
+                                        'clientTradeData': client_trade_data
+                                    }
+                        except Exception as e:
+                            logger.warning(f"Could not fetch client trade {trade_id} for match comparison: {e}")
                 
                 # Extract LLM data if present (check both possible field names)
                 llm_data = email_data.get('llmExtractedData', {}) or email_data.get('llm_extracted_data', {})
@@ -729,17 +769,33 @@ class ClientService:
                             'OurPaymentMethod': trade.get('OurPaymentMethod', ''),
                         }
                         
-                        # Check if this specific trade has a match
-                        bank_trade_number = trade.get('BankTradeNumber', '')
-                        if bank_trade_number and bank_trade_number in email_matches:
-                            match_info = email_matches[bank_trade_number]
+                        # Check if this email has any matches and try to find the best match for this trade
+                        match_found = False
+                        best_match = None
+                        
+                        if email_matches:
+                            # If there are matches for this email, find the best one for this specific trade
+                            # For now, use the first available match (could be improved with better matching logic)
+                            for trade_number, match_info in email_matches.items():
+                                # For simplicity, assume first match corresponds to first email trade
+                                # This could be improved by matching based on trade characteristics
+                                best_match = match_info
+                                match_found = True
+                                break
+                        
+                        if match_found and best_match:
+                            # Compare fields to determine if it's "Confirmation OK" or "Difference"
+                            status, differing_fields = self._compare_trade_fields(trade, best_match['clientTradeData'])
                             trade_record.update({
-                                'matchId': match_info['matchId'],
-                                'status': 'Confirmation OK',
-                                'matchStatus': match_info['matchStatus'],
-                                'confidenceScore': match_info['confidenceScore'],
-                                'matchReasons': match_info['matchReasons']
+                                'matchId': best_match['matchId'],
+                                'status': status,
+                                'matchStatus': best_match['matchStatus'],
+                                'confidenceScore': best_match['confidenceScore'],
+                                'matchReasons': best_match['matchReasons'],
+                                'differingFields': differing_fields
                             })
+                            # Remove this match so it's not reused for other email trades
+                            email_matches.pop(next(iter(email_matches)), None)
                         else:
                             trade_record.update({
                                 'status': 'Unrecognized',
@@ -1162,6 +1218,162 @@ class ClientService:
         except Exception as e:
             logger.error(f"Error saving email confirmation for client {client_id}: {e}")
             raise e
+    
+    def _compare_trade_fields(self, email_trade: Dict[str, Any], client_trade: Dict[str, Any]) -> Tuple[str, List[str]]:
+        """
+        Compare ALL email trade fields with client trade fields to determine status
+        Returns tuple: (status, list_of_differing_field_names)
+        """
+        try:
+            differences = []
+            differing_fields = []
+            
+            # 1. Product Type
+            email_product = str(email_trade.get('ProductType', '')).strip()
+            client_product = str(client_trade.get('ProductType', '')).strip()
+            if email_product.upper() != client_product.upper():
+                differences.append(f"ProductType: '{email_product}' vs '{client_product}'")
+                differing_fields.append('ProductType')
+            
+            # 2. Trade Date
+            email_trade_date = self._normalize_date(email_trade.get('TradeDate', ''))
+            client_trade_date = self._normalize_date(client_trade.get('TradeDate', ''))
+            if email_trade_date != client_trade_date:
+                differences.append(f"TradeDate: '{email_trade.get('TradeDate')}' vs '{client_trade.get('TradeDate')}'")
+                differing_fields.append('TradeDate')
+            
+            # 3. Value Date
+            email_value_date = self._normalize_date(email_trade.get('ValueDate', ''))
+            client_value_date = self._normalize_date(client_trade.get('ValueDate', ''))
+            if email_value_date != client_value_date:
+                differences.append(f"ValueDate: '{email_trade.get('ValueDate')}' vs '{client_trade.get('ValueDate')}'")
+                differing_fields.append('ValueDate')
+            
+            # 4. Direction
+            email_direction = str(email_trade.get('Direction', '')).strip()
+            client_direction = str(client_trade.get('Direction', '')).strip()
+            if email_direction.upper() != client_direction.upper():
+                differences.append(f"Direction: '{email_direction}' vs '{client_direction}'")
+                differing_fields.append('Direction')
+            
+            # 5. Currency 1
+            email_cur1 = str(email_trade.get('Currency1', '')).strip()
+            client_cur1 = str(client_trade.get('Currency1', '')).strip()
+            if email_cur1.upper() != client_cur1.upper():
+                differences.append(f"Currency1: '{email_cur1}' vs '{client_cur1}'")
+                differing_fields.append('Currency1')
+            
+            # 6. Amount (Quantity Currency 1) - exact match
+            email_amount = float(email_trade.get('QuantityCurrency1', 0))
+            client_amount = float(client_trade.get('QuantityCurrency1', 0))
+            if email_amount != client_amount:
+                differences.append(f"QuantityCurrency1: {email_amount} vs {client_amount}")
+                differing_fields.append('QuantityCurrency1')
+            
+            # 7. Price (Forward Price) - exact match
+            email_price = float(email_trade.get('ForwardPrice', 0))
+            client_price = float(client_trade.get('ForwardPrice', 0))
+            if email_price != client_price:
+                differences.append(f"ForwardPrice: {email_price} vs {client_price}")
+                differing_fields.append('ForwardPrice')
+            
+            # 8. Currency 2
+            email_cur2 = str(email_trade.get('Currency2', '')).strip()
+            client_cur2 = str(client_trade.get('Currency2', '')).strip()
+            if email_cur2.upper() != client_cur2.upper():
+                differences.append(f"Currency2: '{email_cur2}' vs '{client_cur2}'")
+                differing_fields.append('Currency2')
+            
+            # 9. Maturity Date
+            email_maturity = self._normalize_date(email_trade.get('MaturityDate', ''))
+            client_maturity = self._normalize_date(client_trade.get('MaturityDate', ''))
+            if email_maturity != client_maturity:
+                differences.append(f"MaturityDate: '{email_trade.get('MaturityDate')}' vs '{client_trade.get('MaturityDate')}'")
+                differing_fields.append('MaturityDate')
+            
+            # 10. Fixing Reference
+            email_fixing = str(email_trade.get('FixingReference', '')).strip()
+            client_fixing = str(client_trade.get('FixingReference', '')).strip()
+            if email_fixing.upper() != client_fixing.upper():
+                differences.append(f"FixingReference: '{email_fixing}' vs '{client_fixing}'")
+                differing_fields.append('FixingReference')
+            
+            # 11. Settlement Type
+            email_settlement_type = str(email_trade.get('SettlementType', '')).strip()
+            client_settlement_type = str(client_trade.get('SettlementType', '')).strip()
+            if email_settlement_type.upper() != client_settlement_type.upper():
+                differences.append(f"SettlementType: '{email_settlement_type}' vs '{client_settlement_type}'")
+                differing_fields.append('SettlementType')
+            
+            # 12. Settlement Currency
+            email_settlement_cur = str(email_trade.get('SettlementCurrency', '')).strip()
+            client_settlement_cur = str(client_trade.get('SettlementCurrency', '')).strip()
+            if email_settlement_cur.upper() != client_settlement_cur.upper():
+                differences.append(f"SettlementCurrency: '{email_settlement_cur}' vs '{client_settlement_cur}'")
+                differing_fields.append('SettlementCurrency')
+            
+            # 13. Payment Date
+            email_payment_date = self._normalize_date(email_trade.get('PaymentDate', ''))
+            client_payment_date = self._normalize_date(client_trade.get('PaymentDate', ''))
+            if email_payment_date != client_payment_date:
+                differences.append(f"PaymentDate: '{email_trade.get('PaymentDate')}' vs '{client_trade.get('PaymentDate')}'")
+                differing_fields.append('PaymentDate')
+            
+            # 14. Our Payment Method
+            email_our_method = str(email_trade.get('OurPaymentMethod', '')).strip()
+            client_our_method = str(client_trade.get('OurPaymentMethod', '')).strip()
+            if email_our_method.upper() != client_our_method.upper():
+                differences.append(f"OurPaymentMethod: '{email_our_method}' vs '{client_our_method}'")
+                differing_fields.append('OurPaymentMethod')
+            
+            # 15. Counterparty Payment Method
+            email_cp_method = str(email_trade.get('CounterpartyPaymentMethod', '')).strip()
+            client_cp_method = str(client_trade.get('CounterpartyPaymentMethod', '')).strip()
+            if email_cp_method.upper() != client_cp_method.upper():
+                differences.append(f"CounterpartyPaymentMethod: '{email_cp_method}' vs '{client_cp_method}'")
+                differing_fields.append('CounterpartyPaymentMethod')
+            
+            # Result: ALL fields must match for "Confirmation OK"
+            if not differences:
+                logger.info("All trade fields match - Confirmation OK")
+                return ('Confirmation OK', [])
+            else:
+                logger.info(f"Trade differences found ({len(differences)} fields): {', '.join(differences[:3])}{'...' if len(differences) > 3 else ''}")
+                return ('Difference', differing_fields)
+                
+        except Exception as e:
+            logger.warning(f"Error comparing trade fields: {e}")
+            return ('Difference', [])  # Default to difference if comparison fails
+    
+    def _normalize_date(self, date_str: str) -> str:
+        """
+        Normalize date string to DD-MM-YYYY format for comparison
+        """
+        if not date_str:
+            return ''
+        
+        # Handle different date formats
+        date_str = str(date_str).strip()
+        
+        # If already in DD-MM-YYYY format, return as-is
+        if re.match(r'^\d{2}-\d{2}-\d{4}$', date_str):
+            return date_str
+        
+        # Handle other common formats and convert to DD-MM-YYYY
+        # This is a simplified version - could be expanded based on actual data formats
+        try:
+            from datetime import datetime
+            # Try parsing common formats
+            for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y']:
+                try:
+                    parsed_date = datetime.strptime(date_str, fmt)
+                    return parsed_date.strftime('%d-%m-%Y')
+                except ValueError:
+                    continue
+        except:
+            pass
+        
+        return date_str  # Return original if can't parse
     
     async def get_email_confirmations(self, client_id: str) -> List[Dict[str, Any]]:
         """
