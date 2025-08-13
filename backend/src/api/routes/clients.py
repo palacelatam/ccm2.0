@@ -10,6 +10,7 @@ from api.middleware.auth_middleware import get_auth_context, require_permission
 from services.client_service import ClientService
 from services.bank_service import BankService
 from services.email_parser import EmailParserService
+from services.matching_service import MatchingService
 from models.base import APIResponse
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
@@ -817,6 +818,82 @@ async def upload_emails(
             if 'Trades' in llm_data:
                 extracted_trades_count = len(llm_data['Trades'])
         
+        # Auto-trigger matching if this is a trade confirmation with extracted trades
+        matches_found = 0
+        counterparty_name = 'Unknown'
+        matched_trade_numbers = []
+        
+        if (extracted_trades_count > 0 and 
+            email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes'):
+            
+            logger.info(f"Auto-triggering matching for uploaded email with {extracted_trades_count} trades")
+            
+            # Initialize counterparty name from LLM extracted email data
+            counterparty_name = "Unknown"
+            
+            # Try to get counterparty name from LLM extracted email trades data
+            llm_trades = email_data.get('llm_extracted_data', {}).get('Trades', [])
+            if llm_trades and len(llm_trades) > 0:
+                # Get counterparty from first trade (all should be same counterparty in one email)
+                llm_counterparty = llm_trades[0].get('CounterpartyName', '')
+                if llm_counterparty and llm_counterparty != 'Unknown':
+                    counterparty_name = llm_counterparty
+            
+            try:
+                # Run matching process automatically
+                matching_service = MatchingService()
+                
+                # Get unmatched trades for matching
+                unmatched_trades = await client_service.get_unmatched_trades(client_id)
+                
+                # Get the just-uploaded email for matching
+                email_confirmations = [result]  # Use the result from process_email_upload
+                
+                # Process the uploaded email through matching
+                for email_confirmation in email_confirmations:
+                    llm_data = email_data.get('llm_extracted_data', {})
+                    email_trades = llm_data.get('Trades', [])
+                    
+                    if email_trades:
+                        email_metadata = {
+                            'senderEmail': email_data.get('email_metadata', {}).get('sender_email', ''),
+                            'subject': email_data.get('email_metadata', {}).get('subject', ''),
+                            'emailDate': email_data.get('email_metadata', {}).get('date', ''),
+                            'emailTime': email_data.get('email_metadata', {}).get('time', ''),
+                            'bodyContent': email_data.get('email_metadata', {}).get('body_content', '')
+                        }
+                        
+                        # Run matching algorithm
+                        match_results = matching_service.match_email_trades_with_client_trades(
+                            email_trades, unmatched_trades, email_metadata
+                        )
+                        
+                        # Process match results
+                        for match_result in match_results:
+                            if match_result['matched_client_trade'] is not None:
+                                # Create match record in database
+                                await client_service.create_match(
+                                    client_id=client_id,
+                                    trade_id=match_result['matched_client_trade'].get('id', ''),
+                                    email_id=result.get('email_id', ''),
+                                    confidence_score=match_result['confidence'] / 100,  # Convert percentage to decimal
+                                    match_reasons=match_result['match_reasons']
+                                )
+                                matches_found += 1
+                                matched_trade_numbers.append(match_result['matched_client_trade'].get('TradeNumber', ''))
+                                
+                                logger.info(f"Auto-match created - Trade: {match_result['matched_client_trade'].get('TradeNumber')}, "
+                                          f"Confidence: {match_result['confidence']}%, Status: {match_result['status']}")
+                
+                if matches_found > 0:
+                    logger.info(f"Auto-matching completed: {matches_found} matches found for uploaded email")
+                else:
+                    logger.info("Auto-matching completed: No matches found for uploaded email")
+                    
+            except Exception as matching_error:
+                logger.error(f"Auto-matching failed for uploaded email: {matching_error}")
+                # Don't fail the upload if matching fails
+        
         await client_service.update_upload_session(
             client_id=client_id,
             session_id=session_id,
@@ -824,6 +901,8 @@ async def upload_emails(
             records_failed=0,
             status="completed"
         )
+        
+        # counterparty_name and matched_trade_numbers are already set during the matching process above
         
         return APIResponse(
             success=True,
@@ -833,9 +912,12 @@ async def upload_emails(
                 "file_name": file.filename,
                 "file_size": file.size,
                 "trades_extracted": extracted_trades_count,
-                "confirmation_detected": email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes'
+                "matches_found": matches_found,
+                "confirmation_detected": email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes',
+                "counterparty_name": counterparty_name,
+                "matched_trade_numbers": matched_trade_numbers
             },
-            message=f"Successfully processed email file with {extracted_trades_count} trades extracted"
+            message=f"Successfully processed email file with {extracted_trades_count} trades extracted and {matches_found} matches found"
         )
         
     except Exception as e:
@@ -947,26 +1029,91 @@ async def process_matches(
         raise HTTPException(status_code=404, detail="Client not found")
     
     try:
-        # Get unmatched trades and emails
-        trades = await client_service.get_unmatched_trades(client_id)
-        emails = await client_service.get_email_confirmations(client_id)
+        # Get unmatched trades and email confirmations
+        unmatched_trades = await client_service.get_unmatched_trades(client_id)
+        email_confirmations = await client_service.get_email_confirmations(client_id)
         
-        # TODO: Implement actual matching algorithm in later phase
-        # For now, return placeholder data
+        logger.info(f"Found {len(unmatched_trades)} unmatched trades and {len(email_confirmations)} email confirmations for matching")
+        
+        # Initialize matching service
+        matching_service = MatchingService()
         
         matches_found = 0
         confidence_scores = []
+        total_processed = 0
+        
+        # Process each email confirmation
+        for email_confirmation in email_confirmations:
+            # Skip if already processed or no LLM data
+            if email_confirmation.get('status') != 'unmatched':
+                continue
+                
+            # Extract LLM data from email confirmation
+            llm_data = email_confirmation.get('llmExtractedData', {})
+            if not llm_data or llm_data.get('Email', {}).get('Confirmation', '').lower() != 'yes':
+                continue
+            
+            # Get trades from LLM extraction
+            email_trades = llm_data.get('Trades', [])
+            if not email_trades:
+                continue
+            
+            # Extract email metadata
+            email_metadata = {
+                'senderEmail': email_confirmation.get('senderEmail', ''),
+                'subject': email_confirmation.get('subject', ''),
+                'emailDate': email_confirmation.get('emailDate', ''),
+                'emailTime': email_confirmation.get('emailTime', ''),
+                'bodyContent': email_confirmation.get('bodyContent', '')
+            }
+            
+            # Run matching algorithm
+            match_results = matching_service.match_email_trades_with_client_trades(
+                email_trades, unmatched_trades, email_metadata
+            )
+            
+            # Process match results
+            for match_result in match_results:
+                total_processed += 1
+                
+                if match_result['matched_client_trade'] is not None:
+                    # Match found - save it
+                    match_id = match_result['match_id']
+                    confidence = match_result['confidence']
+                    status = match_result['status']
+                    
+                    # Create match record in database
+                    await client_service.create_match(
+                        client_id=client_id,
+                        trade_id=match_result['matched_client_trade'].get('id', ''),
+                        email_id=email_confirmation.get('id', ''),
+                        confidence_score=confidence / 100,  # Convert percentage to decimal
+                        match_reasons=match_result['match_reasons']
+                    )
+                    
+                    matches_found += 1
+                    confidence_scores.append(confidence)
+                    
+                    logger.info(f"Match created - Trade: {match_result['matched_client_trade'].get('TradeNumber')}, "
+                              f"Email: {email_confirmation.get('subject', '')}, "
+                              f"Confidence: {confidence}%, Status: {status}, Match ID: {match_id}")
+                else:
+                    # No match found - this will show as "Unrecognized" in the grid
+                    logger.info(f"No match found for email trade: {match_result['email_trade'].get('TradeNumber', 'Unknown')}")
+        
+        avg_confidence = round(sum(confidence_scores) / len(confidence_scores)) if confidence_scores else 0
         
         return APIResponse(
             success=True,
             data={
-                "unmatched_trades": len(trades),
-                "unmatched_emails": len(emails),
+                "unmatched_trades": len(unmatched_trades),
+                "email_confirmations": len(email_confirmations),
+                "trades_processed": total_processed,
                 "matches_found": matches_found,
+                "average_confidence": avg_confidence,
                 "confidence_scores": confidence_scores,
-                "message": "Matching algorithm will be implemented in next phase."
             },
-            message=f"Processed {len(trades)} trades and {len(emails)} emails"
+            message=f"Processed {total_processed} trades. Found {matches_found} matches with average confidence of {avg_confidence}%"
         )
         
     except Exception as e:

@@ -70,6 +70,9 @@ export interface UploadResult {
   email_id?: string;
   trades_extracted?: number;
   confirmation_detected?: boolean;
+  matches_found?: number;
+  counterparty_name?: string;
+  matched_trade_numbers?: string[];
 }
 
 export interface ProcessMatchesResult {

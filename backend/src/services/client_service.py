@@ -1128,11 +1128,6 @@ class ClientService:
         try:
             emails_ref = self.db.collection('clients').document(client_id).collection('emails')
             
-            # DEBUG: Log what we're about to save
-            logger.info(f"=== DEBUG: Saving email for client {client_id} ===")
-            logger.info(f"email_metadata contains: {email_metadata.keys()}")
-            logger.info(f"date from metadata: {email_metadata.get('date', 'NOT FOUND')}")
-            logger.info(f"time from metadata: {email_metadata.get('time', 'NOT FOUND')}")
             
             # Create email document
             email_doc = {
@@ -1161,11 +1156,6 @@ class ClientService:
             # Add document and return ID
             doc_ref = emails_ref.add(email_doc)[1]
             
-            # DEBUG: Log what was saved
-            logger.info(f"Email saved with ID: {doc_ref.id}")
-            logger.info(f"Saved emailDate: {email_doc.get('emailDate', 'NOT SET')}")
-            logger.info(f"Saved emailTime: {email_doc.get('emailTime', 'NOT SET')}")
-            logger.info("=== END DEBUG SAVE ===\n")
             
             return doc_ref.id
             
@@ -1190,18 +1180,6 @@ class ClientService:
             emails = []
             for doc in docs:
                 raw_email_data = doc.to_dict()
-                
-                # DEBUG: Log the raw data from database
-                logger.info(f"=== DEBUG: Email document {doc.id} ===")
-                logger.info(f"Root level emailDate: {raw_email_data.get('emailDate', 'NOT FOUND')}")
-                logger.info(f"Root level emailTime: {raw_email_data.get('emailTime', 'NOT FOUND')}")
-                logger.info(f"Root level senderEmail: {raw_email_data.get('senderEmail', 'NOT FOUND')}")
-                logger.info(f"Root level subject: {raw_email_data.get('subject', 'NOT FOUND')}")
-                
-                # Log LLM data structure
-                llm_data = raw_email_data.get('llmExtractedData', {})
-                email_section = llm_data.get('Email', {})
-                logger.info(f"LLM Email section: {email_section}")
                 
                 # Convert Firestore timestamps to strings
                 created_at = raw_email_data.get('createdAt', '')
@@ -1231,10 +1209,6 @@ class ClientService:
                     'EmailTime': raw_email_data.get('emailTime', ''),  # Use root-level metadata time
                 })
                 
-                # DEBUG: Log what we're sending to frontend
-                logger.info(f"Final EmailDate being sent: {email_data.get('EmailDate', 'NOT SET')}")
-                logger.info(f"Final EmailTime being sent: {email_data.get('EmailTime', 'NOT SET')}")
-                logger.info("=== END DEBUG ===\n")
                 
                 # Add first trade data from LLM results if available (these now have correct field names)
                 trades = llm_data.get('Trades', [])

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
@@ -9,39 +9,63 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
 
-const MatchedTradesGrid: React.FC = () => {
+interface MatchedTradesGridProps {
+  refreshTrigger?: number;
+}
+
+const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const gridRef = useRef<AgGridReact>(null);
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
 
-  useEffect(() => {
+  const loadMatchedTrades = useCallback(async (preserveGridState = false) => {
     if (!clientId) {
       setLoading(false);
       setError('No client ID available');
       return;
     }
 
-    const loadMatchedTrades = async () => {
-      try {
+    try {
+      if (!preserveGridState) {
         setLoading(true);
-        setError(null);
-        const tradesData = await clientService.getMatchedTrades(clientId);
+      }
+      setError(null);
+      const tradesData = await clientService.getMatchedTrades(clientId);
+      
+      if (preserveGridState && gridRef.current?.api) {
+        // Update data while preserving grid state (sorting, filtering, etc.)
+        gridRef.current.api.setRowData(tradesData);
+      } else {
+        // Full reload (initial load)
         setTrades(tradesData);
-      } catch (error) {
-        console.error('Error loading matched trades:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load matched trades');
-      } finally {
+      }
+    } catch (error) {
+      console.error('Error loading matched trades:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load matched trades');
+    } finally {
+      if (!preserveGridState) {
         setLoading(false);
       }
-    };
-
-    loadMatchedTrades();
+    }
   }, [clientId]);
+
+  // Load trades on mount and when client changes
+  useEffect(() => {
+    loadMatchedTrades();
+  }, [loadMatchedTrades]);
+
+  // Refresh when refreshTrigger changes (called by parent)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      loadMatchedTrades(true); // Preserve grid state on refresh
+    }
+  }, [refreshTrigger, loadMatchedTrades]);
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
@@ -257,6 +281,7 @@ const MatchedTradesGrid: React.FC = () => {
       ) : (
         <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
           <AgGridReact
+            ref={gridRef}
             rowData={trades}
             columnDefs={columnDefs}
             getContextMenuItems={getContextMenuItems}

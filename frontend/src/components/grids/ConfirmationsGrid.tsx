@@ -5,14 +5,22 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import { clientService, EmailConfirmation, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
-import AlertModal from '../common/AlertModal';
+import Toast from '../common/Toast';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
 
 // Using v1.0 field structure for email confirmations with extracted trade data
 
-const ConfirmationsGrid: React.FC = () => {
+interface ConfirmationsGridProps {
+  onDataChange?: () => void;
+  refreshTrigger?: number;
+}
+
+const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({ 
+  onDataChange, 
+  refreshTrigger 
+}) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [emails, setEmails] = useState<EmailConfirmation[]>([]);
@@ -20,36 +28,64 @@ const ConfirmationsGrid: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successData, setSuccessData] = useState<{tradesCount: number, message: string} | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const gridRef = useRef<AgGridReact>(null);
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
 
-  useEffect(() => {
+  // Helper function to show toast notifications
+  const showToastNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+  };
+
+  const loadEmails = useCallback(async (preserveGridState = false) => {
     if (!clientId) {
       setLoading(false);
       setError('No client ID available');
       return;
     }
 
-    const loadEmails = async () => {
-      try {
+    try {
+      if (!preserveGridState) {
         setLoading(true);
-        setError(null);
-        const emailsData = await clientService.getAllEmailConfirmations(clientId);
+      }
+      setError(null);
+      const emailsData = await clientService.getAllEmailConfirmations(clientId);
+      
+      if (preserveGridState && gridRef.current?.api) {
+        // Update data while preserving grid state (sorting, filtering, etc.)
+        gridRef.current.api.setRowData(emailsData);
+      } else {
+        // Full reload (initial load)
         setEmails(emailsData);
-      } catch (error) {
-        console.error('Error loading email confirmations:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load email confirmations');
-      } finally {
+      }
+    } catch (error) {
+      console.error('Error loading email confirmations:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load email confirmations');
+    } finally {
+      if (!preserveGridState) {
         setLoading(false);
       }
-    };
-
-    loadEmails();
+    }
   }, [clientId]);
+
+  // Load emails on mount and when client changes
+  useEffect(() => {
+    loadEmails();
+  }, [loadEmails]);
+
+  // Refresh when refreshTrigger changes (called by parent)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      loadEmails(true); // Preserve grid state on refresh
+    }
+  }, [refreshTrigger, loadEmails]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -60,7 +96,9 @@ const ConfirmationsGrid: React.FC = () => {
 
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.msg') && !file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadMessage('Please select an MSG or PDF file');
+      const errorMessage = 'Please select an MSG or PDF file';
+      setUploadMessage(errorMessage);
+      showToastNotification(errorMessage, 'warning');
       return;
     }
 
@@ -70,22 +108,32 @@ const ConfirmationsGrid: React.FC = () => {
     try {
       const result = await clientService.uploadEmailFile(clientId, file);
       
-      // Refresh the emails data
-      const emailsData = await clientService.getAllEmailConfirmations(clientId);
-      setEmails(emailsData);
+      // Refresh the emails data while preserving grid state
+      await loadEmails(true);
       
-      // Show success modal
-      setSuccessData({
-        tradesCount: result.trades_extracted || 0,
-        message: `Successfully processed email file with ${result.trades_extracted || 0} trades extracted`
-      });
-      setShowSuccessModal(true);
+      // Notify parent component to refresh other grids
+      if (onDataChange) {
+        onDataChange();
+      }
+      
+      // Show success toast
+      const tradesCount = result.trades_extracted || 0;
+      const matchesCount = result.matches_found || 0;
+      
+      // Use the enhanced data from the backend response
+      const counterpartyName = result.counterparty_name || 'Unknown';
+      const clientTradeNumbers = (result.matched_trade_numbers && result.matched_trade_numbers.length > 0) ? 
+        ` (${result.matched_trade_numbers.join(', ')})` : '';
+      
+      const message = `Successfully processed email file from ${counterpartyName} with ${tradesCount} trades extracted and ${matchesCount} matches found${clientTradeNumbers}`;
+      showToastNotification(message, 'success');
       setUploadMessage(null);
       
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadMessage(error instanceof Error ? error.message : 'Upload failed');
-      setShowSuccessModal(false);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      setUploadMessage(errorMessage);
+      showToastNotification(errorMessage, 'error');
     } finally {
       setUploading(false);
       // Reset file input
@@ -395,6 +443,7 @@ const ConfirmationsGrid: React.FC = () => {
       ) : (
         <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
           <AgGridReact
+            ref={gridRef}
             rowData={emails}
             columnDefs={columnDefs}
             getContextMenuItems={getContextMenuItems}
@@ -415,16 +464,14 @@ const ConfirmationsGrid: React.FC = () => {
         </div>
       )}
       
-      {/* Success Modal */}
-      {showSuccessModal && successData && (
-        <AlertModal
-          isOpen={showSuccessModal}
-          onClose={() => setShowSuccessModal(false)}
-          title="Upload Successful"
-          message={successData.message}
-          type="success"
-        />
-      )}
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        isVisible={showToast}
+        onClose={() => setShowToast(false)}
+        duration={4000}
+      />
     </div>
   );
 };

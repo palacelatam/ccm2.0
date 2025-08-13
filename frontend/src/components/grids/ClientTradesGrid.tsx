@@ -12,7 +12,11 @@ import './TradeGrid.css';
 
 // Using v1.0 field structure directly
 
-const ClientTradesGrid: React.FC = () => {
+interface ClientTradesGridProps {
+  refreshTrigger?: number;
+}
+
+const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [trades, setTrades] = useState<any[]>([]);
@@ -25,33 +29,53 @@ const ClientTradesGrid: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState<{tradesCount: number, message: string} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const gridRef = useRef<AgGridReact>(null);
 
   // Get client ID from user context (assuming user has organization data)
   const clientId = user?.organization?.id || user?.id;
 
-  useEffect(() => {
+  const loadTrades = useCallback(async (preserveGridState = false) => {
     if (!clientId) {
       setLoading(false);
       setError(t('grid.messages.noClientId'));
       return;
     }
 
-    const loadTrades = async () => {
-      try {
+    try {
+      if (!preserveGridState) {
         setLoading(true);
-        setError(null);
-        const tradesData = await clientService.getUnmatchedTrades(clientId);
+      }
+      setError(null);
+      const tradesData = await clientService.getUnmatchedTrades(clientId);
+      
+      if (preserveGridState && gridRef.current?.api) {
+        // Update data while preserving grid state (sorting, filtering, etc.)
+        gridRef.current.api.setRowData(tradesData);
+      } else {
+        // Full reload (initial load)
         setTrades(tradesData);
-      } catch (error) {
-        console.error('Error loading trades:', error);
-        setError(error instanceof Error ? error.message : t('grid.messages.uploadFailed'));
-      } finally {
+      }
+    } catch (error) {
+      console.error('Error loading trades:', error);
+      setError(error instanceof Error ? error.message : t('grid.messages.uploadFailed'));
+    } finally {
+      if (!preserveGridState) {
         setLoading(false);
       }
-    };
+    }
+  }, [clientId, t]);
 
+  // Load trades on mount and when client changes
+  useEffect(() => {
     loadTrades();
-  }, [clientId]);
+  }, [loadTrades]);
+
+  // Refresh when refreshTrigger changes (called by parent)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      loadTrades(true); // Preserve grid state on refresh
+    }
+  }, [refreshTrigger, loadTrades]);
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
@@ -241,9 +265,8 @@ const ClientTradesGrid: React.FC = () => {
       // Use existing clientService method with overwrite parameter
       const result = await clientService.uploadTradeFileWithOverwrite(clientId, file, overwriteData);
       
-      // Refresh the trades data
-      const tradesData = await clientService.getUnmatchedTrades(clientId);
-      setTrades(tradesData);
+      // Refresh the trades data while preserving grid state
+      await loadTrades(true);
       
       // Show success modal
       setSuccessData({
@@ -286,9 +309,8 @@ const ClientTradesGrid: React.FC = () => {
       // Use the real delete endpoint
       const result = await clientService.deleteAllUnmatchedTrades(clientId);
       
-      // Refresh the trades data from database instead of clearing grid
-      const tradesData = await clientService.getUnmatchedTrades(clientId);
-      setTrades(tradesData);
+      // Refresh the trades data from database while preserving grid state
+      await loadTrades(true);
       
       setSuccessData({
         tradesCount: result.trades_deleted,
@@ -460,6 +482,7 @@ const ClientTradesGrid: React.FC = () => {
       ) : (
         <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
           <AgGridReact
+            ref={gridRef}
             rowData={trades}
             columnDefs={columnDefs}
             getContextMenuItems={getContextMenuItems}
