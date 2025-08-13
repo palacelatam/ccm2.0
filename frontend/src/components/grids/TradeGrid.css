@@ -4,6 +4,15 @@
   width: 100%;
 }
 
+/* Ensure vertical scrollbars appear when needed */
+.trade-grid .ag-root-wrapper {
+  height: 100%;
+}
+
+.trade-grid .ag-body-viewport {
+  overflow-y: auto !important;
+}
+
 .trade-grid .ag-header {
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);

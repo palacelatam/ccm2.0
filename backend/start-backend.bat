@@ -11,6 +11,10 @@ if exist "venv\Scripts\activate.bat" (
     exit /b 1
 )
 
+REM Authenticate with Google Cloud
+echo Authenticating with Google Cloud...
+gcloud auth application-default login
+
 cd src
 set PYTHONPATH=%cd%
 python -m uvicorn main:app --reload

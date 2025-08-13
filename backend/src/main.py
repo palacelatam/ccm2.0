@@ -8,11 +8,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import os
+import logging
 
 from config.firebase_config import initialize_firebase
 from config.settings import get_settings
 from api.routes import auth, users, health, clients, banks
 from api.middleware.auth_middleware import AuthMiddleware
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

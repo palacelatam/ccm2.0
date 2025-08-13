@@ -249,29 +249,30 @@ const MatchedTradesGrid: React.FC = () => {
   }
 
   return (
-    <div className="ag-theme-alpine-dark trade-grid">
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {trades.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3b3' }}>
           No matched trades found. Process matches to see matched trades here.
         </div>
       ) : (
-        <AgGridReact
-          rowData={trades}
-          columnDefs={columnDefs}
-          getContextMenuItems={getContextMenuItems}
-          pagination={true}
-          paginationPageSize={50}
-          enableRangeSelection={true}
-          allowContextMenuWithControlKey={true}
-          suppressMovableColumns={false}
-          domLayout="autoHeight"
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-            minWidth: 80
-          }}
-        />
+        <div className="ag-theme-alpine-dark trade-grid" style={{ flex: '1', minHeight: 0, height: '100%' }}>
+          <AgGridReact
+            rowData={trades}
+            columnDefs={columnDefs}
+            getContextMenuItems={getContextMenuItems}
+            pagination={true}
+            paginationPageSize={50}
+            enableRangeSelection={true}
+            allowContextMenuWithControlKey={true}
+            suppressMovableColumns={false}
+            defaultColDef={{
+              sortable: true,
+              filter: true,
+              resizable: true,
+              minWidth: 80
+            }}
+          />
+        </div>
       )}
     </div>
   );
