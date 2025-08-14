@@ -29,7 +29,7 @@ def initialize_firebase() -> firebase_admin.App:
     try:
         if settings.use_firebase_emulator:
             # Initialize for emulator
-            print(f"🔧 Connecting to Firebase emulator at {settings.firebase_emulator_host}:{settings.firebase_emulator_port}")
+            print(f"Connecting to Firebase emulator at {settings.firebase_emulator_host}:{settings.firebase_emulator_port}")
             
             # Set environment variables for emulator
             os.environ["FIRESTORE_EMULATOR_HOST"] = f"{settings.firebase_emulator_host}:{settings.firebase_emulator_port}"
@@ -49,11 +49,11 @@ def initialize_firebase() -> firebase_admin.App:
         # Initialize Firestore client
         _db = firestore.client()
         
-        print("✅ Firebase Admin SDK initialized successfully")
+        print("Firebase Admin SDK initialized successfully")
         return _app
         
     except Exception as e:
-        print(f"❌ Failed to initialize Firebase: {e}")
+        print(f"Failed to initialize Firebase: {e}")
         raise
 
 
@@ -78,7 +78,7 @@ def get_cmek_firestore_client() -> Client:
     settings = get_settings()
     
     if settings.use_firebase_emulator:
-        print("⚠️  Warning: CMEK client requested but emulator mode is enabled")
+        print("Warning: CMEK client requested but emulator mode is enabled")
         return get_firestore_client()
     
     try:
@@ -114,7 +114,7 @@ def verify_firebase_token(id_token: str) -> dict:
         decoded_token = auth_client.verify_id_token(id_token)
         return decoded_token
     except Exception as e:
-        print(f"❌ Token verification failed: {e}")
+        print(f"Token verification failed: {e}")
         raise ValueError(f"Invalid token: {e}")
 
 
@@ -131,5 +131,5 @@ def get_user_by_uid(uid: str) -> dict:
             'disabled': user_record.disabled
         }
     except Exception as e:
-        print(f"❌ Failed to get user: {e}")
+        print(f"Failed to get user: {e}")
         raise ValueError(f"User not found: {e}")

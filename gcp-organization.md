@@ -1,7 +1,7 @@
 # Google Cloud Platform: `palace.cl` Organization Architecture & Security Summary
 
-**Document Version:** 1.1  
-**Date:** August 11, 2025  
+**Document Version:** 1.2  
+**Date:** August 14, 2025  
 **Author:** Gemini AI Assistant (Updated by Claude Code)
 
 ## 1.0 Introduction & Strategic Objectives
@@ -134,6 +134,7 @@ A multi-layered security strategy has been implemented across the organization.
 ### 6.2 Organization Policies
 
 * A comprehensive set of recommended **Organization Policies** were applied at the root of the organization. These policies act as preventative guardrails, enforcing security best practices such as disabling the creation of default networks, preventing public access to storage buckets, and restricting the use of external IP addresses on virtual machines.
+* **Service Account Key Restriction:** Organization policy `constraints/iam.disableServiceAccountKeyCreation` is enforced to prevent the creation of service account keys, enhancing security by encouraging the use of more secure authentication methods like Application Default Credentials (ADC) and Workload Identity.
 
 ### 6.3 Data Encryption Strategy
 
@@ -187,17 +188,129 @@ A multi-layered security strategy has been implemented across the organization.
 
 ---
 
-## 8.0 Deployment & Ongoing Management
+## 8.0 Gmail API Integration for Email Automation
 
-### 8.1 Terraform Deployment
+### 8.1 Overview
+
+The CCM2.0 application integrates with Gmail API to automatically monitor and process trade confirmation emails sent to a dedicated mailbox (`confirmaciones_dev@palace.cl`). This integration enables near real-time processing of email confirmations without manual intervention.
+
+### 8.2 Service Account Configuration
+
+**Service Account:** `gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com`  
+**Purpose:** Automated access to Gmail inbox for email processing  
+**Authentication Method:** Service account key with domain-wide delegation
+
+#### 8.2.1 Domain-Wide Delegation Setup
+
+To enable the service account to access the Gmail mailbox:
+
+1. **Service Account Configuration:**
+   - Created in project `ccm-dev-pool`
+   - Domain-wide delegation enabled
+   - OAuth scopes: `https://www.googleapis.com/auth/gmail.readonly`
+
+2. **Google Workspace Admin Configuration:**
+   - Client ID (Unique ID) authorized in admin.google.com
+   - Scope: `https://www.googleapis.com/auth/gmail.readonly`
+   - Allows impersonation of `confirmaciones_dev@palace.cl`
+
+#### 8.2.2 Organization Policy Exception
+
+Due to the organization policy `constraints/iam.disableServiceAccountKeyCreation` that prevents service account key creation:
+
+1. **Temporary Exception Process:**
+   ```bash
+   # Temporarily disable the restriction
+   gcloud resource-manager org-policies set-policy policy-exception.yaml --organization=165254678508
+   
+   # Create the service account key
+   gcloud iam service-accounts keys create gmail-service-account.json \
+     --iam-account=gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com
+   
+   # Re-enable the restriction
+   gcloud resource-manager org-policies set-policy policy-reenable.yaml --organization=165254678508
+   ```
+
+2. **Key Storage:**
+   - Key file: `backend/gmail-service-account.json`
+   - Not committed to version control (in .gitignore)
+   - Required for Gmail API authentication only
+
+### 8.3 Authentication Architecture
+
+The application uses a dual authentication approach:
+
+1. **Firestore Access:** Uses Application Default Credentials (ADC)
+   - Leverages user's Google Cloud credentials
+   - No service account keys required
+   - Access to CMEK-encrypted `ccm-development` database
+
+2. **Gmail API Access:** Uses service account key with domain-wide delegation
+   - Required due to Gmail's specific authentication requirements
+   - Enables programmatic access to monitored mailbox
+   - Processes emails without user intervention
+
+### 8.4 Email Processing Workflow
+
+1. **Email Detection:**
+   - Service monitors `confirmaciones_dev@palace.cl` inbox
+   - Uses Gmail History API for efficient new message detection
+   - Processes emails where monitoring address is in To/CC fields
+
+2. **Processing Pipeline:**
+   - Extract email metadata (sender, subject, date, body)
+   - Download PDF attachments
+   - Process PDFs through existing EmailParserService
+   - Send to LLM (Claude) for trade data extraction
+   - Store processed data in Firestore
+   - Trigger automatic matching with existing trades
+
+3. **API Endpoints:**
+   - `POST /api/v1/gmail/check-now` - Manual email check
+   - `POST /api/v1/gmail/start-monitoring` - Start background monitoring
+   - `POST /api/v1/gmail/stop-monitoring` - Stop monitoring
+   - `GET /api/v1/gmail/status` - Check service status
+   - `POST /api/v1/gmail/initialize` - Initialize service
+
+### 8.5 Security Considerations
+
+1. **Principle of Least Privilege:**
+   - Service account has read-only access to Gmail
+   - Limited to specific mailbox via domain-wide delegation
+   - Cannot modify or delete emails
+
+2. **Key Management:**
+   - Service account key stored locally only
+   - Not in version control
+   - Organization policy prevents unauthorized key creation
+
+3. **Audit Trail:**
+   - All API access logged in Cloud Audit Logs
+   - Email processing tracked in application logs
+   - Failed processing attempts recorded for investigation
+
+### 8.6 Production Deployment Considerations
+
+For production deployment:
+
+1. **Dedicated Service Account:** Create production-specific service account in production project
+2. **Production Mailbox:** Use `confirmaciones@palace.cl` instead of development mailbox
+3. **Key Rotation:** Implement regular key rotation schedule
+4. **Monitoring:** Set up alerts for processing failures and API quota usage
+
+---
+
+## 9.0 Deployment & Ongoing Management
+
+### 9.1 Terraform Deployment
 
 * The entire foundation described in this document was deployed from a single, unified Terraform configuration that was generated and downloaded from the Google Cloud Foundation Setup guide.
 
-### 8.2 Terraform State Management
+### 9.2 Terraform State Management
 
 * During the download process, a Google Cloud Storage (GCS) bucket was created in the `southamerica-west1` region. This bucket is configured as the remote backend for the Terraform project, providing a secure and reliable location to store the Terraform state file.
 
-### 8.3 Future Management Strategy
+### 9.3 Future Management Strategy
 
 * All future changes to the foundational infrastructure should be managed through the Terraform code. The standard workflow is as follows:
     1.  **Edit Code:** Modify the `.tf` files to reflect the desired change.
@@ -206,8 +319,9 @@ A multi-layered security strategy has been implemented across the organization.
     4.  **Apply:** Run `terraform apply` to implement the changes.
 * This IaC-first approach prevents configuration drift, provides a full audit trail of changes, and ensures that the infrastructure remains consistent and well-documented over time. Manual changes via the GCP Console should be avoided for foundational resources.
 
-### 8.4 Development Environment Management
+### 9.4 Development Environment Management
 
 * **Development Database:** The `ccm-development` Firestore database was created manually following Google Cloud security best practices for CMEK implementation.
+* **Gmail Integration:** Service account and authentication configured manually due to organization policy restrictions.
 * **Future Development Projects:** Additional development projects should follow the same CMEK-enabled pattern using existing KMS infrastructure.
 * **Production Deployment:** When deploying to production, the same security configuration pattern should be replicated in the Production folder projects (`prod1-service`, `prod2-service`) using their respective KMS keys.

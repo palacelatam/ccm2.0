@@ -10,6 +10,7 @@ from datetime import datetime
 
 from config.firebase_config import get_cmek_firestore_client
 from services.csv_parser import CSVParserService
+from services.email_parser import EmailParserService
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
@@ -1552,3 +1553,58 @@ class ClientService:
         except Exception as e:
             logger.error(f"Error checking if client {client_id} exists: {e}")
             return False
+    
+    async def process_gmail_attachment(self, client_id: str, gmail_email_data: Dict[str, Any], 
+                                      attachment_data: bytes, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Process Gmail attachment by adapting it to existing email processing pipeline
+        
+        Args:
+            client_id: ID of the client
+            gmail_email_data: Gmail email metadata (sender, subject, date, body)
+            attachment_data: PDF attachment content as bytes
+            filename: Attachment filename
+            
+        Returns:
+            Processing result similar to upload_emails endpoint
+        """
+        try:
+            # Create a session ID for tracking
+            session_id = f"gmail_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            # Use existing EmailParserService to process the PDF attachment
+            email_parser = EmailParserService()
+            email_data, errors = email_parser.process_email_file(attachment_data, filename)
+            
+            if errors:
+                logger.warning(f"Errors processing Gmail PDF {filename}: {errors}")
+            
+            if not email_data:
+                logger.warning(f"No data extracted from Gmail PDF {filename}")
+                return None
+            
+            # Override email metadata with Gmail data
+            if 'email_metadata' in email_data:
+                email_data['email_metadata'].update({
+                    'sender_email': gmail_email_data.get('sender', ''),
+                    'subject': gmail_email_data.get('subject', ''),
+                    'date': gmail_email_data.get('date', ''),
+                    'body_content': gmail_email_data.get('body', '')
+                })
+            
+            # Use existing process_email_upload method to handle the rest
+            result = await self.process_email_upload(
+                client_id=client_id,
+                email_data=email_data,
+                session_id=session_id,
+                uploaded_by='gmail_service',
+                filename=filename
+            )
+            
+            logger.info(f"Gmail processing completed for {filename}: {result}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing Gmail attachment {filename} for client {client_id}: {e}")
+            return None

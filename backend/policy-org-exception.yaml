@@ -1,0 +1,4 @@
+constraint: constraints/iam.disableServiceAccountKeyCreation
+listPolicy:
+  allowedValues:
+    - projects/ccm-dev-pool/serviceAccounts/gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com

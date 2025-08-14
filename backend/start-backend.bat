@@ -12,8 +12,9 @@ if exist "venv\Scripts\activate.bat" (
 )
 
 REM Authenticate with Google Cloud
-echo Authenticating with Google Cloud...
-gcloud auth application-default login
+REM copying out for now
+REM echo Authenticating with Google Cloud...
+REM gcloud auth application-default login
 
 cd src
 set PYTHONPATH=%cd%

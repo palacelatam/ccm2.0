@@ -200,4 +200,5 @@ keys/
 .sass-cache/
 connect.lock
 typings/
-.vscode/
+.vscode/"backend/gmail-service-account.json" 
+"backend/gmail-service-account.json" 

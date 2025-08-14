@@ -12,8 +12,9 @@ import logging
 
 from config.firebase_config import initialize_firebase
 from config.settings import get_settings
-from api.routes import auth, users, health, clients, banks
+from api.routes import auth, users, health, clients, banks, gmail
 from api.middleware.auth_middleware import AuthMiddleware
+from services.gmail_service import gmail_service
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +33,15 @@ async def lifespan(app: FastAPI):
     # Initialize Firebase
     initialize_firebase()
     print("✅ Firebase initialized")
+    
+    # Initialize Gmail service (optional - can also be done via endpoint)
+    try:
+        # Try to initialize Gmail service with either service account file or ADC
+        await gmail_service.initialize()
+        print("✅ Gmail service initialized")
+    except Exception as e:
+        print(f"ℹ️  Gmail service not initialized: {e}")
+        # Don't fail startup if Gmail isn't configured
     
     yield
     
@@ -75,6 +85,7 @@ app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1", tags=["Users"])
 app.include_router(clients.router, prefix="/api/v1", tags=["Clients"])
 app.include_router(banks.router, prefix="/api/v1", tags=["Banks"])
+app.include_router(gmail.router, prefix="/api/v1", tags=["Gmail"])
 
 
 # Root and health endpoints are handled by health.router
