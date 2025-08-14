@@ -91,7 +91,7 @@ async def test_gmail_service():
     
     print("\n[OK] Test completed!")
     print("\nNext steps:")
-    print("1. Send a test email to confirmaciones_dev@palace.cl")
+    print("1. Send a test email to confirmaciones_dev@servicios.palace.cl")
     print("2. Run this test again to see if it's detected")
     print("3. Use the API endpoints to control monitoring:")
     print("   - POST /api/v1/gmail/check-now - Manual check")

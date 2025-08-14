@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Gmail integration allows the CCM system to automatically monitor a Gmail inbox (`confirmaciones_dev@palace.cl`) and process incoming trade confirmation emails in near real-time.
+The Gmail integration allows the CCM system to automatically monitor a Gmail inbox (`confirmaciones_dev@servicios.palace.cl`) and process incoming trade confirmation emails in near real-time.
 
 ## Architecture
 
@@ -82,7 +82,7 @@ Authorization: Bearer {token}
 ## How It Works
 
 ### Email Detection
-1. Service monitors `confirmaciones_dev@palace.cl` inbox
+1. Service monitors `confirmaciones_dev@servicios.palace.cl` inbox
 2. Uses Gmail History API to detect new messages efficiently
 3. Extracts emails where monitoring address is in To/CC
 
@@ -113,7 +113,7 @@ python test_gmail_service.py
 ```
 
 ### Test Process
-1. Send test email with PDF attachment to `confirmaciones_dev@palace.cl`
+1. Send test email with PDF attachment to `confirmaciones_dev@servicios.palace.cl`
 2. CC the client's email address
 3. Run test script or use API to check for new emails
 4. Verify processing in logs and database
@@ -139,7 +139,7 @@ python test_gmail_service.py
    - Implement database lookup in `_determine_client_id()`
 
 2. **Production Setup**:
-   - Use `confirmaciones@palace.cl` for production
+   - Use `confirmaciones@servicios.palace.cl` for production
    - Separate service accounts per environment
 
 3. **Enhanced Monitoring**:
@@ -164,7 +164,7 @@ python test_gmail_service.py
 - Ensure service account has correct permissions
 
 ### No Emails Detected
-- Verify emails are sent to `confirmaciones_dev@palace.cl`
+- Verify emails are sent to `confirmaciones_dev@servicios.palace.cl`
 - Check Gmail API quotas in GCP
 - Review logs for error messages
 

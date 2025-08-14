@@ -192,7 +192,7 @@ A multi-layered security strategy has been implemented across the organization.
 
 ### 8.1 Overview
 
-The CCM2.0 application integrates with Gmail API to automatically monitor and process trade confirmation emails sent to a dedicated mailbox (`confirmaciones_dev@palace.cl`). This integration enables near real-time processing of email confirmations without manual intervention.
+The CCM2.0 application integrates with Gmail API to automatically monitor and process trade confirmation emails sent to a dedicated mailbox (`confirmaciones_dev@servicios.palace.cl`). This integration enables near real-time processing of email confirmations without manual intervention.
 
 ### 8.2 Service Account Configuration
 
@@ -212,7 +212,7 @@ To enable the service account to access the Gmail mailbox:
 2. **Google Workspace Admin Configuration:**
    - Client ID (Unique ID) authorized in admin.google.com
    - Scope: `https://www.googleapis.com/auth/gmail.readonly`
-   - Allows impersonation of `confirmaciones_dev@palace.cl`
+   - Allows impersonation of `confirmaciones_dev@servicios.palace.cl`
 
 #### 8.2.2 Organization Policy Exception
 
@@ -253,7 +253,7 @@ The application uses a dual authentication approach:
 ### 8.4 Email Processing Workflow
 
 1. **Email Detection:**
-   - Service monitors `confirmaciones_dev@palace.cl` inbox
+   - Service monitors `confirmaciones_dev@servicios.palace.cl` inbox
    - Uses Gmail History API for efficient new message detection
    - Processes emails where monitoring address is in To/CC fields
 
@@ -294,7 +294,7 @@ The application uses a dual authentication approach:
 For production deployment:
 
 1. **Dedicated Service Account:** Create production-specific service account in production project
-2. **Production Mailbox:** Use `confirmaciones@palace.cl` instead of development mailbox
+2. **Production Mailbox:** Use `confirmaciones@servicios.palace.cl` instead of development mailbox
 3. **Key Rotation:** Implement regular key rotation schedule
 4. **Monitoring:** Set up alerts for processing failures and API quota usage
 

@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 
 print("Testing Gmail API with service account key...\n")
 
-MONITORING_EMAIL = "confirmaciones_dev@palace.cl"
+MONITORING_EMAIL = "confirmaciones_dev@servicios.palace.cl"
 KEY_FILE = "gmail-service-account.json"
 
 # Check if key file exists

@@ -50,7 +50,7 @@ def setup_gmail_oauth():
         else:
             print("\nStarting OAuth2 authentication flow...")
             print("A browser window will open for authentication.")
-            print("\n⚠️  IMPORTANT: Log in as confirmaciones_dev@palace.cl")
+            print("\n⚠️  IMPORTANT: Log in as confirmaciones_dev@servicios.palace.cl")
             input("\nPress Enter to continue...")
             
             flow = InstalledAppFlow.from_client_secrets_file(

@@ -29,7 +29,7 @@ except Exception as e:
     
 print("\n4. Testing with specific email...")
 # Try with the monitoring email
-monitoring_email = "confirmaciones_dev@palace.cl"
+monitoring_email = "confirmaciones_dev@servicios.palace.cl"
 try:
     profile = service.users().getProfile(userId=monitoring_email).execute()
     print(f"   Success! Can access {monitoring_email}")

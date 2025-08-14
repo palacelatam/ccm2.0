@@ -30,7 +30,7 @@ class GmailService:
         self.service = None
         self.credentials = None
         self.client_service = ClientService()
-        self.monitoring_email = "confirmaciones_dev@palace.cl"
+        self.monitoring_email = "confirmaciones_dev@servicios.palace.cl"
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.use_user_id = False  # Flag to determine if we need to use userId parameter
         

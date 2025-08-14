@@ -11,7 +11,7 @@ print("Testing Gmail API with ADC and impersonation...\n")
 
 # Configuration
 SERVICE_ACCOUNT = "gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com"
-MONITORING_EMAIL = "confirmaciones_dev@palace.cl"
+MONITORING_EMAIL = "confirmaciones_dev@servicios.palace.cl"
 
 # Step 1: Get default credentials
 print("1. Getting default ADC credentials...")

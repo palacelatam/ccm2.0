@@ -39,7 +39,7 @@ This guide sets up Gmail API using ADC (same as Firebase in this app). **No key 
    - **OAuth scopes**: `https://www.googleapis.com/auth/gmail.readonly`
 6. Click "Authorize"
 
-**Security Note**: The app code hardcodes `confirmaciones_dev@palace.cl`, so it can only access that one inbox.
+**Security Note**: The app code hardcodes `confirmaciones_dev@servicios.palace.cl`, so it can only access that one inbox.
 
 ## Step 5: Give Yourself Permission to Impersonate
 
@@ -105,7 +105,7 @@ Cloud Run → Service Account → Accesses Gmail
 ### "Unable to impersonate service account"
 You missed Step 5. Run the `gcloud iam` command to grant yourself permission.
 
-### "Delegation denied for confirmaciones_dev@palace.cl"
+### "Delegation denied for confirmaciones_dev@servicios.palace.cl"
 - Check Step 3: Domain-wide delegation must be enabled
 - Check Step 4: Client ID must be added in admin.google.com
 
@@ -113,7 +113,7 @@ You missed Step 5. Run the `gcloud iam` command to grant yourself permission.
 Run Step 6.4 again - the `gcloud auth application-default login` command.
 
 ### Gmail account doesn't exist
-Make sure `confirmaciones_dev@palace.cl` is a real Gmail/Google Workspace account.
+Make sure `confirmaciones_dev@servicios.palace.cl` is a real Gmail/Google Workspace account.
 
 ## Why This is Better Than Key Files
 
@@ -127,4 +127,4 @@ Make sure `confirmaciones_dev@palace.cl` is a real Gmail/Google Workspace accoun
 When deploying to Cloud Run:
 1. In Cloud Run settings, set Service Account to `gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com`
 2. The code automatically uses it - no changes needed
-3. For production email, change `confirmaciones_dev` to `confirmaciones` in the code
+3. For production email, change `confirmaciones_dev@servicios.palace.cl` to `confirmaciones@servicios.palace.cl` in the code

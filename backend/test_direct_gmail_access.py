@@ -7,7 +7,7 @@ from googleapiclient.discovery import build
 
 print("Testing direct Gmail API access...\n")
 
-MONITORING_EMAIL = "confirmaciones_dev@palace.cl"
+MONITORING_EMAIL = "confirmaciones_dev@servicios.palace.cl"
 YOUR_EMAIL = "ben.clark@palace.cl"  # Update this if different
 
 # Get default credentials with Gmail scope
