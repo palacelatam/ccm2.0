@@ -22,12 +22,6 @@ const ClientDashboard: React.FC = () => {
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
-  
-  // DEBUG: Show what client ID we're actually getting
-  console.log('🔍 [ClientDashboard] User object:', user);
-  console.log('🔍 [ClientDashboard] Derived clientId:', clientId);
-  console.log('🔍 [ClientDashboard] user?.organization?.id:', user?.organization?.id);
-  console.log('🔍 [ClientDashboard] user?.id:', user?.id);
 
   // Function to trigger refresh of all grids
   const triggerGridRefresh = () => {
@@ -47,11 +41,23 @@ const ClientDashboard: React.FC = () => {
     onEvent: (eventData) => {
       console.log('🎉 [ClientDashboard] Received event:', eventData.type, eventData.title);
       
-      // Show toast notification
-      showToastNotification(
-        `${eventData.title}: ${eventData.message}`,
-        eventData.type === 'duplicate_detected' ? 'warning' : 'success'
-      );
+      // Check if event is recent (within last 2 minutes) to avoid showing old cached events
+      const eventTime = new Date(eventData.timestamp);
+      const now = new Date();
+      const ageInMinutes = (now.getTime() - eventTime.getTime()) / (1000 * 60);
+      
+      console.log('🕐 [ClientDashboard] Event age:', ageInMinutes.toFixed(1), 'minutes');
+      
+      // Only show toast for recent events (less than 2 minutes old)
+      if (ageInMinutes < 2) {
+        console.log('✅ [ClientDashboard] Showing toast for recent event');
+        showToastNotification(
+          `${eventData.title}: ${eventData.message}`,
+          eventData.type === 'duplicate_detected' ? 'warning' : 'success'
+        );
+      } else {
+        console.log('⏰ [ClientDashboard] Skipping toast for old event (catch-up)');
+      }
       
       // Refresh grids for relevant events
       if (eventData.type === 'gmail_processed' || 

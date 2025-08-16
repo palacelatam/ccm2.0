@@ -94,9 +94,19 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
       sortable: true, 
       filter: true,
       cellRenderer: (params: any) => {
-        // Extract numeric value from string like "92%"
-        const confidenceStr = params.value || "0%";
-        const confidenceNum = parseInt(confidenceStr, 10);
+        // Handle both "100%" string and 100 number formats
+        let confidenceNum;
+        let displayValue;
+        
+        if (typeof params.value === 'string' && params.value.includes('%')) {
+          // Already formatted as "100%" - extract number and use as-is
+          confidenceNum = parseInt(params.value, 10);
+          displayValue = params.value;
+        } else {
+          // Raw number - add % symbol
+          confidenceNum = params.value || 0;
+          displayValue = `${confidenceNum}%`;
+        }
         
         let color;
         if (confidenceNum >= 90) {
@@ -109,7 +119,7 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
         
         return React.createElement('div', { 
           style: { color: color, fontWeight: 'bold' } 
-        }, confidenceStr);
+        }, displayValue);
       }
     },
     { 
