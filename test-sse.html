@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE Connection Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #00ff00;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 10px;
+        }
+        #status {
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #00ff00;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        #events {
+            background: #000;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .event {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #00ff00;
+            padding-left: 10px;
+        }
+        .heartbeat {
+            color: #808080;
+            border-left-color: #808080;
+        }
+        .connection {
+            color: #00ffff;
+            border-left-color: #00ffff;
+        }
+        .error {
+            color: #ff0000;
+            border-left-color: #ff0000;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        button:disabled {
+            background: #666;
+            color: #333;
+            cursor: not-allowed;
+        }
+        input {
+            background: #2a2a2a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px;
+            margin: 5px;
+            width: 400px;
+            border-radius: 3px;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 SSE Connection Test</h1>
+    
+    <div id="status">
+        Status: <span id="statusText">Disconnected</span>
+    </div>
+    
+    <div class="controls">
+        <input type="text" id="tokenInput" placeholder="Enter Firebase token (optional for test endpoint)">
+        <br>
+        <button id="connectBtn" onclick="connect()">Connect to Backend SSE</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        <button id="clearBtn" onclick="clearEvents()">Clear Events</button>
+        <button id="testEventBtn" onclick="sendTestEvent()">Send Test Event</button>
+    </div>
+    
+    <div id="events"></div>
+    
+    <script>
+        let eventSource = null;
+        let eventCount = 0;
+        
+        function updateStatus(text, color) {
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = text;
+            statusEl.style.color = color || '#00ff00';
+        }
+        
+        function addEvent(type, message, className = 'event') {
+            const eventsEl = document.getElementById('events');
+            const timestamp = new Date().toLocaleTimeString();
+            const eventEl = document.createElement('div');
+            eventEl.className = `event ${className}`;
+            eventEl.textContent = `[${timestamp}] ${type}: ${message}`;
+            eventsEl.appendChild(eventEl);
+            eventsEl.scrollTop = eventsEl.scrollHeight;
+            eventCount++;
+        }
+        
+        function connect() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            const token = document.getElementById('tokenInput').value;
+            
+            // Use test endpoint that doesn't require auth
+            const baseUrl = token 
+                ? 'http://localhost:8000/api/v1/events/stream'
+                : 'http://localhost:8000/api/v1/events/test-stream';
+            
+            let url = baseUrl;
+            if (token) {
+                const params = new URLSearchParams({
+                    client_id: 'xyz-corp',
+                    event_types: 'gmail_processed,trade_matched,match_created,duplicate_detected',
+                    token: token
+                });
+                url = `${baseUrl}?${params.toString()}`;
+            }
+            
+            updateStatus('Connecting...', '#ffff00');
+            addEvent('SYSTEM', `Connecting to ${baseUrl}`, 'connection');
+            
+            eventSource = new EventSource(url);
+            
+            eventSource.onopen = function(event) {
+                updateStatus('Connected', '#00ff00');
+                addEvent('SYSTEM', 'Connection established', 'connection');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'connection') {
+                        addEvent('CONNECTION', `Status: ${data.data.status}, ID: ${data.data.connection_id}`, 'connection');
+                    } else if (data.type === 'heartbeat') {
+                        addEvent('HEARTBEAT', 'Server heartbeat received', 'heartbeat');
+                    } else if (data.type === 'event') {
+                        const evt = data.data;
+                        addEvent('EVENT', `${evt.type} - ${evt.title}: ${evt.message}`, 'event');
+                    } else if (data.type === 'error') {
+                        addEvent('ERROR', data.data.message, 'error');
+                    } else {
+                        addEvent('DATA', JSON.stringify(data), 'event');
+                    }
+                } catch (e) {
+                    addEvent('RAW', event.data, 'event');
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    updateStatus('Connection closed', '#ff0000');
+                    addEvent('ERROR', 'Connection closed', 'error');
+                } else if (eventSource.readyState === EventSource.CONNECTING) {
+                    updateStatus('Reconnecting...', '#ffff00');
+                    addEvent('SYSTEM', 'Attempting to reconnect...', 'connection');
+                } else {
+                    updateStatus('Connection error', '#ff0000');
+                    addEvent('ERROR', 'Connection error occurred', 'error');
+                }
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+        }
+        
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                updateStatus('Disconnected', '#808080');
+                addEvent('SYSTEM', 'Disconnected by user', 'connection');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            }
+        }
+        
+        function clearEvents() {
+            document.getElementById('events').innerHTML = '';
+            eventCount = 0;
+            addEvent('SYSTEM', 'Event log cleared', 'connection');
+        }
+        
+        function sendTestEvent() {
+            const url = 'http://localhost:8000/api/v1/events/test';
+            const params = new URLSearchParams({
+                title: `Test Event ${Date.now()}`,
+                message: 'Manual test event from HTML page',
+                client_id: 'xyz-corp'
+            });
+            
+            fetch(`${url}?${params.toString()}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    addEvent('SYSTEM', `Test event sent: ${data.event_id}`, 'connection');
+                })
+                .catch(error => {
+                    addEvent('ERROR', `Failed to send test event: ${error}`, 'error');
+                });
+        }
+        
+        // Auto-clear old events if too many
+        setInterval(() => {
+            const eventsEl = document.getElementById('events');
+            if (eventsEl.children.length > 100) {
+                while (eventsEl.children.length > 50) {
+                    eventsEl.removeChild(eventsEl.firstChild);
+                }
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

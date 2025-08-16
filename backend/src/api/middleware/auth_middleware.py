@@ -26,6 +26,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/redoc",
         "/openapi.json",
         "/api/v1/auth/verify",  # Auth verification endpoint
+        "/api/v1/events/stream",  # SSE endpoint handles auth manually
+        "/api/v1/events/test",  # Test event endpoint
     }
     
     async def dispatch(self, request: Request, call_next):

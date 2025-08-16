@@ -35,7 +35,7 @@ backend/.env*
 Thumbs.db
 
 # Python
-__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -195,11 +195,19 @@ config/production.json
 certificates/
 keys/
 
+# Service accounts and credentials
+backend/gmail-service-account.json
+**/service-account*.json
+**/*credentials*.json
+*.service-account.json
+
+# Secrets and sensitive files
+secrets/
+.secrets/
+private/
+
 # Misc
 .nyc_output/
 .sass-cache/
 connect.lock
 typings/
-.vscode/"backend/gmail-service-account.json" 
-"backend/gmail-service-account.json" 
-"backend/gmail-service-account.json" 

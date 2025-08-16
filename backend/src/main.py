@@ -12,13 +12,13 @@ import logging
 
 from config.firebase_config import initialize_firebase
 from config.settings import get_settings
-from api.routes import auth, users, health, clients, banks, gmail
+from api.routes import auth, users, health, clients, banks, gmail, events
 from api.middleware.auth_middleware import AuthMiddleware
 from services.gmail_service import gmail_service
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -39,6 +39,14 @@ async def lifespan(app: FastAPI):
         # Try to initialize Gmail service with either service account file or ADC
         await gmail_service.initialize()
         print("✅ Gmail service initialized")
+        
+        # Start Gmail monitoring automatically
+        import asyncio
+        monitoring_task = asyncio.create_task(
+            gmail_service.start_monitoring(check_interval=30)
+        )
+        print("✅ Gmail monitoring started (30-second intervals)")
+        
     except Exception as e:
         print(f"ℹ️  Gmail service not initialized: {e}")
         # Don't fail startup if Gmail isn't configured
@@ -47,6 +55,13 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("🛑 Shutting down CCM Backend API...")
+    
+    # Stop Gmail monitoring
+    try:
+        await gmail_service.stop_monitoring()
+        print("✅ Gmail monitoring stopped")
+    except Exception as e:
+        print(f"ℹ️  Error stopping Gmail monitoring: {e}")
 
 
 # Create FastAPI application
@@ -86,6 +101,7 @@ app.include_router(users.router, prefix="/api/v1", tags=["Users"])
 app.include_router(clients.router, prefix="/api/v1", tags=["Clients"])
 app.include_router(banks.router, prefix="/api/v1", tags=["Banks"])
 app.include_router(gmail.router, prefix="/api/v1", tags=["Gmail"])
+app.include_router(events.router, prefix="/api/v1", tags=["Events"])
 
 
 # Root and health endpoints are handled by health.router

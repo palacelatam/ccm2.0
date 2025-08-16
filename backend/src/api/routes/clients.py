@@ -802,8 +802,8 @@ async def upload_emails(
                 detail=f"Email processing failed: {'; '.join(parser_errors)}"
             )
         
-        # Process extracted email data and save to database
-        result = await client_service.process_email_upload(
+        # Process extracted email data, save to database, and perform matching using unified method
+        result = await client_service.process_and_match_email(
             client_id=client_id,
             email_data=email_data,
             session_id=session_id,
@@ -811,110 +811,12 @@ async def upload_emails(
             filename=file.filename
         )
         
-        # Get count of trades extracted from email
-        extracted_trades_count = 0
-        if email_data and 'llm_extracted_data' in email_data:
-            llm_data = email_data['llm_extracted_data']
-            if 'Trades' in llm_data:
-                extracted_trades_count = len(llm_data['Trades'])
-        
-        # Auto-trigger matching if this is a trade confirmation with extracted trades
-        matches_found = 0
-        counterparty_name = 'Unknown'
-        matched_trade_numbers = []
-        
-        if (extracted_trades_count > 0 and 
-            email_data.get('llm_extracted_data', {}).get('Email', {}).get('Confirmation') == 'Yes'):
-            
-            logger.info(f"Auto-triggering matching for uploaded email with {extracted_trades_count} trades")
-            
-            # Initialize counterparty name from LLM extracted email data
-            counterparty_name = "Unknown"
-            
-            # Try to get counterparty name from LLM extracted email trades data
-            llm_trades = email_data.get('llm_extracted_data', {}).get('Trades', [])
-            if llm_trades and len(llm_trades) > 0:
-                # Get counterparty from first trade (all should be same counterparty in one email)
-                llm_counterparty = llm_trades[0].get('CounterpartyName', '')
-                if llm_counterparty and llm_counterparty != 'Unknown':
-                    counterparty_name = llm_counterparty
-            
-            try:
-                # Run matching process automatically
-                matching_service = MatchingService()
-                
-                # Get unmatched trades for matching
-                unmatched_trades = await client_service.get_unmatched_trades(client_id)
-                
-                # Get the just-uploaded email for matching
-                email_confirmations = [result]  # Use the result from process_email_upload
-                
-                # Process the uploaded email through matching
-                for email_confirmation in email_confirmations:
-                    llm_data = email_data.get('llm_extracted_data', {})
-                    email_trades = llm_data.get('Trades', [])
-                    
-                    if email_trades:
-                        email_metadata = {
-                            'senderEmail': email_data.get('email_metadata', {}).get('sender_email', ''),
-                            'subject': email_data.get('email_metadata', {}).get('subject', ''),
-                            'emailDate': email_data.get('email_metadata', {}).get('date', ''),
-                            'emailTime': email_data.get('email_metadata', {}).get('time', ''),
-                            'bodyContent': email_data.get('email_metadata', {}).get('body_content', '')
-                        }
-                        
-                        # Run matching algorithm
-                        match_results = matching_service.match_email_trades_with_client_trades(
-                            email_trades, unmatched_trades, email_metadata
-                        )
-                        
-                        # Process match results
-                        duplicates_found = 0
-                        for match_result in match_results:
-                            if match_result['matched_client_trade'] is not None:
-                                client_trade_id = match_result['matched_client_trade'].get('id', '')
-                                client_trade_number = match_result['matched_client_trade'].get('TradeNumber', '')
-                                
-                                # Check if this client trade already has a match (duplicate detection)
-                                existing_match = await client_service.check_existing_match(client_id, client_trade_id)
-                                
-                                if existing_match:
-                                    # This client trade already has a match - mark as duplicate
-                                    duplicates_found += 1
-                                    
-                                    # Store duplicate information for display purposes
-                                    await client_service.mark_email_as_duplicate(
-                                        client_id=client_id,
-                                        email_id=result.get('email_id', ''),
-                                        duplicate_trade_id=client_trade_id,
-                                        duplicate_trade_number=client_trade_number,
-                                        existing_match_id=existing_match.get('id')
-                                    )
-                                    
-                                    logger.warning(f"Duplicate detected - Trade {client_trade_number} (ID: {client_trade_id}) already has an existing match (Match ID: {existing_match.get('id')}). Email trade marked as duplicate.")
-                                else:
-                                    # No existing match - create new match record
-                                    await client_service.create_match(
-                                        client_id=client_id,
-                                        trade_id=client_trade_id,
-                                        email_id=result.get('email_id', ''),
-                                        confidence_score=match_result['confidence'] / 100,  # Convert percentage to decimal
-                                        match_reasons=match_result['match_reasons']
-                                    )
-                                    matches_found += 1
-                                    matched_trade_numbers.append(client_trade_number)
-                                    
-                                    logger.info(f"Auto-match created - Trade: {client_trade_number}, "
-                                              f"Confidence: {match_result['confidence']}%, Status: {match_result['status']}")
-                
-                if matches_found > 0 or duplicates_found > 0:
-                    logger.info(f"Auto-matching completed: {matches_found} matches found, {duplicates_found} duplicates detected for uploaded email")
-                else:
-                    logger.info("Auto-matching completed: No matches found for uploaded email")
-                    
-            except Exception as matching_error:
-                logger.error(f"Auto-matching failed for uploaded email: {matching_error}")
-                # Don't fail the upload if matching fails
+        # Extract results from unified processing
+        extracted_trades_count = result.get('trades_extracted', 0)
+        matches_found = result.get('matches_found', 0)
+        counterparty_name = result.get('counterparty_name', 'Unknown')
+        matched_trade_numbers = result.get('matched_trade_numbers', [])
+        duplicates_found = result.get('duplicates_found', 0)
         
         await client_service.update_upload_session(
             client_id=client_id,
@@ -923,8 +825,6 @@ async def upload_emails(
             records_failed=0,
             status="completed"
         )
-        
-        # counterparty_name and matched_trade_numbers are already set during the matching process above
         
         return APIResponse(
             success=True,

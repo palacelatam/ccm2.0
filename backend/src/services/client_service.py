@@ -858,6 +858,7 @@ class ClientService:
                           confidence_score: int, match_reasons: List[str]) -> bool:
         """Create a trade-email match"""
         try:
+            logger.info(f"📝 Creating new match: client_id={client_id}, trade_id={trade_id}, email_id={email_id}, confidence={confidence_score}%")
             matches_ref = self.db.collection('clients').document(client_id).collection('matches')
             
             match_doc = {
@@ -870,8 +871,11 @@ class ClientService:
                 'organizationId': client_id
             }
             
-            # Create match record
-            matches_ref.add(match_doc)
+            logger.debug(f"📝 Match document to create: {match_doc}")
+            
+            # Create match record (this will auto-create the collection if it doesn't exist)
+            doc_ref = matches_ref.add(match_doc)
+            logger.info(f"✅ Successfully created match with ID: {doc_ref[1].id} in collection clients/{client_id}/matches")
             
             # Update trade and email status
             await self._update_trade_status(client_id, trade_id, 'matched')
@@ -895,17 +899,21 @@ class ClientService:
             Match document if exists, None otherwise
         """
         try:
+            logger.debug(f"🔎 Querying matches collection: clients/{client_id}/matches where tradeId=={trade_id}")
             matches_ref = self.db.collection('clients').document(client_id).collection('matches')
             query = matches_ref.where('tradeId', '==', trade_id).limit(1)
             docs = query.stream()
             
             match_docs = list(docs)
+            logger.debug(f"🔎 Query returned {len(match_docs)} documents")
+            
             if match_docs:
                 match_data = match_docs[0].to_dict()
                 match_data['id'] = match_docs[0].id
-                logger.info(f"Found existing match for trade {trade_id}: Match ID {match_data['id']}")
+                logger.info(f"✅ Found existing match for trade {trade_id}: Match ID {match_data['id']}")
                 return match_data
             
+            logger.debug(f"✅ No existing match found for trade {trade_id}")
             return None
             
         except Exception as e:
@@ -1554,10 +1562,187 @@ class ClientService:
             logger.error(f"Error checking if client {client_id} exists: {e}")
             return False
     
+    async def process_and_match_email(self, client_id: str, email_data: Dict[str, Any], 
+                                      session_id: str, uploaded_by: str, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Unified email processing method that handles extraction, saving, and matching
+        
+        Args:
+            client_id: ID of the client
+            email_data: Parsed email data from EmailParserService
+            session_id: Upload session ID
+            uploaded_by: Who uploaded/processed this (e.g., 'gmail_service', 'user_uid')
+            filename: Original filename
+            
+        Returns:
+            Processing result with email_id, matching results, and statistics
+        """
+        try:
+            # Step 1: Save the email using existing method
+            result = await self.process_email_upload(
+                client_id=client_id,
+                email_data=email_data,
+                session_id=session_id,
+                uploaded_by=uploaded_by,
+                filename=filename
+            )
+            
+            if not result or not result.get('email_id'):
+                logger.error(f"Failed to save email data for {filename}")
+                return None
+            
+            # Step 2: Check if we should run matching
+            llm_data = email_data.get('llm_extracted_data', {})
+            extracted_trades_count = len(llm_data.get('Trades', []))
+            is_confirmation = llm_data.get('Email', {}).get('Confirmation') == 'Yes'
+            
+            logger.info(f"Email processing - Trades: {extracted_trades_count}, Confirmation: {is_confirmation}")
+            
+            # Step 3: Auto-trigger matching if this is a trade confirmation with extracted trades
+            matches_found = 0
+            matched_trade_numbers = []
+            duplicates_found = 0
+            counterparty_name = 'Unknown'
+            
+            if extracted_trades_count > 0 and is_confirmation:
+                logger.info(f"Auto-triggering matching for {filename} with {extracted_trades_count} trades")
+                
+                try:
+                    # Import here to avoid circular imports
+                    from services.matching_service import MatchingService
+                    matching_service = MatchingService()
+                    
+                    # Get unmatched trades for matching
+                    unmatched_trades = await self.get_unmatched_trades(client_id)
+                    logger.info(f"Found {len(unmatched_trades)} unmatched trades for matching")
+                    
+                    if unmatched_trades:
+                        # Prepare email trades and metadata for matching
+                        email_trades = llm_data.get('Trades', [])
+                        email_metadata = {
+                            'sender_email': email_data.get('email_metadata', {}).get('sender_email', ''),
+                            'subject': email_data.get('email_metadata', {}).get('subject', ''),
+                            'date': email_data.get('email_metadata', {}).get('date', ''),
+                        }
+                        
+                        # Run matching algorithm
+                        match_results = matching_service.match_email_trades_with_client_trades(
+                            email_trades, unmatched_trades, email_metadata
+                        )
+                        
+                        # Process match results
+                        for match_result in match_results:
+                            if match_result['matched_client_trade'] is not None:
+                                client_trade_id = match_result['matched_client_trade'].get('id', '')
+                                client_trade_number = match_result['matched_client_trade'].get('TradeNumber', '')
+                                
+                                # Check for duplicates
+                                logger.info(f"🔍 Checking for existing match: client_id={client_id}, trade_id={client_trade_id}, trade_number={client_trade_number}")
+                                existing_match = await self.check_existing_match(client_id, client_trade_id)
+                                logger.info(f"🔍 Existing match result: {existing_match}")
+                                if existing_match:
+                                    logger.warning(f"Duplicate detected - Trade {client_trade_number} already matched")
+                                    await self.mark_email_as_duplicate(
+                                        client_id=client_id,
+                                        email_id=result['email_id'],
+                                        duplicate_trade_id=client_trade_id,
+                                        duplicate_trade_number=client_trade_number,
+                                        existing_match_id=existing_match['id']
+                                    )
+                                    duplicates_found += 1
+                                else:
+                                    # Create the match
+                                    logger.info(f"🆕 No existing match found - Creating new match for trade {client_trade_number}")
+                                    match_created = await self.create_match(
+                                        client_id=client_id,
+                                        trade_id=client_trade_id,
+                                        email_id=result['email_id'],
+                                        confidence_score=match_result['confidence'],
+                                        match_reasons=match_result['match_reasons']
+                                    )
+                                    
+                                    if match_created:
+                                        matches_found += 1
+                                        matched_trade_numbers.append(client_trade_number)
+                                        logger.info(f"✅ Successfully created match for trade {client_trade_number} with {match_result['confidence']}% confidence")
+                                    else:
+                                        logger.error(f"❌ Failed to create match for trade {client_trade_number}")
+                                
+                                # Extract counterparty name for summary
+                                if counterparty_name == 'Unknown':
+                                    counterparty_name = match_result['email_trade'].get('CounterpartyName', 'Unknown')
+                    else:
+                        logger.info("No unmatched trades available for matching")
+                        
+                except Exception as e:
+                    logger.error(f"Error during matching process: {e}", exc_info=True)
+            
+            # Step 4: Return comprehensive result
+            final_result = {
+                **result,  # Include original result (email_id, trades_extracted, etc.)
+                'matches_found': matches_found,
+                'matched_trade_numbers': matched_trade_numbers,
+                'duplicates_found': duplicates_found,
+                'counterparty_name': counterparty_name,
+                'matching_attempted': extracted_trades_count > 0 and is_confirmation,
+                'processing_complete': True
+            }
+            
+            logger.info(f"Email processing complete for {filename}: {matches_found} matches, {duplicates_found} duplicates")
+            
+            # Emit real-time event for Gmail processing
+            if uploaded_by == 'gmail_service' and (matches_found > 0 or duplicates_found > 0 or extracted_trades_count > 0):
+                try:
+                    from services.event_service import event_service
+                    
+                    # Determine event message and action
+                    if duplicates_found > 0:
+                        event_title = "Email Processed (Duplicates Detected)"
+                        event_message = f"⚠️ {duplicates_found} duplicates detected from {counterparty_name}. {matches_found} new matches created."
+                        event_priority = 'medium'
+                    elif matches_found > 0:
+                        event_title = "Email Processed Successfully" 
+                        event_message = f"✅ {matches_found} matches found from {counterparty_name}. Trades: {', '.join(matched_trade_numbers) if matched_trade_numbers else 'N/A'}"
+                        event_priority = 'medium'
+                    else:
+                        event_title = "Email Processed (No Matches)"
+                        event_message = f"📧 Email from {counterparty_name} processed but no matches found ({extracted_trades_count} trades extracted)."
+                        event_priority = 'low'
+                    
+                    # Emit the event
+                    await event_service.emit_event(
+                        event_type='gmail_processed',
+                        title=event_title,
+                        message=event_message,
+                        client_id=client_id,
+                        priority=event_priority,
+                        action='refresh_grids' if matches_found > 0 or duplicates_found > 0 else 'show_toast',
+                        payload={
+                            'filename': filename,
+                            'matches_found': matches_found,
+                            'duplicates_found': duplicates_found,
+                            'trades_extracted': extracted_trades_count,
+                            'counterparty_name': counterparty_name,
+                            'matched_trade_numbers': matched_trade_numbers
+                        }
+                    )
+                    
+                    logger.info(f"📡 Emitted Gmail processing event: {event_title}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to emit Gmail event: {e}")
+                    # Don't fail the whole process if event emission fails
+            
+            return final_result
+            
+        except Exception as e:
+            logger.error(f"Error in unified email processing for {filename}: {e}", exc_info=True)
+            return None
+
     async def process_gmail_attachment(self, client_id: str, gmail_email_data: Dict[str, Any], 
                                       attachment_data: bytes, filename: str) -> Optional[Dict[str, Any]]:
         """
-        Process Gmail attachment by adapting it to existing email processing pipeline
+        Process Gmail attachment using unified email processing pipeline
         
         Args:
             client_id: ID of the client
@@ -1566,13 +1751,14 @@ class ClientService:
             filename: Attachment filename
             
         Returns:
-            Processing result similar to upload_emails endpoint
+            Processing result with matching results
         """
         try:
             # Create a session ID for tracking
             session_id = f"gmail_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
             # Use existing EmailParserService to process the PDF attachment
+            from services.email_parser import EmailParserService
             email_parser = EmailParserService()
             email_data, errors = email_parser.process_email_file(attachment_data, filename)
             
@@ -1592,8 +1778,9 @@ class ClientService:
                     'body_content': gmail_email_data.get('body', '')
                 })
             
-            # Use existing process_email_upload method to handle the rest
-            result = await self.process_email_upload(
+            # Use unified processing method
+            logger.info(f"🔄 Calling unified process_and_match_email method for {filename}")
+            result = await self.process_and_match_email(
                 client_id=client_id,
                 email_data=email_data,
                 session_id=session_id,
@@ -1601,8 +1788,7 @@ class ClientService:
                 filename=filename
             )
             
-            logger.info(f"Gmail processing completed for {filename}: {result}")
-            
+            logger.info(f"✅ Gmail processing completed for {filename}: {result}")
             return result
             
         except Exception as e:

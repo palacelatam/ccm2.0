@@ -162,13 +162,18 @@ class GmailService:
             
             # Process each new email
             results = []
-            for message in new_messages:
+            for i, message in enumerate(new_messages, 1):
+                message_id = message.get('id', 'unknown')
+                logger.info(f"Processing email {i}/{len(new_messages)} - Message ID: {message_id}")
                 try:
                     result = await self._process_email_message(message)
                     if result:
+                        logger.info(f"Successfully processed message {message_id}: {result.get('total_trades_extracted', 0)} trades extracted")
                         results.append(result)
+                    else:
+                        logger.warning(f"Message {message_id} returned no processing result")
                 except Exception as e:
-                    logger.error(f"Failed to process message {message.get('id')}: {e}")
+                    logger.error(f"Failed to process message {message_id}: {e}", exc_info=True)
                     continue
             
             return results
@@ -260,38 +265,64 @@ class GmailService:
         """Process a single email message and extract trade confirmations"""
         try:
             message_id = message['id']
-            headers = {h['name']: h['value'] for h in message['payload'].get('headers', [])}
+            # Create case-insensitive header lookup
+            headers_list = message['payload'].get('headers', [])
+            headers = {}
+            headers_lower = {}
+            for h in headers_list:
+                headers[h['name']] = h['value']
+                headers_lower[h['name'].lower()] = h['value']
             
-            # Extract email metadata
+            # Log all headers for debugging
+            logger.debug(f"All headers for message {message_id}:")
+            for name, value in headers.items():
+                logger.debug(f"   {name}: {value}")
+            
+            # Extract email metadata (try both cases for CC)
             sender = headers.get('From', '')
             subject = headers.get('Subject', '')
             date_str = headers.get('Date', '')
-            to_addresses = headers.get('To', '') + ',' + headers.get('Cc', '')
+            to_field = headers.get('To', '')
+            # Try different case variations for CC
+            cc_field = headers.get('Cc', headers.get('CC', headers.get('cc', headers_lower.get('cc', ''))))
+            # Note: BCC is never visible in email headers for privacy
             
-            # Check if this email is for our monitoring address
-            if self.monitoring_email not in to_addresses:
-                logger.debug(f"Email {message_id} not sent to monitoring address, skipping")
-                return None
+            logger.info(f"📧 Processing message {message_id}:")
+            logger.info(f"   From: {sender}")
+            logger.info(f"   Subject: {subject}")
+            logger.info(f"   To: {to_field}")
+            logger.info(f"   CC: {cc_field}")
             
-            # Determine client ID from To: field or other logic
+            # Since we're accessing this email from the monitoring inbox, it was sent to us
+            # (either via To, CC, or BCC). We don't need to check headers.
+            # The fact that we can read it means it's in our inbox.
+            logger.info(f"✅ Email found in {self.monitoring_email} inbox (was sent via To, CC, or BCC)")
+            
+            # Determine client ID from To/CC fields (excluding monitoring address)
+            # For BCC'd emails, we'll use a default client or extract from subject/body
+            logger.info(f"🔍 Determining client ID for message {message_id}...")
             client_id = await self._determine_client_id(headers)
             if not client_id:
-                logger.warning(f"Could not determine client ID for email {message_id}")
+                logger.error(f"❌ Could not determine client ID for email {message_id}")
                 return None
+            logger.info(f"✅ Client ID determined: {client_id}")
             
             # Extract email body and attachments
+            logger.info(f"📎 Extracting attachments from message {message_id}...")
             email_body = await self._extract_email_body(message)
             attachments = await self._extract_pdf_attachments(message)
             
             if not attachments:
-                logger.debug(f"No PDF attachments found in email {message_id}")
+                logger.warning(f"❌ No PDF attachments found in email {message_id}")
                 return None
+            logger.info(f"✅ Found {len(attachments)} PDF attachments: {[name for name, _ in attachments]}")
             
             logger.info(f"Processing email {message_id} from {sender} with {len(attachments)} PDF attachments")
             
             # Process each PDF attachment
             processing_results = []
-            for attachment_name, pdf_content in attachments:
+            for i, (attachment_name, pdf_content) in enumerate(attachments, 1):
+                logger.info(f"🔄 Processing attachment {i}/{len(attachments)}: {attachment_name} ({len(pdf_content)} bytes)")
                 try:
                     # Create temporary file-like object for processing
                     pdf_file = io.BytesIO(pdf_content)
@@ -305,6 +336,8 @@ class GmailService:
                         'body': email_body
                     }
                     
+                    logger.info(f"📨 Calling process_gmail_attachment for {attachment_name}...")
+                    
                     # Use existing email processing pipeline via ClientService adapter
                     result = await self.client_service.process_gmail_attachment(
                         client_id=client_id,
@@ -314,10 +347,13 @@ class GmailService:
                     )
                     
                     if result:
+                        logger.info(f"✅ Successfully processed {attachment_name}: {result}")
                         processing_results.append(result)
+                    else:
+                        logger.warning(f"⚠️ No result returned for {attachment_name}")
                         
                 except Exception as e:
-                    logger.error(f"Failed to process PDF attachment {attachment_name}: {e}")
+                    logger.error(f"❌ Failed to process PDF attachment {attachment_name}: {e}", exc_info=True)
                     continue
             
             # Mark message as processed
@@ -348,11 +384,14 @@ class GmailService:
             return None
     
     async def _determine_client_id(self, headers: Dict[str, str]) -> Optional[str]:
-        """Determine client ID from email headers"""
+        """Determine client ID from email headers by looking up confirmationEmail in database"""
         try:
+            # Create case-insensitive lookup for headers
+            headers_lower = {k.lower(): v for k, v in headers.items()}
+            
             # Get To: field and extract client email addresses
             to_field = headers.get('To', '')
-            cc_field = headers.get('Cc', '')
+            cc_field = headers.get('Cc', headers.get('CC', headers.get('cc', headers_lower.get('cc', ''))))
             
             # Combine and parse email addresses
             all_recipients = f"{to_field},{cc_field}"
@@ -368,24 +407,39 @@ class GmailService:
                 if email.lower() != self.monitoring_email.lower()
             ]
             
-            if not client_emails:
-                logger.warning("No client email addresses found in To/Cc fields")
+            if client_emails:
+                # Use the first non-monitoring email as client identifier
+                primary_client_email = client_emails[0]
+                logger.info(f"Client email identified from To/CC: {primary_client_email}")
+            else:
+                # If monitoring email was BCCed, we might not have client email in headers
+                logger.warning("No client email addresses found in To/CC fields (monitoring email might be BCCed)")
                 return None
             
-            # For now, use the first non-monitoring email as client identifier
-            # In production, this would look up the client by email in the database
-            primary_client_email = client_emails[0]
-            
-            # TODO: Implement actual database lookup to map email to client_id
-            # For development, we'll use a simple mapping
-            logger.info(f"Client email identified: {primary_client_email}")
-            
-            # For development purposes, return a test client ID
-            # This should be replaced with actual database lookup:
-            # client = await self.client_service.get_client_by_email(primary_client_email)
-            # return client.id if client else None
-            
-            return "dev-client-001"  # Temporary until client email mapping is implemented
+            # Look up client by confirmationEmail field in Firestore
+            try:
+                from config.firebase_config import get_cmek_firestore_client
+                db = get_cmek_firestore_client()
+                
+                # Query for client with matching confirmationEmail
+                clients_ref = db.collection('clients')
+                query = clients_ref.where('confirmationEmail', '==', primary_client_email.lower())
+                docs = list(query.stream())
+                
+                if docs:
+                    client_id = docs[0].id
+                    logger.info(f"✅ Found client '{client_id}' for email {primary_client_email}")
+                    return client_id
+                else:
+                    logger.warning(f"⚠️ No client found with confirmationEmail: {primary_client_email}")
+                    logger.info("Tip: Add 'confirmationEmail' field to client document in Firestore")
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"Failed to query Firestore for client: {e}")
+                # Fallback to hardcoded value for backward compatibility
+                logger.warning("Falling back to xyz-corp as default client")
+                return "xyz-corp"
             
         except Exception as e:
             logger.error(f"Error determining client ID from headers: {e}")
@@ -419,39 +473,95 @@ class GmailService:
             attachments = []
             
             def process_part(part):
+                """Process a single part of the email message"""
                 filename = None
-                # Check for filename in headers
-                for header in part.get('headers', []):
-                    if header['name'].lower() == 'content-disposition':
-                        value = header['value']
-                        if 'filename=' in value:
-                            filename = value.split('filename=')[1].strip('"\'')
+                mime_type = part.get('mimeType', '')
                 
-                # Check if it's a PDF attachment
-                if (filename and filename.lower().endswith('.pdf') and 
-                    part.get('body', {}).get('attachmentId')):
+                # Debug: log the part structure
+                logger.debug(f"Processing part: mimeType={mime_type}, body={part.get('body', {}).keys()}")
+                
+                # Look for filename in multiple places
+                # 1. Check Content-Disposition header
+                for header in part.get('headers', []):
+                    header_name = header['name'].lower()
+                    header_value = header['value']
                     
-                    attachment_id = part['body']['attachmentId']
+                    if header_name == 'content-disposition':
+                        logger.debug(f"Found Content-Disposition: {header_value}")
+                        # Handle different filename formats
+                        if 'filename=' in header_value:
+                            # Extract filename (handle quoted and unquoted)
+                            import re
+                            filename_match = re.search(r'filename[*]?=(["\']?)([^"\';\r\n]+)\1', header_value)
+                            if filename_match:
+                                filename = filename_match.group(2)
+                                logger.debug(f"Extracted filename from Content-Disposition: {filename}")
+                    
+                    elif header_name == 'content-type':
+                        logger.debug(f"Found Content-Type: {header_value}")
+                        # Sometimes filename is in Content-Type header
+                        if 'name=' in header_value:
+                            import re
+                            name_match = re.search(r'name[*]?=(["\']?)([^"\';\r\n]+)\1', header_value)
+                            if name_match:
+                                filename = name_match.group(2)
+                                logger.debug(f"Extracted filename from Content-Type: {filename}")
+                
+                # 2. If no filename found but this looks like an attachment, generate one
+                if not filename and part.get('body', {}).get('attachmentId'):
+                    if mime_type == 'application/pdf':
+                        filename = f"attachment_{part['body']['attachmentId'][:8]}.pdf"
+                        logger.debug(f"Generated filename for PDF attachment: {filename}")
+                    elif 'pdf' in mime_type.lower():
+                        filename = f"attachment_{part['body']['attachmentId'][:8]}.pdf"
+                        logger.debug(f"Generated filename for PDF-like attachment: {filename}")
+                
+                # 3. Check if this is a PDF attachment
+                is_pdf = False
+                if filename and filename.lower().endswith('.pdf'):
+                    is_pdf = True
+                elif mime_type in ['application/pdf', 'application/x-pdf']:
+                    is_pdf = True
+                    if not filename:
+                        filename = f"document_{part['body'].get('attachmentId', 'unknown')[:8]}.pdf"
+                
+                # 4. Check for attachment ID
+                attachment_id = part.get('body', {}).get('attachmentId')
+                
+                if is_pdf and attachment_id:
+                    logger.debug(f"Found PDF attachment: {filename} (ID: {attachment_id})")
                     return (filename, attachment_id)
                 
-                # Process sub-parts
+                # Process sub-parts recursively
                 results = []
                 for subpart in part.get('parts', []):
                     result = process_part(subpart)
                     if result:
-                        results.append(result)
-                return results
+                        if isinstance(result, list):
+                            results.extend(result)
+                        else:
+                            results.append(result)
+                
+                return results if results else None
             
             # Find all PDF attachments
+            logger.debug(f"Starting attachment extraction for message {message['id']}")
             pdf_attachments = process_part(message['payload'])
-            if isinstance(pdf_attachments, tuple):
+            
+            # Normalize results
+            if pdf_attachments is None:
+                pdf_attachments = []
+            elif isinstance(pdf_attachments, tuple):
                 pdf_attachments = [pdf_attachments]
             elif not isinstance(pdf_attachments, list):
                 pdf_attachments = []
             
+            logger.debug(f"Found {len(pdf_attachments)} potential PDF attachments")
+            
             # Download attachment content
             for filename, attachment_id in pdf_attachments:
                 try:
+                    logger.debug(f"Downloading attachment: {filename} (ID: {attachment_id})")
                     attachment = await self._execute_gmail_api(
                         self.service.users().messages().attachments().get(
                             userId=self.monitoring_email if self.use_user_id else 'me',
@@ -463,16 +573,20 @@ class GmailService:
                     data = attachment.get('data')
                     if data:
                         content = base64.urlsafe_b64decode(data)
+                        logger.debug(f"Successfully downloaded {filename}: {len(content)} bytes")
                         attachments.append((filename, content))
+                    else:
+                        logger.warning(f"No data found for attachment {filename}")
                         
                 except Exception as e:
                     logger.error(f"Failed to download attachment {filename}: {e}")
                     continue
             
+            logger.debug(f"Successfully extracted {len(attachments)} PDF attachments")
             return attachments
             
         except Exception as e:
-            logger.error(f"Failed to extract PDF attachments: {e}")
+            logger.error(f"Failed to extract PDF attachments: {e}", exc_info=True)
             return []
     
     
@@ -491,21 +605,28 @@ class GmailService:
         self._monitoring_active = True
         logger.info(f"Starting Gmail monitoring with {check_interval}s interval")
         
+        check_count = 0
         while self._monitoring_active:
             try:
+                check_count += 1
+                logger.info(f"🔍 Gmail check #{check_count} - Monitoring {self.monitoring_email}...")
+                
                 results = await self.check_for_new_emails()
                 
                 if results:
-                    logger.info(f"Processed {len(results)} emails in this check")
+                    logger.info(f"✅ Processed {len(results)} emails in check #{check_count}")
                     for result in results:
                         logger.info(
-                            f"Email from {result['sender']}: "
+                            f"📊 Email from {result['sender']}: "
                             f"{result['total_trades_extracted']} trades, "
                             f"{result['total_matches_found']} matches, "
                             f"{result['total_duplicates_found']} duplicates"
                         )
+                else:
+                    logger.debug(f"🔄 No new emails found in check #{check_count}")
                 
                 # Wait before next check
+                logger.debug(f"⏰ Waiting {check_interval}s until next check...")
                 await asyncio.sleep(check_interval)
                 
             except asyncio.CancelledError:
