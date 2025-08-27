@@ -31,9 +31,9 @@ class MatchingService:
     AUTO_CONFIRM_THRESHOLD = 60  # Score above which we auto-confirm
     
     # Tolerances
-    AMOUNT_EXACT_TOLERANCE = 0.001  # 0.1% for exact match
-    AMOUNT_CLOSE_TOLERANCE = 0.01   # 1% for close match
-    DATE_TOLERANCE_DAYS = 2  # Business days tolerance for dates
+    AMOUNT_EXACT_TOLERANCE = 0.0    # 0% - must be exactly the same
+    AMOUNT_CLOSE_TOLERANCE = 0.001  # 0.1% for close match
+    DATE_TOLERANCE_DAYS = 0  # No tolerance - exact date match required
     
     def __init__(self):
         """Initialize the matching service"""
@@ -323,25 +323,31 @@ class MatchingService:
         
         return date_str  # Return as-is if can't parse
     
-    def _dates_match(self, date1: str, date2: str, tolerance_days: int = 2) -> bool:
+    def _dates_match(self, date1: str, date2: str, tolerance_days: int = None) -> bool:
         """
         Check if two dates match within tolerance
         
         Args:
             date1: First date in dd-mm-yyyy format
             date2: Second date in dd-mm-yyyy format
-            tolerance_days: Number of business days tolerance
+            tolerance_days: Number of days tolerance (uses class default if not specified)
         """
+        if tolerance_days is None:
+            tolerance_days = self.DATE_TOLERANCE_DAYS
+            
         if date1 == date2:
             return True
+        
+        # If no tolerance allowed, dates must be exactly the same
+        if tolerance_days == 0:
+            return False
         
         try:
             # Parse dates
             d1 = datetime.strptime(date1, '%d-%m-%Y')
             d2 = datetime.strptime(date2, '%d-%m-%Y')
             
-            # Check if within tolerance (simple day difference for now)
-            # TODO: Implement business day calculation if needed
+            # Check if within tolerance
             diff = abs((d1 - d2).days)
             return diff <= tolerance_days
             
