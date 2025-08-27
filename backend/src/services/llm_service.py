@@ -318,7 +318,7 @@ Email Body:
                 - Counterparty: the bank could refer to you as the counterparty. However, from your perspective, the bank is the counterparty.
                 - Currency 1: the bank could refer to the currency you pay as Currency 1. However, from your perspective, the currency you pay is Currency 2.
                 - Currency 2: the bank could refer to the currency you receive as Currency 2. However, from your perspective, the currency you receive is Currency 1.
-                - Direction: the bank could refer to the direction of the trade as "Buy" or "Sell". However, from your perspective, the direction of the trade is the opposite.
+                - Direction: the bank could refer to the direction of the trade as "Buy" or "Sell". However, from your perspective, the direction of the trade is the opposite. Do not be fooled by the direction of the trade, it is the opposite of what the document or emailsays.
                 - Counterparty Payment Method: the bank will refer to the payment method they use as "Forma de Pago Nuestra" or something similar. This should be saved in the field "Counterparty Payment Method".
                 - Our Payment Method: the bank will refer to the payment method you use as "Forma de Pago Contraparte" or something similar. This should be saved in the field "Our Payment Method".
                 
@@ -328,7 +328,7 @@ Email Body:
                 - Counterparty ID, typically the bank's ID. It may not be present in the email, in which case you should leave it blank.
                 - Counterparty Name, the bank's name
                 - Product Type, if this says "Spot", save as "Spot". If it says "Seguro de Cambio", "Seguro de Inflación", "Arbitraje", "Forward", "NDF", save as "Forward".
-                - Direction, from your perspective as the client, are you buying from the bank or selling to the bank? Save as "Buy" or "Sell".
+                - Direction, from your perspective as the client, are you buying from the bank or selling to the bank? Save as "Buy" (if you the client are byuing the base currency and the bank is selling the counter currency) or "Sell" (if you the client are selling the base currency and the bank is buying the counter currency).
                 - Currency 1, an ISO 4217 currency code, the currency you are buying or selling according to the Direction field. Remember if the bank says "Buy", you are selling to the bank (and you should store it as "Sell"), and if the bank says "Sell", you are buying from the bank (and you should store it as "Buy").
                 - Amount of Currency 1, a number, the amount of currency 1 you are buying or selling according to the Direction field.
                 - Currency 2, an ISO 4217 currency code, the other currency of the trade.

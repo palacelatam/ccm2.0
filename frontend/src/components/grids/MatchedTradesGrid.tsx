@@ -92,6 +92,14 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
     }
   }, [refreshTrigger, loadMatchedTrades]);
   
+  // Refresh cell styles when selectedMatchId changes to update row highlighting
+  useEffect(() => {
+    if (gridRef.current?.api) {
+      // Use redrawRows() instead of refreshCells() to trigger getRowStyle recalculation
+      gridRef.current.api.redrawRows();
+    }
+  }, [selectedMatchId]);
+  
   const columnDefs: ColDef[] = useMemo(() => [
     { 
       headerName: t('grid.columns.confidence'), 
@@ -323,7 +331,9 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
 
   // Handle row click for highlighting
   const handleRowClick = useCallback((event: any) => {
-    const matchId = event.data?.match_id || null;
+    // Check both possible field names for match_id
+    const matchId = event.data?.match_id || event.data?.matchId || null;
+    
     if (onRowClick) {
       onRowClick(matchId);
     }
@@ -331,8 +341,10 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
 
   // Row styling for highlighting
   const getRowStyle = useCallback((params: any) => {
-    const matchId = params.data?.match_id;
-    if (selectedMatchId && matchId === selectedMatchId) {
+    // Check both possible field names for match_id
+    const matchId = params.data?.match_id || params.data?.matchId;
+    
+    if (selectedMatchId && matchId && matchId === selectedMatchId) {
       return { backgroundColor: '#264a73' }; // Highlight color for selected row
     }
     return undefined;

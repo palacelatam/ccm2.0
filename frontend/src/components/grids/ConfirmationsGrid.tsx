@@ -109,6 +109,14 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       loadEmails(true); // Preserve grid state on refresh
     }
   }, [refreshTrigger, loadEmails]);
+  
+  // Refresh cell styles when selectedMatchId changes to update row highlighting
+  useEffect(() => {
+    if (gridRef.current?.api) {
+      // Use redrawRows() instead of refreshCells() to trigger getRowStyle recalculation
+      gridRef.current.api.redrawRows();
+    }
+  }, [selectedMatchId]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -436,7 +444,9 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   // Handle row click for highlighting
   const handleRowClick = useCallback((event: any) => {
-    const matchId = event.data?.matchId || null;
+    // Check both possible field names for match_id
+    const matchId = event.data?.matchId || event.data?.match_id || null;
+    
     if (onRowClick) {
       onRowClick(matchId);
     }
@@ -444,8 +454,10 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   // Row styling for highlighting
   const getRowStyle = useCallback((params: any) => {
-    const matchId = params.data?.matchId;
-    if (selectedMatchId && matchId === selectedMatchId) {
+    // Check both possible field names for match_id
+    const matchId = params.data?.matchId || params.data?.match_id;
+    
+    if (selectedMatchId && matchId && matchId === selectedMatchId) {
       return { backgroundColor: '#264a73' }; // Highlight color for selected row
     }
     return undefined;
