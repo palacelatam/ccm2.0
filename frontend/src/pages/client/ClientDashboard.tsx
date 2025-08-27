@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import MatchedTradesGrid from '../../components/grids/MatchedTradesGrid';
 import ConfirmationsGrid from '../../components/grids/ConfirmationsGrid';
@@ -19,6 +19,9 @@ const ClientDashboard: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  
+  // Row highlighting state for grid linking
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
@@ -33,6 +36,15 @@ const ClientDashboard: React.FC = () => {
     setToastMessage(message);
     setToastType(type);
     setShowToast(true);
+  };
+
+  // Handlers for grid row highlighting
+  const handleMatchedTradeRowClick = (matchId: string | null) => {
+    setSelectedMatchId(matchId);
+  };
+
+  const handleEmailRowClick = (matchId: string | null) => {
+    setSelectedMatchId(matchId);
   };
 
   // Connect to real-time event stream - SIMPLE VERSION WITH EVENT HANDLING
@@ -79,11 +91,20 @@ const ClientDashboard: React.FC = () => {
       <div className={`top-panels ${isBottomPanelExpanded ? '' : 'expanded'}`}>
         <div className="top-left-panel">
           <h3>{t('dashboard.matchedTrades')}</h3>
-          <MatchedTradesGrid refreshTrigger={refreshTrigger} />
+          <MatchedTradesGrid 
+            refreshTrigger={refreshTrigger}
+            selectedMatchId={selectedMatchId}
+            onRowClick={handleMatchedTradeRowClick}
+          />
         </div>
         <div className="top-right-panel">
           <h3>{t('dashboard.confirmations')}</h3>
-          <ConfirmationsGrid onDataChange={triggerGridRefresh} refreshTrigger={refreshTrigger} />
+          <ConfirmationsGrid 
+            onDataChange={triggerGridRefresh} 
+            refreshTrigger={refreshTrigger}
+            selectedMatchId={selectedMatchId}
+            onRowClick={handleEmailRowClick}
+          />
         </div>
       </div>
       <div className={`bottom-panel ${isBottomPanelExpanded ? 'expanded' : 'collapsed'}`}>

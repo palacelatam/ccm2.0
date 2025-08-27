@@ -312,49 +312,71 @@ class GmailService:
             email_body = await self._extract_email_body(message)
             attachments = await self._extract_pdf_attachments(message)
             
-            if not attachments:
-                logger.warning(f"❌ No PDF attachments found in email {message_id}")
-                return None
-            logger.info(f"✅ Found {len(attachments)} PDF attachments: {[name for name, _ in attachments]}")
+            # Create Gmail email data structure
+            gmail_email_data = {
+                'sender': sender,
+                'subject': subject,
+                'date': date_str,
+                'body': email_body
+            }
             
-            logger.info(f"Processing email {message_id} from {sender} with {len(attachments)} PDF attachments")
-            
-            # Process each PDF attachment
             processing_results = []
-            for i, (attachment_name, pdf_content) in enumerate(attachments, 1):
-                logger.info(f"🔄 Processing attachment {i}/{len(attachments)}: {attachment_name} ({len(pdf_content)} bytes)")
+            
+            if attachments:
+                # Priority: Process PDF attachments first
+                logger.info(f"✅ Found {len(attachments)} PDF attachments: {[name for name, _ in attachments]}")
+                logger.info(f"Processing email {message_id} from {sender} with {len(attachments)} PDF attachments")
+                
+                # Process each PDF attachment
+                for i, (attachment_name, pdf_content) in enumerate(attachments, 1):
+                    logger.info(f"🔄 Processing attachment {i}/{len(attachments)}: {attachment_name} ({len(pdf_content)} bytes)")
+                    try:
+                        # Create temporary file-like object for processing
+                        pdf_file = io.BytesIO(pdf_content)
+                        pdf_file.name = attachment_name
+                        
+                        logger.info(f"📨 Calling process_gmail_attachment for {attachment_name}...")
+                        
+                        # Use existing email processing pipeline via ClientService adapter
+                        result = await self.client_service.process_gmail_attachment(
+                            client_id=client_id,
+                            gmail_email_data=gmail_email_data,
+                            attachment_data=pdf_content,
+                            filename=attachment_name
+                        )
+                        
+                        if result:
+                            logger.info(f"✅ Successfully processed {attachment_name}: {result}")
+                            processing_results.append(result)
+                        else:
+                            logger.warning(f"⚠️ No result returned for {attachment_name}")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Failed to process PDF attachment {attachment_name}: {e}", exc_info=True)
+                        continue
+            elif email_body and email_body.strip():
+                # Fallback: Process email body if no PDFs found
+                logger.info(f"📧 No PDF attachments found, processing email body for {message_id}")
+                logger.info(f"📝 Email body length: {len(email_body)} characters")
+                
                 try:
-                    # Create temporary file-like object for processing
-                    pdf_file = io.BytesIO(pdf_content)
-                    pdf_file.name = attachment_name
-                    
-                    # Create Gmail email data structure
-                    gmail_email_data = {
-                        'sender': sender,
-                        'subject': subject,
-                        'date': date_str,
-                        'body': email_body
-                    }
-                    
-                    logger.info(f"📨 Calling process_gmail_attachment for {attachment_name}...")
-                    
-                    # Use existing email processing pipeline via ClientService adapter
-                    result = await self.client_service.process_gmail_attachment(
+                    # Process email body directly
+                    result = await self.client_service.process_gmail_email_body(
                         client_id=client_id,
-                        gmail_email_data=gmail_email_data,
-                        attachment_data=pdf_content,
-                        filename=attachment_name
+                        gmail_email_data=gmail_email_data
                     )
                     
                     if result:
-                        logger.info(f"✅ Successfully processed {attachment_name}: {result}")
+                        logger.info(f"✅ Successfully processed email body from {sender}")
                         processing_results.append(result)
                     else:
-                        logger.warning(f"⚠️ No result returned for {attachment_name}")
+                        logger.warning(f"⚠️ No result returned for email body processing")
                         
                 except Exception as e:
-                    logger.error(f"❌ Failed to process PDF attachment {attachment_name}: {e}", exc_info=True)
-                    continue
+                    logger.error(f"❌ Failed to process email body: {e}", exc_info=True)
+            else:
+                logger.warning(f"❌ No processable content found in email {message_id} (no PDF attachments or body)")
+                return None
             
             # Mark message as processed
             self._processed_message_ids.add(message_id)

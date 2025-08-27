@@ -38,6 +38,7 @@ export interface UnmatchedTrade {
 
 export interface EmailConfirmation {
   id: string;
+  matchId?: string;  // Optional - only present for matched emails
   emailSender: string;
   emailDate: string;
   emailTime: string;
@@ -51,6 +52,7 @@ export interface EmailConfirmation {
 
 export interface TradeMatch {
   id: string;
+  matchId: string;  // Unique identifier for linking grids
   tradeId: string;
   emailId: string;
   confidenceScore: number;

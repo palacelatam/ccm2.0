@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from google.cloud.firestore import DocumentReference, Query
 import logging
 import re
+import uuid
 from datetime import datetime
 
 from config.firebase_config import get_cmek_firestore_client
@@ -636,8 +637,9 @@ class ClientService:
                 if match_docs:
                     match_data = match_docs[0].to_dict()
                     # Add v1.0 style match fields
-                    trade_data['match_id'] = match_data.get('match_id', match_docs[0].id)
-                    trade_data['match_confidence'] = f"{int(match_data.get('confidenceScore', 0) * 100)}%"
+                    trade_data['match_id'] = match_data.get('matchId', match_data.get('match_id', match_docs[0].id))  # Check new field first, then fallback
+                    #trade_data['match_confidence'] = f"{int(match_data.get('confidenceScore', 0) * 100)}%"
+                    trade_data['match_confidence'] = f"{int(match_data.get('confidenceScore', 0))}%"
                     trade_data['match_reasons'] = match_data.get('matchReasons', [])
                     trade_data['identified_at'] = match_data.get('identified_at', match_data.get('createdAt'))
                     
@@ -708,7 +710,7 @@ class ClientService:
                                 trade_number = client_trade_data.get('TradeNumber', '')
                                 if trade_number:
                                     email_matches[trade_number] = {
-                                        'matchId': match_doc.id,
+                                        'matchId': match_data.get('matchId', match_data.get('match_id', match_doc.id)),  # Use stored matchId first, then fallback
                                         'matchStatus': 'matched',
                                         'confidenceScore': match_data.get('confidenceScore', 0),
                                         'matchReasons': match_data.get('matchReasons', []),
@@ -770,52 +772,64 @@ class ClientService:
                             'OurPaymentMethod': trade.get('OurPaymentMethod', ''),
                         }
                         
-                        # Check if this email has any matches and try to find the best match for this trade
-                        match_found = False
-                        best_match = None
-                        
-                        if email_matches:
-                            # If there are matches for this email, find the best one for this specific trade
-                            # For now, use the first available match (could be improved with better matching logic)
-                            for trade_number, match_info in email_matches.items():
-                                # For simplicity, assume first match corresponds to first email trade
-                                # This could be improved by matching based on trade characteristics
-                                best_match = match_info
-                                match_found = True
-                                break
-                        
-                        if match_found and best_match:
-                            # Compare fields to determine if it's "Confirmation OK" or "Difference"
-                            status, differing_fields = self._compare_trade_fields(trade, best_match['clientTradeData'])
+                        # First check if this trade has a match_id stored directly in it
+                        trade_match_id = trade.get('match_id')
+                        if trade_match_id:
+                            # This trade already has a match_id stored in the email document
+                            trade_record['matchId'] = trade_match_id
+                            trade_record['status'] = 'Confirmation OK'  # Default status for matched trades
+                            trade_record['matchStatus'] = 'matched'
                             
-                            # Note: Duplicate detection happens during the matching process
-                            # If an email trade would match a client trade that's already matched,
-                            # no match record gets created, so duplicates will show as 'Unrecognized'
-                            # We could enhance this later to detect and mark true duplicates
+                            # TODO: Could fetch match details from matches collection if needed
+                            # for confidence score, match reasons, etc.
                             
-                            trade_record.update({
-                                'matchId': best_match['matchId'],
-                                'status': status,
-                                'matchStatus': best_match['matchStatus'],
-                                'confidenceScore': best_match['confidenceScore'],
-                                'matchReasons': best_match['matchReasons'],
-                                'differingFields': differing_fields
-                            })
-                            # Remove this match so it's not reused for other email trades
-                            email_matches.pop(next(iter(email_matches)), None)
+                        # Otherwise, check if this email has any matches (for backward compatibility)
                         else:
-                            # Check if this email has been marked as containing duplicates
-                            if email_data.get('hasDuplicates', False):
+                            match_found = False
+                            best_match = None
+                            
+                            if email_matches:
+                                # If there are matches for this email, find the best one for this specific trade
+                                # For now, use the first available match (could be improved with better matching logic)
+                                for trade_number, match_info in email_matches.items():
+                                    # For simplicity, assume first match corresponds to first email trade
+                                    # This could be improved by matching based on trade characteristics
+                                    best_match = match_info
+                                    match_found = True
+                                    break
+                        
+                            if match_found and best_match:
+                                # Compare fields to determine if it's "Confirmation OK" or "Difference"
+                                status, differing_fields = self._compare_trade_fields(trade, best_match['clientTradeData'])
+                                
+                                # Note: Duplicate detection happens during the matching process
+                                # If an email trade would match a client trade that's already matched,
+                                # no match record gets created, so duplicates will show as 'Unrecognized'
+                                # We could enhance this later to detect and mark true duplicates
+                                
                                 trade_record.update({
-                                    'status': 'Duplicate',
-                                    'matchStatus': 'duplicate',
-                                    'duplicateInfo': email_data.get('duplicateInfo', {})
+                                    'matchId': best_match['matchId'],
+                                    'status': status,
+                                    'matchStatus': best_match['matchStatus'],
+                                    'confidenceScore': best_match['confidenceScore'],
+                                    'matchReasons': best_match['matchReasons'],
+                                    'differingFields': differing_fields
                                 })
+                                # Remove this match so it's not reused for other email trades
+                                email_matches.pop(next(iter(email_matches)), None)
                             else:
-                                trade_record.update({
-                                    'status': 'Unrecognized',
-                                    'matchStatus': 'unmatched'
-                                })
+                                # Check if this email has been marked as containing duplicates
+                                if email_data.get('hasDuplicates', False):
+                                    trade_record.update({
+                                        'status': 'Duplicate',
+                                        'matchStatus': 'duplicate',
+                                        'duplicateInfo': email_data.get('duplicateInfo', {})
+                                    })
+                                else:
+                                    trade_record.update({
+                                        'status': 'Unrecognized',
+                                        'matchStatus': 'unmatched'
+                                    })
                         
                         flattened_records.append(trade_record)
                 else:
@@ -855,13 +869,19 @@ class ClientService:
             return []
     
     async def create_match(self, client_id: str, trade_id: str, email_id: str, 
-                          confidence_score: int, match_reasons: List[str]) -> bool:
-        """Create a trade-email match"""
+                          confidence_score: int, match_reasons: List[str], 
+                          match_id: str = None, bank_trade_number: str = None) -> bool:
+        """Create a trade-email match and update email document with match_id"""
         try:
-            logger.info(f"📝 Creating new match: client_id={client_id}, trade_id={trade_id}, email_id={email_id}, confidence={confidence_score}%")
+            # Generate match_id if not provided (for backward compatibility)
+            if not match_id:
+                match_id = str(uuid.uuid4())
+            
+            logger.info(f"📝 Creating new match: client_id={client_id}, trade_id={trade_id}, email_id={email_id}, confidence={confidence_score}%, match_id={match_id}, bank_trade_number={bank_trade_number}")
             matches_ref = self.db.collection('clients').document(client_id).collection('matches')
             
             match_doc = {
+                'matchId': match_id,  # Store the unique match identifier
                 'tradeId': trade_id,
                 'emailId': email_id,
                 'confidenceScore': confidence_score,
@@ -880,6 +900,10 @@ class ClientService:
             # Update trade and email status
             await self._update_trade_status(client_id, trade_id, 'matched')
             await self._update_email_status(client_id, email_id, 'matched')
+            
+            # Update the specific trade in the email document with the match_id
+            if bank_trade_number:
+                await self._update_email_trade_match_id(client_id, email_id, bank_trade_number, match_id)
             
             logger.info(f"Created match between trade {trade_id} and email {email_id} with {confidence_score}% confidence")
             return True
@@ -1033,6 +1057,49 @@ class ClientService:
             email_ref.update({'status': status, 'updatedAt': datetime.now()})
         except Exception as e:
             logger.error(f"Error updating email status for {email_id}: {e}")
+    
+    async def _update_email_trade_match_id(self, client_id: str, email_id: str, 
+                                          bank_trade_number: str, match_id: str):
+        """Update a specific trade within an email document with match_id"""
+        try:
+            email_ref = self.db.collection('clients').document(client_id).collection('emails').document(email_id)
+            
+            # Get the email document
+            email_doc = email_ref.get()
+            if not email_doc.exists:
+                logger.error(f"Email document {email_id} not found")
+                return
+            
+            email_data = email_doc.to_dict()
+            
+            # Get the LLM extracted data
+            llm_data = email_data.get('llmExtractedData', {})
+            trades = llm_data.get('Trades', [])
+            
+            # Find and update the specific trade by BankTradeNumber
+            trade_found = False
+            for i, trade in enumerate(trades):
+                if trade.get('BankTradeNumber') == bank_trade_number:
+                    # Add match_id to this specific trade
+                    trades[i]['match_id'] = match_id
+                    trade_found = True
+                    logger.info(f"✅ Added match_id {match_id} to trade {bank_trade_number} in email {email_id}")
+                    break
+            
+            if not trade_found:
+                logger.warning(f"Trade with BankTradeNumber {bank_trade_number} not found in email {email_id}")
+                return
+            
+            # Update the email document with modified trades array
+            email_ref.update({
+                'llmExtractedData.Trades': trades,
+                'updatedAt': datetime.now()
+            })
+            
+            logger.info(f"Successfully updated email {email_id} trade {bank_trade_number} with match_id {match_id}")
+            
+        except Exception as e:
+            logger.error(f"Error updating email trade match_id for {email_id}: {e}")
     
     # ========== CSV Upload Methods ==========
     
@@ -1653,12 +1720,16 @@ class ClientService:
                                 else:
                                     # Create the match
                                     logger.info(f"🆕 No existing match found - Creating new match for trade {client_trade_number}")
+                                    # Extract bank trade number from the email trade
+                                    bank_trade_number = match_result['email_trade'].get('BankTradeNumber', '')
                                     match_created = await self.create_match(
                                         client_id=client_id,
                                         trade_id=client_trade_id,
                                         email_id=result['email_id'],
                                         confidence_score=match_result['confidence'],
-                                        match_reasons=match_result['match_reasons']
+                                        match_reasons=match_result['match_reasons'],
+                                        match_id=match_result['match_id'],  # Pass the generated match_id from MatchingService
+                                        bank_trade_number=bank_trade_number  # Pass bank trade number to update email doc
                                     )
                                     
                                     if match_created:
@@ -1793,4 +1864,68 @@ class ClientService:
             
         except Exception as e:
             logger.error(f"Error processing Gmail attachment {filename} for client {client_id}: {e}")
+            return None
+    
+    async def process_gmail_email_body(self, client_id: str, gmail_email_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Process Gmail email body content directly when no PDF attachments are found
+        
+        Args:
+            client_id: ID of the client
+            gmail_email_data: Gmail email metadata including body content
+            
+        Returns:
+            Processing result with matching results
+        """
+        try:
+            # Create a session ID for tracking
+            session_id = f"gmail_body_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            # Create email data structure for LLM processing
+            email_metadata = {
+                'sender_email': gmail_email_data.get('sender', ''),
+                'subject': gmail_email_data.get('subject', ''),
+                'body_content': gmail_email_data.get('body', ''),
+                'date': gmail_email_data.get('date', datetime.now().strftime('%d-%m-%Y')),
+                'time': datetime.now().strftime('%H:%M:%S'),
+                'attachments_text': ''  # No attachments since we're processing body
+            }
+            
+            # Process email body with LLM to extract structured trade data
+            from services.llm_service import LLMService
+            llm_service = LLMService()
+            
+            formatted_email_data = {
+                'subject': email_metadata['subject'],
+                'body_content': email_metadata['body_content'],
+                'sender_email': email_metadata['sender_email'],
+                'attachments_text': ''
+            }
+            
+            logger.info(f"📝 Processing email body with LLM ({len(email_metadata['body_content'])} chars)")
+            llm_extracted_data = llm_service.process_email_data(formatted_email_data)
+            
+            # Create the email data structure matching the expected format
+            email_data = {
+                'email_metadata': email_metadata,
+                'llm_extracted_data': llm_extracted_data,
+                'processed_at': datetime.now().isoformat(),
+                'processing_source': 'email_body'
+            }
+            
+            # Use unified processing method
+            logger.info(f"🔄 Calling unified process_and_match_email method for email body")
+            result = await self.process_and_match_email(
+                client_id=client_id,
+                email_data=email_data,
+                session_id=session_id,
+                uploaded_by='gmail_service',
+                filename=f"email_body_{gmail_email_data.get('sender', 'unknown')[:20]}.txt"
+            )
+            
+            logger.info(f"✅ Gmail body processing completed: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing Gmail email body for client {client_id}: {e}", exc_info=True)
             return None

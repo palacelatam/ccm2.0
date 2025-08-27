@@ -56,6 +56,7 @@ class EmailParserService:
     def _process_msg_file(self, file_content: bytes, errors: List[str]) -> Tuple[Dict[str, Any], List[str]]:
         """
         Process MSG (Outlook) email file
+        Priority: PDF attachments first, then email body
         
         Args:
             file_content: MSG file content as bytes
@@ -76,13 +77,36 @@ class EmailParserService:
                 # Extract email data using extract_msg
                 msg = extract_msg.Message(temp_file_path)
                 
+                # Extract PDF attachments if available
+                pdf_attachments = self._extract_pdf_attachments_from_msg(msg)
+                
+                # Determine what content to process with LLM
+                # Priority: PDF attachments > email body
+                content_to_process = ''
+                processing_source = 'none'
+                
+                if pdf_attachments:
+                    # Use PDF attachment text content
+                    content_to_process = pdf_attachments
+                    processing_source = 'pdf_attachment'
+                    logger.info(f"Processing PDF attachment content ({len(content_to_process)} chars)")
+                elif msg.body:
+                    # Fallback to email body if no PDFs found
+                    content_to_process = msg.body
+                    processing_source = 'email_body'
+                    logger.info(f"No PDF attachments found, processing email body ({len(content_to_process)} chars)")
+                else:
+                    errors.append("No content found in email (no body or PDF attachments)")
+                    logger.warning("No processable content found in MSG file")
+                
                 email_data = {
                     'sender_email': msg.sender or '',
                     'subject': msg.subject or '',
-                    'body_content': msg.body or '',
+                    'body_content': content_to_process,  # This will be either PDF text or email body
                     'date': msg.date.strftime('%d-%m-%Y') if msg.date else datetime.now().strftime('%d-%m-%Y'),
                     'time': msg.date.strftime('%H:%M:%S') if msg.date else datetime.now().strftime('%H:%M:%S'),
-                    'attachments_text': self._extract_attachments_text(msg)
+                    'attachments_text': '',  # We're already handling attachments above
+                    'processing_source': processing_source  # Track where content came from
                 }
                 
                 # Process with LLM to extract structured trade data
@@ -91,7 +115,8 @@ class EmailParserService:
                 result = {
                     'email_metadata': email_data,
                     'llm_extracted_data': llm_extracted_data,
-                    'processed_at': datetime.now().isoformat()
+                    'processed_at': datetime.now().isoformat(),
+                    'processing_source': processing_source
                 }
                 
                 return result, errors
@@ -169,6 +194,40 @@ class EmailParserService:
             errors.append(error_msg)
             logger.error(error_msg)
             return {}, errors
+    
+    def _extract_pdf_attachments_from_msg(self, msg) -> str:
+        """
+        Extract text content from PDF attachments in MSG file
+        
+        Args:
+            msg: extract_msg Message object
+            
+        Returns:
+            Combined text from all PDF attachments
+        """
+        pdf_text = ""
+        try:
+            for attachment in msg.attachments:
+                filename = attachment.longFilename or attachment.shortFilename or 'Unknown'
+                if filename.lower().endswith('.pdf') and hasattr(attachment, 'data') and attachment.data:
+                    try:
+                        # Extract text from PDF attachment
+                        pdf_reader = PyPDF2.PdfReader(BytesIO(attachment.data))
+                        attachment_text = ""
+                        for page in pdf_reader.pages:
+                            attachment_text += page.extract_text() + "\n"
+                        
+                        if attachment_text.strip():
+                            pdf_text += f"\n--- PDF Attachment: {filename} ---\n"
+                            pdf_text += attachment_text + "\n"
+                            logger.info(f"Extracted {len(attachment_text)} chars from PDF: {filename}")
+                    except Exception as e:
+                        logger.warning(f"Error extracting PDF {filename}: {str(e)}")
+                        continue
+        except Exception as e:
+            logger.warning(f"Error processing attachments: {str(e)}")
+        
+        return pdf_text
     
     def _extract_attachments_text(self, msg) -> str:
         """

@@ -346,6 +346,7 @@ class EmailConfirmation(BaseFirestoreModel):
 
 class TradeMatch(BaseFirestoreModel):
     """Matched trade-email pair"""
+    match_id: str = Field(alias="matchId")  # Unique identifier for linking frontend grids
     trade_id: str = Field(alias="tradeId")
     email_id: str = Field(alias="emailId")
     confidence_score: float = Field(alias="confidenceScore")

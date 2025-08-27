@@ -11,9 +11,15 @@ import './TradeGrid.css';
 
 interface MatchedTradesGridProps {
   refreshTrigger?: number;
+  selectedMatchId?: string | null;
+  onRowClick?: (matchId: string | null) => void;
 }
 
-const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger }) => {
+const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ 
+  refreshTrigger, 
+  selectedMatchId, 
+  onRowClick 
+}) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [trades, setTrades] = useState<any[]>([]);
@@ -315,6 +321,23 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
     }
   ], [t]);
 
+  // Handle row click for highlighting
+  const handleRowClick = useCallback((event: any) => {
+    const matchId = event.data?.match_id || null;
+    if (onRowClick) {
+      onRowClick(matchId);
+    }
+  }, [onRowClick]);
+
+  // Row styling for highlighting
+  const getRowStyle = useCallback((params: any) => {
+    const matchId = params.data?.match_id;
+    if (selectedMatchId && matchId === selectedMatchId) {
+      return { backgroundColor: '#264a73' }; // Highlight color for selected row
+    }
+    return undefined;
+  }, [selectedMatchId]);
+
   const getContextMenuItems = useCallback((params: GetContextMenuItemsParams): (string | MenuItemDef)[] => [
     {
       name: t('grid.contextMenu.viewTradeDetails'),
@@ -376,6 +399,8 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({ refreshTrigger })
             rowData={trades}
             columnDefs={columnDefs}
             getContextMenuItems={getContextMenuItems}
+            onRowClicked={handleRowClick}
+            getRowStyle={getRowStyle}
             pagination={true}
             paginationPageSize={50}
             enableRangeSelection={true}
