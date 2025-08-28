@@ -1,4 +1,3 @@
-ConfirmationsGrid - Row clicked: {match_id: '1d0cc038-d584-44d1-b7bb-c4c05892fb04', tradeNumber: undefined, emailSender: 'confirmacionesderivados@bancoabc.cl', emailDate: '04-04-2025', confirmation: 'Yes'}
-ClientDashboard.tsx:48 ClientDashboard - Email clicked, setting selectedMatchId to: 1d0cc038-d584-44d1-b7bb-c4c05892fb04
-MatchedTradesGrid.tsx:97 MatchedTradesGrid - selectedMatchId changed to: 1d0cc038-d584-44d1-b7bb-c4c05892fb04
-ConfirmationsGrid.tsx:115 ConfirmationsGrid - selectedMatchId changed to: 1d0cc038-d584-44d1-b7bb-c4c05892fb04
+Mailback variables: {counterpartyName: 'Banco ABC', tradeNumber: '9239834', organizationName: 'XYZ Corporation'}counterpartyName: "Banco ABC"organizationName: "XYZ Corporation"tradeNumber: "9239834"[[Prototype]]: Object
+ConfirmationsGrid.tsx:274 Test translation: Estimado {counterpartyName},
+(index):1 Launched external handler for 'mailto:confirmacionesderivados@bancoabc.cl?cc=confirmaciones_dev@servicios.palace.cl&subject=Confirmaci%C3%B3n%20de%20%7BtradeNumber%7D&body=Estimado%20%7BcounterpartyName%7D%2C%0A%0ACon%20respecto%20a%20la%20operaci%C3%B3n%20n%C3%BAmero%20%7BtradeNumber%7D%2C%20%7BorganizationName%7D%20confirma%20la%20operaci%C3%B3n%20seg%C3%BAn%20nos%20inform%C3%B3.%0A%0ASaludos%20cordiales%2C%0AXYZ%20Corporation'.

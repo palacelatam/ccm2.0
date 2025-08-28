@@ -598,6 +598,80 @@ class ClientService:
             logger.error(f"Error saving email confirmation for client {client_id}: {e}")
             return None
     
+    async def update_email_confirmation_status(
+        self, 
+        client_id: str, 
+        email_id: str, 
+        status: str, 
+        updated_by: str = None,
+        updated_at: str = None
+    ) -> Optional[Dict[str, Any]]:
+        """Update the status of a specific trade within an email confirmation"""
+        try:
+            # Handle trade record IDs (e.g., "email_id_trade_0")
+            # Extract the actual email ID and trade index
+            actual_email_id = email_id
+            trade_index = None
+            
+            if '_trade_' in email_id:
+                parts = email_id.split('_trade_')
+                actual_email_id = parts[0]
+                trade_index = int(parts[1]) if len(parts) > 1 else 0
+                logger.info(f"Extracted email ID {actual_email_id} and trade index {trade_index} from {email_id}")
+            
+            # Get the email confirmation document
+            email_ref = self.db.collection('clients').document(client_id).collection('emails').document(actual_email_id)
+            email_doc = email_ref.get()
+            
+            if not email_doc.exists:
+                logger.warning(f"Email confirmation {actual_email_id} not found for client {client_id}")
+                return None
+            
+            email_data = email_doc.to_dict()
+            
+            # Update the status in the specific trade within llmExtractedData.Trades array
+            if trade_index is not None:
+                llm_data = email_data.get('llmExtractedData', {})
+                trades = llm_data.get('Trades', [])
+                
+                if 0 <= trade_index < len(trades):
+                    # Update the status for the specific trade
+                    trades[trade_index]['status'] = status
+                    trades[trade_index]['lastUpdatedAt'] = updated_at if updated_at else datetime.now().isoformat()
+                    trades[trade_index]['lastUpdatedBy'] = updated_by if updated_by else 'system'
+                    
+                    # Update the document with the modified trades array
+                    email_ref.update({
+                        'llmExtractedData.Trades': trades,
+                        'lastUpdatedAt': updated_at if updated_at else datetime.now().isoformat(),
+                        'lastUpdatedBy': updated_by if updated_by else 'system'
+                    })
+                    
+                    logger.info(f"Updated trade {trade_index} status to {status} in email {actual_email_id} for client {client_id}")
+                else:
+                    logger.warning(f"Trade index {trade_index} out of range for email {actual_email_id}")
+                    return None
+            else:
+                # If no trade index, update the email-level status (fallback for emails without trades)
+                email_ref.update({
+                    'status': status,
+                    'lastUpdatedAt': updated_at if updated_at else datetime.now().isoformat(),
+                    'lastUpdatedBy': updated_by if updated_by else 'system'
+                })
+                logger.info(f"Updated email-level status to {status} for email {actual_email_id}")
+            
+            # Return the updated data
+            updated_doc = email_ref.get()
+            email_data = updated_doc.to_dict()
+            # Use the original email_id (which might include _trade_X suffix) for consistency with frontend
+            email_data['id'] = email_id
+            
+            return email_data
+            
+        except Exception as e:
+            logger.error(f"Error updating email confirmation status for client {client_id}, email {email_id}: {e}")
+            raise
+    
     async def get_matches(self, client_id: str) -> List[TradeMatch]:
         """Get all trade matches for a client"""
         try:
@@ -777,11 +851,9 @@ class ClientService:
                         if trade_match_id:
                             # This trade already has a match_id stored in the email document
                             trade_record['matchId'] = trade_match_id
-                            trade_record['status'] = 'Confirmation OK'  # Default status for matched trades
+                            # Use the actual confirmation status stored on the trade
+                            trade_record['status'] = trade.get('status', 'Confirmation OK')  # Use stored status or default
                             trade_record['matchStatus'] = 'matched'
-                            
-                            # TODO: Could fetch match details from matches collection if needed
-                            # for confidence score, match reasons, etc.
                             
                         # Otherwise, check if this email has any matches (for backward compatibility)
                         else:
@@ -870,8 +942,9 @@ class ClientService:
     
     async def create_match(self, client_id: str, trade_id: str, email_id: str, 
                           confidence_score: int, match_reasons: List[str], 
-                          match_id: str = None, bank_trade_number: str = None) -> bool:
-        """Create a trade-email match and update email document with match_id"""
+                          match_id: str = None, bank_trade_number: str = None, 
+                          status: str = None) -> bool:
+        """Create a trade-email match and update email document with match_id and status"""
         try:
             # Generate match_id if not provided (for backward compatibility)
             if not match_id:
@@ -901,9 +974,9 @@ class ClientService:
             await self._update_trade_status(client_id, trade_id, 'matched')
             await self._update_email_status(client_id, email_id, 'matched')
             
-            # Update the specific trade in the email document with the match_id
+            # Update the specific trade in the email document with the match_id and status
             if bank_trade_number:
-                await self._update_email_trade_match_id(client_id, email_id, bank_trade_number, match_id)
+                await self._update_email_trade_match_id(client_id, email_id, bank_trade_number, match_id, status)
             
             logger.info(f"Created match between trade {trade_id} and email {email_id} with {confidence_score}% confidence")
             return True
@@ -1059,8 +1132,8 @@ class ClientService:
             logger.error(f"Error updating email status for {email_id}: {e}")
     
     async def _update_email_trade_match_id(self, client_id: str, email_id: str, 
-                                          bank_trade_number: str, match_id: str):
-        """Update a specific trade within an email document with match_id"""
+                                          bank_trade_number: str, match_id: str, status: str = None):
+        """Update a specific trade within an email document with match_id and status"""
         try:
             email_ref = self.db.collection('clients').document(client_id).collection('emails').document(email_id)
             
@@ -1080,10 +1153,12 @@ class ClientService:
             trade_found = False
             for i, trade in enumerate(trades):
                 if trade.get('BankTradeNumber') == bank_trade_number:
-                    # Add match_id to this specific trade
+                    # Add match_id and status to this specific trade
                     trades[i]['match_id'] = match_id
+                    if status:
+                        trades[i]['status'] = status
                     trade_found = True
-                    logger.info(f"✅ Added match_id {match_id} to trade {bank_trade_number} in email {email_id}")
+                    logger.info(f"✅ Added match_id {match_id} and status '{status}' to trade {bank_trade_number} in email {email_id}")
                     break
             
             if not trade_found:
@@ -1096,10 +1171,10 @@ class ClientService:
                 'updatedAt': datetime.now()
             })
             
-            logger.info(f"Successfully updated email {email_id} trade {bank_trade_number} with match_id {match_id}")
+            logger.info(f"Successfully updated email {email_id} trade {bank_trade_number} with match_id {match_id} and status '{status}'")
             
         except Exception as e:
-            logger.error(f"Error updating email trade match_id for {email_id}: {e}")
+            logger.error(f"Error updating email trade match_id and status for {email_id}: {e}")
     
     # ========== CSV Upload Methods ==========
     
@@ -1579,6 +1654,7 @@ class ClientService:
                 if trades and len(trades) > 0:
                     first_trade = trades[0]
                     email_data.update(first_trade)  # Direct copy since field names now match
+                    
                 else:
                     # Add empty trade fields if no trades found
                     email_data.update({
@@ -1598,7 +1674,8 @@ class ClientService:
                         'SettlementCurrency': '',
                         'PaymentDate': '',
                         'CounterpartyPaymentMethod': '',
-                        'OurPaymentMethod': ''
+                        'OurPaymentMethod': '',
+                        'differingFields': []
                     })
                 
                 emails.append(email_data)
@@ -1729,7 +1806,8 @@ class ClientService:
                                         confidence_score=match_result['confidence'],
                                         match_reasons=match_result['match_reasons'],
                                         match_id=match_result['match_id'],  # Pass the generated match_id from MatchingService
-                                        bank_trade_number=bank_trade_number  # Pass bank trade number to update email doc
+                                        bank_trade_number=bank_trade_number,  # Pass bank trade number to update email doc
+                                        status=match_result['status']  # Pass the proper confirmation status from MatchingService
                                     )
                                     
                                     if match_created:

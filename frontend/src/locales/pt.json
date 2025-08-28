@@ -475,5 +475,14 @@
       "successfullyProcessed": "{count} operações processadas com sucesso",
       "successfullyDeleted": "{count} operações não correspondidas excluídas com sucesso"
     }
+  },
+  "mailback": {
+    "subject": "Confirmação de {{tradeNumber}}",
+    "greeting": "Caro {{counterpartyName}},",
+    "discrepancyIntro": "Com relação à operação número {{tradeNumber}}, {{organizationName}} tem as seguintes observações:",
+    "confirmationMessage": "Com relação à operação número {{tradeNumber}}, {{organizationName}} confirma a operação conforme informado por você.",
+    "yourValue": "Seu valor",
+    "ourValue": "Nosso valor",
+    "regards": "Atenciosamente"
   }
 }

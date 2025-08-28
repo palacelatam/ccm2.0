@@ -936,6 +936,65 @@ async def get_email_confirmations(
         )
 
 
+@router.patch("/{client_id}/email-confirmations/{email_id}/status", response_model=APIResponse[Dict[str, Any]])
+async def update_email_confirmation_status(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    email_id: str = Path(..., description="Email Confirmation ID"),
+    status_update: Dict[str, Any] = None
+):
+    """Update the status of an email confirmation"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    # Parse request body
+    body = await request.json()
+    new_status = body.get('status')
+    updated_by = body.get('updatedBy', auth_context.uid)
+    updated_at = body.get('updatedAt')
+    
+    if not new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status field is required"
+        )
+    
+    client_service = ClientService()
+    
+    # Check client exists
+    if not await client_service.client_exists(client_id):
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    try:
+        # Update the email confirmation status
+        updated_email = await client_service.update_email_confirmation_status(
+            client_id=client_id,
+            email_id=email_id,
+            status=new_status,
+            updated_by=updated_by,
+            updated_at=updated_at
+        )
+        
+        if not updated_email:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Email confirmation not found"
+            )
+        
+        return APIResponse(
+            success=True,
+            data=updated_email,
+            message=f"Email confirmation status updated to {new_status}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error updating email confirmation status for client {client_id}, email {email_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update email confirmation status: {str(e)}"
+        )
+
+
 @router.post("/{client_id}/process-matches", response_model=APIResponse[Dict[str, Any]])
 async def process_matches(
     request: Request,

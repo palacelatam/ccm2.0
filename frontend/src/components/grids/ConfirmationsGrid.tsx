@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GetContextMenuItemsParams, MenuItemDef } from 'ag-grid-community';
+import { ColDef, GetContextMenuItemsParams, MenuItemDef, CellContextMenuEvent } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import { clientService, EmailConfirmation, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
 import Toast from '../common/Toast';
+import InlineMenu, { InlineMenuItem } from '../common/InlineMenu';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
@@ -28,6 +29,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   const { t } = useTranslation();
   const { user } = useAuth();
   const [emails, setEmails] = useState<EmailConfirmation[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -38,33 +40,22 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<AgGridReact>(null);
 
+  // Inline menu state
+  const [showInlineMenu, setShowInlineMenu] = useState(false);
+  const [inlineMenuPosition, setInlineMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedEmailForMenu, setSelectedEmailForMenu] = useState<any | null>(null);
+  const [statusHistory, setStatusHistory] = useState<Map<string, string>>(new Map());
+
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
+  const organizationName = user?.organization?.name || 'Company';
+
 
   // Helper function to show toast notifications
   const showToastNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     setToastMessage(message);
     setToastType(type);
     setShowToast(true);
-  };
-
-  // Helper function to create cell renderer with difference highlighting
-  const createCellRenderer = (fieldName: string) => (params: any) => {
-    const value = params.value || '';
-    const differingFields = params.data?.differingFields || [];
-    const hasDifference = differingFields.includes(fieldName);
-    
-    return React.createElement('div', {
-      style: {
-        backgroundColor: hasDifference ? '#ff0000' : 'transparent', // Red background for differences
-        color: hasDifference ? '#ffffff' : 'inherit', // White text for differences
-        padding: '2px 4px',
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center'
-      }
-    }, value);
   };
 
   const loadEmails = useCallback(async (preserveGridState = false) => {
@@ -80,6 +71,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       }
       setError(null);
       const emailsData = await clientService.getAllEmailConfirmations(clientId);
+      
       
       if (preserveGridState && gridRef.current?.api) {
         // Update data while preserving grid state (sorting, filtering, etc.)
@@ -109,14 +101,43 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       loadEmails(true); // Preserve grid state on refresh
     }
   }, [refreshTrigger, loadEmails]);
-  
-  // Refresh cell styles when selectedMatchId changes to update row highlighting
+
+  // Add native context menu handler for status column
   useEffect(() => {
-    if (gridRef.current?.api) {
-      // Use redrawRows() instead of refreshCells() to trigger getRowStyle recalculation
-      gridRef.current.api.redrawRows();
-    }
-  }, [selectedMatchId]);
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if the clicked element is within a status column cell
+      const cellElement = target.closest('[col-id="status"]');
+      
+      if (cellElement) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Find the row node to get the data
+        const rowElement = cellElement.closest('[role="row"]');
+        if (rowElement && gridRef.current?.api) {
+          const rowIndex = rowElement.getAttribute('row-index');
+          if (rowIndex) {
+            const rowNode = gridRef.current.api.getDisplayedRowAtIndex(parseInt(rowIndex));
+            if (rowNode) {
+              setSelectedEmailForMenu(rowNode.data);
+              setInlineMenuPosition({ x: e.clientX, y: e.clientY });
+              setShowInlineMenu(true);
+            }
+          }
+        }
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener('contextmenu', handleContextMenu);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [emails]); // Re-attach when emails change
+  
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -189,6 +210,121 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
   };
+
+  // Handle status update
+  const handleStatusUpdate = async (emailId: string, newStatus: string) => {
+    try {
+      // Store the current status in history for undo
+      const currentEmail = emails.find(e => e.id === emailId);
+      if (currentEmail) {
+        setStatusHistory(prev => new Map(prev).set(emailId, currentEmail.status));
+      }
+
+      // Update locally first for immediate UI feedback
+      setEmails(prevEmails => 
+        prevEmails.map(email => 
+          email.id === emailId ? { ...email, status: newStatus } : email
+        )
+      );
+
+      // Update in the grid if it exists
+      if (gridRef.current?.api) {
+        gridRef.current.api.forEachNode((node) => {
+          if (node.data.id === emailId) {
+            node.setDataValue('status', newStatus);
+          }
+        });
+      }
+
+      // Call API to persist the change
+      if (clientId) {
+        await clientService.updateEmailConfirmationStatus(clientId, emailId, newStatus);
+        showToastNotification(`Status updated to ${newStatus}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      showToastNotification('Failed to update status', 'error');
+      // Revert on error
+      await loadEmails(true);
+    }
+  };
+
+  // Handle undo status
+  const handleUndoStatus = async (emailId: string) => {
+    const previousStatus = statusHistory.get(emailId);
+    if (previousStatus) {
+      await handleStatusUpdate(emailId, previousStatus);
+      // Remove from history after undo
+      setStatusHistory(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(emailId);
+        return newMap;
+      });
+    }
+  };
+
+  // Generate mailback email
+  const generateMailback = async (emailData: any) => {
+    const counterpartyName = emailData.CounterpartyName || emailData.EmailSender || 'Counterparty';
+    const tradeNumber = emailData.BankTradeNumber || emailData.id;
+    const toEmail = emailData.EmailSender || '';
+    const ccEmail = 'confirmaciones_dev@servicios.palace.cl';
+    
+    // Get discrepancy information from matched trade data using matchId
+    let hasActualDiscrepancies = false;
+    let discrepancyFields = [];
+    
+    if (emailData.matchId && clientId) {
+      try {
+        // Fetch the matched trades to get the discrepancy information
+        const matchedTrades = await clientService.getMatchedTrades(clientId);
+        const matchedTrade = matchedTrades.find(trade => trade.matchId === emailData.matchId || trade.match_id === emailData.matchId);
+        
+        if (matchedTrade && matchedTrade.differingFields && matchedTrade.differingFields.length > 0) {
+          hasActualDiscrepancies = true;
+          discrepancyFields = matchedTrade.differingFields;
+        }
+      } catch (error) {
+        console.error('Error fetching matched trade data for mailback:', error);
+        // Fallback to checking status if we can't get matched trade data
+        if (emailData.status === 'Difference') {
+          hasActualDiscrepancies = true;
+          discrepancyFields = ['Multiple fields'];
+        }
+      }
+    }
+    
+    let body = '';
+    if (hasActualDiscrepancies) {
+      // Email with discrepancies
+      body = t('mailback.greeting', { counterpartyName }) + '\n\n';
+      body += t('mailback.discrepancyIntro', { tradeNumber, organizationName }) + '\n\n';
+      
+      // Add each discrepancy
+      discrepancyFields.forEach((field: string) => {
+        const emailValue = emailData[field] || 'N/A';
+        const clientValue = emailData[`client_${field}`] || 'N/A'; // Assuming client values are prefixed
+        body += `${field}:\n`;
+        body += t('mailback.yourValue') + `: ${emailValue}\n`;
+        body += t('mailback.ourValue') + `: ${clientValue}\n\n`;
+      });
+      
+      body += t('mailback.regards') + ',\n' + organizationName;
+    } else {
+      // Confirmation email (no discrepancies)
+      body = t('mailback.greeting', { counterpartyName }) + '\n\n';
+      body += t('mailback.confirmationMessage', { tradeNumber, organizationName }) + '\n\n';
+      body += t('mailback.regards') + ',\n' + organizationName;
+    }
+    
+    // Encode for mailto link
+    const subject = encodeURIComponent(t('mailback.subject', { tradeNumber }));
+    const encodedBody = encodeURIComponent(body);
+    const mailtoLink = `mailto:${toEmail}?cc=${ccEmail}&subject=${subject}&body=${encodedBody}`;
+    
+    // Open email client
+    window.location.href = mailtoLink;
+  };
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
@@ -202,7 +338,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       width: 110,
       sortable: true,
       filter: true,
-      cellRenderer: (params: any) => {
+      cellRenderer: (params: any): React.ReactElement => {
         const status = params.value;
         let color = '#FFFFFF';
         
@@ -217,10 +353,10 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             color = '#FFFFFF';
             break;
           case 'Resolved':
-            color = '#00e7ff';
+            color = '#00e7ff'; // Light blue for Resolved
             break;
           case 'Tagged':
-            color = '#FB9205';
+            color = '#FFA500'; // Orange for Tagged
             break;
           case 'Matched':
             color = '#4CAF50'; // Same as Confirmation OK
@@ -236,6 +372,28 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         return React.createElement('div', { 
           style: { color: color, fontWeight: 'bold' } 
         }, status);
+      },
+      onCellContextMenu: (params: any) => {
+        // Prevent default context menu
+        if (params.event) {
+          params.event.preventDefault();
+          params.event.stopPropagation();
+        }
+        
+        // Set the selected email data
+        setSelectedEmailForMenu(params.data);
+        
+        // Set the position for the inline menu
+        setInlineMenuPosition({
+          x: params.event.clientX,
+          y: params.event.clientY
+        });
+        
+        // Show the inline menu
+        setShowInlineMenu(true);
+        
+        // Return false to prevent AG Grid's default behavior
+        return false;
       }
     },
     { 
@@ -267,7 +425,6 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.productType'), 
       field: 'ProductType', 
       width: 120,
-      cellRenderer: createCellRenderer('ProductType')
     },
     { 
       headerName: t('grid.columns.tradeDate'), 
@@ -306,25 +463,40 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       width: 120,
       sortable: true, 
       filter: true,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('ValueDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
       headerName: t('grid.columns.direction'), 
       field: 'Direction', 
       width: 100,
-      cellRenderer: createCellRenderer('Direction')
     },
     { 
       headerName: t('grid.columns.currency1'), 
       field: 'Currency1', 
       width: 100,
-      cellRenderer: createCellRenderer('Currency1')
     },
     { 
       headerName: t('grid.columns.amount'), 
@@ -384,61 +556,89 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.currency2'), 
       field: 'Currency2', 
       width: 100,
-      cellRenderer: createCellRenderer('Currency2')
     },
     { 
       headerName: t('grid.columns.maturityDate'), 
       field: 'MaturityDate', 
       width: 120,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('MaturityDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
       headerName: t('grid.columns.fixingReference'), 
       field: 'FixingReference', 
       width: 140,
-      cellRenderer: createCellRenderer('FixingReference')
     },
     { 
       headerName: t('grid.columns.settlementType'), 
       field: 'SettlementType', 
       width: 130,
-      cellRenderer: createCellRenderer('SettlementType')
     },
     { 
       headerName: t('grid.columns.settlementCurrency'), 
       field: 'SettlementCurrency', 
       width: 140,
-      cellRenderer: createCellRenderer('SettlementCurrency')
     },
     { 
       headerName: t('grid.columns.paymentDate'), 
       field: 'PaymentDate', 
       width: 120,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('PaymentDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
       headerName: t('grid.columns.counterpartyPaymentMethod'), 
       field: 'CounterpartyPaymentMethod', 
       width: 200,
-      cellRenderer: createCellRenderer('CounterpartyPaymentMethod')
     },
     { 
       headerName: t('grid.columns.ourPaymentMethod'), 
       field: 'OurPaymentMethod', 
       width: 160,
-      cellRenderer: createCellRenderer('OurPaymentMethod')
     }
   ], [t]);
 
@@ -581,13 +781,28 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             ref={gridRef}
             rowData={emails}
             columnDefs={columnDefs}
-            getContextMenuItems={getContextMenuItems}
             onRowClicked={handleRowClick}
             getRowStyle={getRowStyle}
+            onCellContextMenu={(params: any) => {
+              // Handle right-click specifically for status column
+              if (params.column.getColId() === 'status') {
+                if (params.event) {
+                  params.event.preventDefault();
+                  params.event.stopPropagation();
+                }
+                
+                setSelectedEmailForMenu(params.data);
+                setInlineMenuPosition({
+                  x: params.event.clientX,
+                  y: params.event.clientY
+                });
+                setShowInlineMenu(true);
+              }
+            }}
             pagination={true}
             paginationPageSize={50}
             enableRangeSelection={true}
-            allowContextMenuWithControlKey={true}
+            suppressContextMenu={true}
             suppressMovableColumns={false}
             domLayout="normal"
             defaultColDef={{
@@ -609,6 +824,41 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         onClose={() => setShowToast(false)}
         duration={4000}
       />
+      
+      {/* Inline Menu */}
+      {showInlineMenu && selectedEmailForMenu && (
+        <InlineMenu
+            position={inlineMenuPosition}
+            onClose={() => setShowInlineMenu(false)}
+            items={[
+            {
+              label: 'Confirmation OK',
+              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Confirmation OK'),
+              disabled: selectedEmailForMenu.status === 'Confirmation OK'
+            },
+            {
+              label: 'Tagged',
+              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Tagged'),
+              disabled: selectedEmailForMenu.status === 'Tagged'
+            },
+            {
+              label: 'Resolved',
+              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Resolved'),
+              disabled: selectedEmailForMenu.status === 'Resolved'
+            },
+            {
+              label: 'Undo',
+              action: () => handleUndoStatus(selectedEmailForMenu.id),
+              disabled: !statusHistory.has(selectedEmailForMenu.id)
+            },
+            'separator',
+            {
+              label: 'Mailback',
+              action: async () => await generateMailback(selectedEmailForMenu)
+            }
+          ]}
+        />
+      )}
     </div>
   );
 };

@@ -502,5 +502,14 @@
       "successfullyProcessed": "Se procesaron exitosamente {count} operaciones",
       "successfullyDeleted": "Se eliminaron exitosamente {count} operaciones no emparejadas"
     }
+  },
+  "mailback": {
+    "subject": "Confirmación de {{tradeNumber}}",
+    "greeting": "Estimado {{counterpartyName}},",
+    "discrepancyIntro": "Con respecto a la operación número {{tradeNumber}}, {{organizationName}} tiene las siguientes observaciones:",
+    "confirmationMessage": "Con respecto a la operación número {{tradeNumber}}, {{organizationName}} confirma la operación según nos informó.",
+    "yourValue": "Su valor",
+    "ourValue": "Nuestro valor",
+    "regards": "Saludos cordiales"
   }
 }

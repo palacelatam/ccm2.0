@@ -507,5 +507,14 @@
       "successfullyProcessed": "Successfully processed {count} trades",
       "successfullyDeleted": "Successfully deleted {count} unmatched trades"
     }
+  },
+  "mailback": {
+    "subject": "Confirmation of {{tradeNumber}}",
+    "greeting": "Dear {{counterpartyName}},",
+    "discrepancyIntro": "With regards to trade number {{tradeNumber}}, {{organizationName}} has the following observations:",
+    "confirmationMessage": "With regards to trade number {{tradeNumber}}, {{organizationName}} confirms the trade as informed by you.",
+    "yourValue": "Your value",
+    "ourValue": "Our value",
+    "regards": "Regards"
   }
 }
