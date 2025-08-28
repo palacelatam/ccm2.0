@@ -67,7 +67,10 @@ class GmailService:
                 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
                 self.credentials = ServiceAccountCredentials.from_service_account_file(
                     creds_path, 
-                    scopes=['https://www.googleapis.com/auth/gmail.readonly']
+                    scopes=[
+                        'https://www.googleapis.com/auth/gmail.readonly',
+                        'https://www.googleapis.com/auth/gmail.send'
+                    ]
                 )
                 # Apply domain-wide delegation for service account key
                 delegated_credentials = self.credentials.with_subject(self.monitoring_email)
@@ -88,7 +91,10 @@ class GmailService:
                 logger.info(f"Impersonating service account: {service_account_email}")
                 
                 # First, impersonate the service account
-                target_scopes = ['https://www.googleapis.com/auth/gmail.readonly']
+                target_scopes = [
+                    'https://www.googleapis.com/auth/gmail.readonly',
+                    'https://www.googleapis.com/auth/gmail.send'
+                ]
                 
                 impersonated_creds = google.auth.impersonated_credentials.Credentials(
                     source_credentials=source_credentials,
@@ -669,6 +675,93 @@ class GmailService:
             self._monitoring_task.cancel()
             self._monitoring_task = None
         logger.info("Gmail monitoring stop requested")
+    
+    async def send_email(
+        self,
+        to_email: str,
+        subject: str, 
+        body: str,
+        cc_email: Optional[str] = None,
+        reply_to: Optional[str] = None
+    ) -> bool:
+        """
+        Send an email using Gmail API
+        
+        Args:
+            to_email: Recipient email address
+            subject: Email subject
+            body: Email body (plain text)
+            cc_email: Optional CC email address
+            reply_to: Optional reply-to email address
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            if not self.service:
+                await self.initialize()
+            
+            # Create email message
+            message = self._create_email_message(
+                to_email=to_email,
+                subject=subject,
+                body=body,
+                cc_email=cc_email,
+                reply_to=reply_to
+            )
+            
+            # Send the email
+            logger.info(f"📤 Sending email to {to_email}: {subject}")
+            
+            result = await self._execute_gmail_api(
+                self.service.users().messages().send(
+                    userId=self.monitoring_email if self.use_user_id else 'me',
+                    body=message
+                )
+            )
+            
+            message_id = result.get('id')
+            logger.info(f"✅ Email sent successfully! Message ID: {message_id}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to send email to {to_email}: {e}", exc_info=True)
+            return False
+    
+    def _create_email_message(
+        self,
+        to_email: str,
+        subject: str,
+        body: str,
+        cc_email: Optional[str] = None,
+        reply_to: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Create email message in Gmail API format"""
+        import email.mime.text
+        import email.mime.multipart
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        # Create multipart message
+        msg = MIMEMultipart()
+        msg['From'] = self.monitoring_email
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        if cc_email:
+            msg['Cc'] = cc_email
+            
+        if reply_to:
+            msg['Reply-To'] = reply_to
+        
+        # Add body
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
+        # Convert to raw format for Gmail API
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+        
+        return {'raw': raw_message}
 
 # Global instance
 gmail_service = GmailService()

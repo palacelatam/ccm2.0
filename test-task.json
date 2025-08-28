@@ -1,0 +1,9 @@
+{
+  "task_type": "email_confirmation",
+  "task_id": "test-123",
+  "data": {
+    "test": "direct test"
+  },
+  "created_at": "2025-08-28T20:00:00Z",
+  "queue_used": "EMAIL"
+}

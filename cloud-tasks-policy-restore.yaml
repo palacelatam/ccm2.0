@@ -1,0 +1,3 @@
+name: projects/ccm-dev-pool/policies/gcp.restrictNonCmekServices
+spec:
+  reset: true

@@ -1,0 +1,7 @@
+name: projects/ccm-dev-pool/policies/gcp.restrictNonCmekServices
+spec:
+  inheritFromParent: false
+  rules:
+  - values:
+      deniedValues:
+      - firestore.googleapis.com

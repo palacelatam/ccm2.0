@@ -197,7 +197,7 @@ The CCM2.0 application integrates with Gmail API to automatically monitor and pr
 ### 8.2 Service Account Configuration
 
 **Service Account:** `gmail-email-processor@ccm-dev-pool.iam.gserviceaccount.com`  
-**Purpose:** Automated access to Gmail inbox for email processing  
+**Purpose:** Automated access to Gmail inbox for email processing and sending  
 **Authentication Method:** Service account key with domain-wide delegation
 
 #### 8.2.1 Domain-Wide Delegation Setup
@@ -207,12 +207,12 @@ To enable the service account to access the Gmail mailbox:
 1. **Service Account Configuration:**
    - Created in project `ccm-dev-pool`
    - Domain-wide delegation enabled
-   - OAuth scopes: `https://www.googleapis.com/auth/gmail.readonly`
+   - OAuth scopes: `https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.send`
 
 2. **Google Workspace Admin Configuration:**
    - Client ID (Unique ID) authorized in admin.google.com
-   - Scope: `https://www.googleapis.com/auth/gmail.readonly`
-   - Allows impersonation of `confirmaciones_dev@servicios.palace.cl`
+   - Scopes: `https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.send`
+   - Allows reading and sending emails as `confirmaciones_dev@servicios.palace.cl`
 
 #### 8.2.2 Organization Policy Exception
 
@@ -272,12 +272,34 @@ The application uses a dual authentication approach:
    - `GET /api/v1/gmail/status` - Check service status
    - `POST /api/v1/gmail/initialize` - Initialize service
 
-### 8.5 Security Considerations
+### 8.5 Automated Email Sending Capability
+
+**Added:** August 2025 - Support for sending confirmation and dispute emails
+
+1. **Sending Functionality:**
+   - Service can send emails from `confirmaciones_dev@servicios.palace.cl`
+   - Supports plain text and multipart messages with proper headers
+   - Includes reply-to configuration and CC support
+   - Full error handling and logging for sent emails
+
+2. **Use Cases:**
+   - Automated confirmation emails for matched trades
+   - Automated dispute notifications with field-specific discrepancies
+   - System-generated notifications based on client configuration
+
+3. **Implementation Details:**
+   - Uses same service account authentication as monitoring
+   - Gmail API `users().messages().send()` method
+   - Base64-encoded MIME message format
+   - Integrated with existing `gmail_service.py` module
+
+### 8.6 Security Considerations
 
 1. **Principle of Least Privilege:**
-   - Service account has read-only access to Gmail
+   - Service account has read and send access to Gmail (minimal required scopes)
    - Limited to specific mailbox via domain-wide delegation
-   - Cannot modify or delete emails
+   - Cannot modify or delete existing emails
+   - Can only send emails from the designated service address
 
 2. **Key Management:**
    - Service account key stored locally only

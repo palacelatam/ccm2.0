@@ -30,6 +30,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/api/v1/events/test",  # Test event endpoint
     }
     
+    # Routes prefixes that don't require authentication
+    EXCLUDED_PREFIXES = {
+        "/api/internal/tasks",  # Cloud Tasks internal endpoints
+    }
+    
     async def dispatch(self, request: Request, call_next):
         """Process request through authentication middleware"""
         
@@ -121,6 +126,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Exact match
         if path in self.EXCLUDED_PATHS:
             return True
+        
+        # Check excluded prefixes
+        for prefix in self.EXCLUDED_PREFIXES:
+            if path.startswith(prefix):
+                return True
         
         # Pattern matching for docs and OpenAPI
         if path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi"):
