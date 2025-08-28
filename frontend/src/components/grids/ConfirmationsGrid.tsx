@@ -70,15 +70,42 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         setLoading(true);
       }
       setError(null);
-      const emailsData = await clientService.getAllEmailConfirmations(clientId);
       
+      // Load both email confirmations and matched trades
+      const [emailsData, matchedTradesData] = await Promise.all([
+        clientService.getAllEmailConfirmations(clientId),
+        clientService.getMatchedTrades(clientId)
+      ]);
+      
+      // Enhance email confirmations with differingFields from matched trades
+      const enhancedEmails = emailsData.map(email => {
+        if (email.matchId) {
+          // Find the corresponding matched trade
+          const matchedTrade = matchedTradesData.find(trade => 
+            trade.matchId === email.matchId || trade.match_id === email.matchId
+          );
+          
+          if (matchedTrade && matchedTrade.differingFields) {
+            return {
+              ...email,
+              differingFields: matchedTrade.differingFields
+            };
+          }
+        }
+        
+        // Return email without differingFields if no match found
+        return {
+          ...email,
+          differingFields: []
+        };
+      });
       
       if (preserveGridState && gridRef.current?.api) {
         // Update data while preserving grid state (sorting, filtering, etc.)
-        gridRef.current.api.setRowData(emailsData);
+        gridRef.current.api.setRowData(enhancedEmails);
       } else {
         // Full reload (initial load)
-        setEmails(emailsData);
+        setEmails(enhancedEmails);
       }
     } catch (error) {
       console.error('Error loading email confirmations:', error);
@@ -101,6 +128,14 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       loadEmails(true); // Preserve grid state on refresh
     }
   }, [refreshTrigger, loadEmails]);
+  
+  // Refresh cell styles when selectedMatchId changes to update row highlighting
+  useEffect(() => {
+    if (gridRef.current?.api) {
+      // Use redrawRows() instead of refreshCells() to trigger getRowStyle recalculation
+      gridRef.current.api.redrawRows();
+    }
+  }, [selectedMatchId]);
 
   // Add native context menu handler for status column
   useEffect(() => {
@@ -419,12 +454,46 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
     { 
       headerName: t('grid.columns.counterparty'), 
       field: 'CounterpartyName', 
-      width: 150
+      width: 150,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('CounterpartyName');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.productType'), 
       field: 'ProductType', 
       width: 120,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('ProductType');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.tradeDate'), 
@@ -443,6 +512,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         
         const differingFields = params.data?.differingFields || [];
         const hasDifference = differingFields.includes('TradeDate');
+        
         
         return React.createElement('div', {
           style: {
@@ -492,11 +562,45 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.direction'), 
       field: 'Direction', 
       width: 100,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('Direction');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.currency1'), 
       field: 'Currency1', 
       width: 100,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('Currency1');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.amount'), 
@@ -556,6 +660,23 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.currency2'), 
       field: 'Currency2', 
       width: 100,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('Currency2');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.maturityDate'), 
@@ -590,16 +711,67 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.fixingReference'), 
       field: 'FixingReference', 
       width: 140,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('FixingReference');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.settlementType'), 
       field: 'SettlementType', 
       width: 130,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('SettlementType');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.settlementCurrency'), 
       field: 'SettlementCurrency', 
       width: 140,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('SettlementCurrency');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.paymentDate'), 
@@ -634,6 +806,23 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       headerName: t('grid.columns.counterpartyPaymentMethod'), 
       field: 'CounterpartyPaymentMethod', 
       width: 200,
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('CounterpartyPaymentMethod');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, value);
+      }
     },
     { 
       headerName: t('grid.columns.ourPaymentMethod'), 
