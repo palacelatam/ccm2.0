@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 from .task_queue_service import task_queue_service, TaskType, TaskQueue
-from .client_service import ClientService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,77 @@ class AutoEmailService:
     """
     
     def __init__(self):
-        self.client_service = ClientService()
+        # Remove circular import - client data will be passed as parameters
+        pass
+
+    async def schedule_trade_email(self, email_data: Dict[str, Any], delay_seconds: int = 0) -> Optional[str]:
+        """
+        Schedule a trade-related email (confirmation or dispute) based on provided data
+        
+        Args:
+            email_data: Complete email information including client_id, trade details, etc.
+            delay_seconds: How many seconds to delay the email
+            
+        Returns:
+            Task name if scheduled successfully, None otherwise
+        """
+        try:
+            email_type = email_data.get("email_type", "unknown")
+            client_id = email_data.get("client_id", "")
+            
+            logger.info(f"📧 Scheduling {email_type} email for client {client_id} with {delay_seconds}s delay")
+            
+            # Generate the actual email content based on email type
+            if email_type == "confirmation":
+                email_content = await self._generate_confirmation_email_content(
+                    client_id=client_id,
+                    email_data=email_data
+                )
+            elif email_type == "dispute":
+                email_content = await self._generate_dispute_email_content(
+                    client_id=client_id,
+                    email_data=email_data,
+                    differing_fields=email_data.get("differing_fields", [])
+                )
+            else:
+                logger.error(f"Unknown email type: {email_type}")
+                return None
+                
+            if not email_content:
+                logger.error(f"Failed to generate {email_type} email content for client {client_id}")
+                return None
+            
+            # Add metadata from original email_data to the email content
+            email_content.update({
+                'client_id': client_id,
+                'match_id': email_data.get('match_id', ''),
+                'trade_id': email_data.get('trade_id', ''),
+                'email_id': email_data.get('email_id', ''),
+                'email_type': email_type,
+                'comparison_status': email_data.get('comparison_status', ''),
+                'differing_fields': email_data.get('differing_fields', []),
+                'confidence_score': email_data.get('confidence_score', 0),
+                'scheduled_at': email_data.get('scheduled_at', '')
+            })
+            
+            # Create the email task using task queue service
+            # Both confirmation and dispute emails should use the email queue
+            task_name = await task_queue_service.create_email_task(
+                email_data=email_content,  # Now contains to_email, subject, body
+                delay_seconds=delay_seconds,
+                is_urgent=False  # Always use email queue for email tasks
+            )
+            
+            if task_name:
+                logger.info(f"✅ Successfully scheduled {email_type} email task: {task_name}")
+                return task_name
+            else:
+                logger.error(f"❌ Failed to schedule {email_type} email task")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error scheduling trade email: {e}")
+            return None
     
     async def schedule_confirmation_email(
         self,
@@ -175,23 +244,81 @@ class AutoEmailService:
             Dict containing email content (to_email, subject, body, etc.)
         """
         try:
-            # Get organization name from client data (simplified - could be enhanced)
-            organization_name = "Your Organization"  # TODO: Get from client settings
+            # Extract basic information using the correct field names from client_service
+            counterparty_name = email_data.get('counterparty_name', 'Counterparty')
+            trade_number = email_data.get('bank_trade_number', 'Unknown')
+            email_id = email_data.get('email_id', '')
             
-            # Extract basic information
-            counterparty_name = email_data.get('CounterpartyName', email_data.get('EmailSender', 'Counterparty'))
-            trade_number = email_data.get('BankTradeNumber', email_data.get('id', 'Unknown'))
-            to_email = email_data.get('EmailSender', '')
-            cc_email = 'confirmaciones_dev@servicios.palace.cl'
-            
-            if not to_email:
-                logger.error("No recipient email address found")
+            # Get the email address from the original email document
+            # We need to fetch this from Firestore since it's not included in the match data
+            if not email_id:
+                logger.error("No email_id provided to fetch recipient email address")
                 return None
             
-            # Generate confirmation email body (no discrepancies)
-            subject = f"Confirmation of {trade_number}"
+            # Import here to avoid circular imports
+            from config.firebase_config import get_cmek_firestore_client
+            db = get_cmek_firestore_client()
             
-            body = f"""Dear {counterparty_name},
+            # Get the original email document to extract sender email
+            email_ref = db.collection('clients').document(client_id).collection('emails').document(email_id)
+            email_doc = email_ref.get()
+            
+            if not email_doc.exists:
+                logger.error(f"Email document {email_id} not found for client {client_id}")
+                return None
+            
+            email_doc_data = email_doc.to_dict()
+            
+            # Get sender email from programmatically extracted email metadata (not LLM data)
+            # Try multiple possible locations for the sender email
+            email_metadata = email_doc_data.get('email_metadata', {})
+            
+            to_email = (email_metadata.get('sender_email') or 
+                       email_doc_data.get('senderEmail') or
+                       email_doc_data.get('from') or 
+                       email_doc_data.get('sender') or '')
+            
+            # Validate email address
+            if not to_email or '@' not in to_email:
+                logger.error(f"No valid email address found for automated email. Sender: '{to_email}'")
+                return None
+            
+            # Get client's confirmation email and organization name
+            client_ref = db.collection('clients').document(client_id)
+            client_doc = client_ref.get()
+            
+            if not client_doc.exists:
+                logger.error(f"Client document {client_id} not found")
+                return None
+                
+            client_data = client_doc.to_dict()
+            cc_email = client_data.get('confirmationEmail', 'confirmaciones_dev@servicios.palace.cl')  # Fallback to default
+            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))  # Get organization name
+            
+            # Get language preference (default to Spanish)
+            preferences = client_data.get('preferences', {})
+            language = preferences.get('language', 'es')
+            
+            # Generate confirmation email body based on language
+            if language == 'es':
+                subject = f"Confirmación de {trade_number}"
+                body = f"""Estimado {counterparty_name},
+
+Con respecto a la operación número {trade_number}, {organization_name} confirma la operación según nos informó.
+
+Saludos cordiales,
+{organization_name}"""
+            elif language == 'pt':
+                subject = f"Confirmação de {trade_number}"
+                body = f"""Caro {counterparty_name},
+
+Com relação à operação número {trade_number}, {organization_name} confirma a operação conforme informado por você.
+
+Atenciosamente,
+{organization_name}"""
+            else:  # English
+                subject = f"Confirmation of {trade_number}"
+                body = f"""Dear {counterparty_name},
 
 With regards to trade number {trade_number}, {organization_name} confirms the trade as informed by you.
 
@@ -231,37 +358,124 @@ Best regards,
             Dict containing email content (to_email, subject, body, etc.)
         """
         try:
-            # Get organization name from client data
-            organization_name = "Your Organization"  # TODO: Get from client settings
+            # Extract basic information using the correct field names from client_service
+            counterparty_name = email_data.get('counterparty_name', 'Counterparty')
+            trade_number = email_data.get('bank_trade_number', 'Unknown')
+            email_id = email_data.get('email_id', '')
             
-            # Extract basic information
-            counterparty_name = email_data.get('CounterpartyName', email_data.get('EmailSender', 'Counterparty'))
-            trade_number = email_data.get('BankTradeNumber', email_data.get('id', 'Unknown'))
-            to_email = email_data.get('EmailSender', '')
-            cc_email = 'confirmaciones_dev@servicios.palace.cl'
-            
-            if not to_email:
-                logger.error("No recipient email address found")
+            # Get the email address from the original email document
+            if not email_id:
+                logger.error("No email_id provided to fetch recipient email address")
                 return None
             
-            # Generate dispute email body with discrepancies
-            subject = f"Confirmation of {trade_number} - Discrepancy Notice"
+            # Import here to avoid circular imports
+            from config.firebase_config import get_cmek_firestore_client
+            db = get_cmek_firestore_client()
             
-            body = f"""Dear {counterparty_name},
+            # Get the original email document to extract sender email
+            email_ref = db.collection('clients').document(client_id).collection('emails').document(email_id)
+            email_doc = email_ref.get()
+            
+            if not email_doc.exists:
+                logger.error(f"Email document {email_id} not found for client {client_id}")
+                return None
+            
+            email_doc_data = email_doc.to_dict()
+            
+            # Get sender email from programmatically extracted email metadata (not LLM data)
+            # Try multiple possible locations for the sender email
+            email_metadata = email_doc_data.get('email_metadata', {})
+            
+            to_email = (email_metadata.get('sender_email') or 
+                       email_doc_data.get('senderEmail') or
+                       email_doc_data.get('from') or 
+                       email_doc_data.get('sender') or '')
+            
+            # Validate email address
+            if not to_email or '@' not in to_email:
+                logger.error(f"No valid email address found for automated email. Sender: '{to_email}'")
+                return None
+            
+            # Get client's confirmation email and organization name
+            client_ref = db.collection('clients').document(client_id)
+            client_doc = client_ref.get()
+            
+            if not client_doc.exists:
+                logger.error(f"Client document {client_id} not found")
+                return None
+                
+            client_data = client_doc.to_dict()
+            cc_email = client_data.get('confirmationEmail', 'confirmaciones_dev@servicios.palace.cl')  # Fallback to default
+            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))  # Get organization name
+            
+            # Get language preference (default to Spanish)
+            preferences = client_data.get('preferences', {})
+            language = preferences.get('language', 'es')
+            
+            # Generate dispute email body with discrepancies based on language
+            if language == 'es':
+                subject = f"Confirmación de {trade_number} - Aviso de Discrepancia"
+                body = f"""Estimado {counterparty_name},
+
+Con respecto a la operación número {trade_number}, {organization_name} tiene las siguientes observaciones:
+
+"""
+                # Add each discrepancy with actual values - now each item is a dict with field, email_value, client_value
+                # Debug logging
+                logger.info(f"DEBUG: differing_fields = {differing_fields}")
+                
+                for discrepancy in differing_fields:
+                    field_name = discrepancy.get('field', 'Unknown')
+                    email_value = discrepancy.get('email_value', 'N/A')
+                    client_value = discrepancy.get('client_value', 'N/A')
+                    
+                    body += f"{field_name}:\n"
+                    body += f"Su valor: {email_value}\n"
+                    body += f"Nuestro valor: {client_value}\n\n"
+                
+                body += f"""Por favor revise y confirme la información correcta.
+
+Saludos cordiales,
+{organization_name}"""
+            elif language == 'pt':
+                subject = f"Confirmação de {trade_number} - Aviso de Discrepância"
+                body = f"""Caro {counterparty_name},
+
+Com relação à operação número {trade_number}, {organization_name} tem as seguintes observações:
+
+"""
+                # Add each discrepancy with actual values
+                for discrepancy in differing_fields:
+                    field_name = discrepancy.get('field', 'Unknown')
+                    email_value = discrepancy.get('email_value', 'N/A')
+                    client_value = discrepancy.get('client_value', 'N/A')
+                    
+                    body += f"{field_name}:\n"
+                    body += f"Seu valor: {email_value}\n"
+                    body += f"Nosso valor: {client_value}\n\n"
+                
+                body += f"""Por favor, revise e confirme as informações corretas.
+
+Atenciosamente,
+{organization_name}"""
+            else:  # English
+                subject = f"Confirmation of {trade_number} - Discrepancy Notice"
+                body = f"""Dear {counterparty_name},
 
 With regards to trade number {trade_number}, {organization_name} has the following observations:
 
 """
-            
-            # Add each discrepancy
-            for field in differing_fields:
-                email_value = email_data.get(field, 'N/A')
-                client_value = email_data.get(f'client_{field}', 'N/A')  # Assuming client values are prefixed
-                body += f"{field}:\n"
-                body += f"Your value: {email_value}\n"
-                body += f"Our value: {client_value}\n\n"
-            
-            body += f"""Please review and confirm the correct information.
+                # Add each discrepancy with actual values
+                for discrepancy in differing_fields:
+                    field_name = discrepancy.get('field', 'Unknown')
+                    email_value = discrepancy.get('email_value', 'N/A')
+                    client_value = discrepancy.get('client_value', 'N/A')
+                    
+                    body += f"{field_name}:\n"
+                    body += f"Your value: {email_value}\n"
+                    body += f"Our value: {client_value}\n\n"
+                
+                body += f"""Please review and confirm the correct information.
 
 Best regards,
 {organization_name}"""

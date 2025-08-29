@@ -7,11 +7,13 @@ from google.cloud.firestore import DocumentReference, Query
 import logging
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config.firebase_config import get_cmek_firestore_client
 from services.csv_parser import CSVParserService
 from services.email_parser import EmailParserService
+from services.task_queue_service import task_queue_service
+from services.auto_email_service import auto_email_service
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
@@ -943,7 +945,10 @@ class ClientService:
     async def create_match(self, client_id: str, trade_id: str, email_id: str, 
                           confidence_score: int, match_reasons: List[str], 
                           match_id: str = None, bank_trade_number: str = None, 
-                          status: str = None) -> bool:
+                          status: str = None, counterparty_name: str = None,
+                          trade_comparison_result: Tuple[str, List[str]] = None,
+                          email_trade_data: Dict[str, Any] = None,
+                          client_trade_data: Dict[str, Any] = None) -> bool:
         """Create a trade-email match and update email document with match_id and status"""
         try:
             # Generate match_id if not provided (for backward compatibility)
@@ -977,6 +982,27 @@ class ClientService:
             # Update the specific trade in the email document with the match_id and status
             if bank_trade_number:
                 await self._update_email_trade_match_id(client_id, email_id, bank_trade_number, match_id, status)
+            
+            # Schedule automated emails based on client settings and match result
+            if trade_comparison_result:
+                match_data = {
+                    "match_id": match_id,
+                    "trade_id": trade_id,
+                    "email_id": email_id,
+                    "confidence_score": confidence_score,
+                    "bank_trade_number": bank_trade_number or "",
+                    "counterparty_name": counterparty_name or "Unknown",
+                    "email_trade_data": email_trade_data,  # Include full email trade data
+                    "client_trade_data": client_trade_data  # Include full client trade data
+                }
+                
+                await self.schedule_automation_emails(
+                    client_id=client_id,
+                    match_data=match_data,
+                    trade_comparison_result=trade_comparison_result
+                )
+            else:
+                logger.info("No trade comparison result provided, skipping email automation")
             
             logger.info(f"Created match between trade {trade_id} and email {email_id} with {confidence_score}% confidence")
             return True
@@ -1695,6 +1721,86 @@ class ClientService:
             logger.error(f"Error getting email confirmations for client {client_id}: {e}")
             return []
     
+    # ========== Email Automation Methods ==========
+    
+    async def schedule_automation_emails(self, client_id: str, match_data: Dict[str, Any], 
+                                       trade_comparison_result: Tuple[str, List[str]]) -> bool:
+        """
+        Schedule automated confirmation or dispute emails based on client settings
+        
+        Args:
+            client_id: ID of the client
+            match_data: Dictionary containing match information (trade_id, email_id, etc.)
+            trade_comparison_result: Tuple from _compare_trade_fields (status, differing_fields)
+            
+        Returns:
+            bool: True if email was scheduled successfully
+        """
+        try:
+            # Get client automation settings
+            client_settings = await self.get_client_settings(client_id)
+            if not client_settings:
+                logger.info(f"No automation settings found for client {client_id}, skipping email automation")
+                return False
+            
+            automation_settings = client_settings.automation
+            comparison_status, differing_fields = trade_comparison_result
+            
+            # Determine email type and settings based on comparison result
+            if comparison_status == "Confirmation OK":
+                # Perfect match - check auto_confirm_matched settings
+                email_settings = automation_settings.auto_confirm_matched
+                email_type = "confirmation"
+                logger.info(f"Trade matched perfectly - checking confirmation email automation")
+            else:
+                # Differences found - check auto_confirm_disputed settings  
+                email_settings = automation_settings.auto_confirm_disputed
+                email_type = "dispute"
+                logger.info(f"Trade has {len(differing_fields)} differences - checking dispute email automation")
+            
+            # Check if automation is enabled for this email type
+            if not email_settings.enabled:
+                logger.info(f"Email automation disabled for {email_type} emails in client {client_id}")
+                return False
+            
+            # Get delay from client settings (convert minutes to seconds)
+            delay_seconds = email_settings.delay_minutes * 60
+            logger.info(f"Scheduling {email_type} email with {delay_seconds} second delay ({email_settings.delay_minutes} minutes)")
+            
+            # Prepare email data for the task
+            email_data = {
+                "client_id": client_id,
+                "match_id": match_data.get("match_id", ""),
+                "trade_id": match_data.get("trade_id", ""),
+                "email_id": match_data.get("email_id", ""),
+                "email_type": email_type,
+                "comparison_status": comparison_status,
+                "differing_fields": differing_fields,
+                "confidence_score": match_data.get("confidence_score", 0),
+                "bank_trade_number": match_data.get("bank_trade_number", ""),
+                "counterparty_name": match_data.get("counterparty_name", "Unknown"),
+                "scheduled_at": datetime.now(timezone.utc).isoformat(),
+                "email_trade_data": match_data.get("email_trade_data", {}),  # Include full email trade data
+                "client_trade_data": match_data.get("client_trade_data", {})  # Include full client trade data
+            }
+            
+            # Schedule the email task using our task queue service
+            task_name = await auto_email_service.schedule_trade_email(
+                email_data=email_data,
+                delay_seconds=delay_seconds
+            )
+            
+            if task_name:
+                logger.info(f"✅ Successfully scheduled {email_type} email task: {task_name}")
+                return True
+            else:
+                logger.error(f"❌ Failed to schedule {email_type} email task")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error scheduling automation emails for client {client_id}: {e}")
+            return False
+
     # ========== Utility Methods ==========
     
     async def client_exists(self, client_id: str) -> bool:
@@ -1807,7 +1913,11 @@ class ClientService:
                                         match_reasons=match_result['match_reasons'],
                                         match_id=match_result['match_id'],  # Pass the generated match_id from MatchingService
                                         bank_trade_number=bank_trade_number,  # Pass bank trade number to update email doc
-                                        status=match_result['status']  # Pass the proper confirmation status from MatchingService
+                                        status=match_result['status'],  # Pass the proper confirmation status from MatchingService
+                                        counterparty_name=match_result['email_trade'].get('CounterpartyName', 'Unknown'),
+                                        trade_comparison_result=(match_result['status'], match_result.get('discrepancies', [])),
+                                        email_trade_data=match_result['email_trade'],  # Pass full email trade data
+                                        client_trade_data=match_result['matched_client_trade']  # Pass full client trade data
                                     )
                                     
                                     if match_created:

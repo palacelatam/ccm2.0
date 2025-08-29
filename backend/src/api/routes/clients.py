@@ -1070,7 +1070,8 @@ async def process_matches(
                         trade_id=match_result['matched_client_trade'].get('id', ''),
                         email_id=email_confirmation.get('id', ''),
                         confidence_score=confidence / 100,  # Convert percentage to decimal
-                        match_reasons=match_result['match_reasons']
+                        match_reasons=match_result['match_reasons'],
+                        # Note: Manual matches don't trigger automated emails (trade_comparison_result=None)
                     )
                     
                     matches_found += 1

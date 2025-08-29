@@ -123,21 +123,24 @@ class AuthMiddleware(BaseHTTPMiddleware):
     
     def _is_excluded_path(self, path: str) -> bool:
         """Check if path is excluded from authentication"""
+        # Strip query parameters from path for comparison
+        clean_path = path.split('?')[0]
+        
         # Exact match
-        if path in self.EXCLUDED_PATHS:
+        if clean_path in self.EXCLUDED_PATHS:
             return True
         
         # Check excluded prefixes
         for prefix in self.EXCLUDED_PREFIXES:
-            if path.startswith(prefix):
+            if clean_path.startswith(prefix):
                 return True
         
         # Pattern matching for docs and OpenAPI
-        if path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi"):
+        if clean_path.startswith("/docs") or clean_path.startswith("/redoc") or clean_path.startswith("/openapi"):
             return True
         
         # Chrome dev tools path
-        if path.startswith("/.well-known/"):
+        if clean_path.startswith("/.well-known/"):
             return True
         
         return False

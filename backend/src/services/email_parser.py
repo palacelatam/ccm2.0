@@ -99,8 +99,11 @@ class EmailParserService:
                     errors.append("No content found in email (no body or PDF attachments)")
                     logger.warning("No processable content found in MSG file")
                 
+                # Extract sender email address
+                sender_email = msg.sender or ''
+                
                 email_data = {
-                    'sender_email': msg.sender or '',
+                    'sender_email': sender_email,
                     'subject': msg.subject or '',
                     'body_content': content_to_process,  # This will be either PDF text or email body
                     'date': msg.date.strftime('%d-%m-%Y') if msg.date else datetime.now().strftime('%d-%m-%Y'),
