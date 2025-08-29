@@ -320,19 +320,147 @@ For production deployment:
 3. **Key Rotation:** Implement regular key rotation schedule
 4. **Monitoring:** Set up alerts for processing failures and API quota usage
 
+### 8.7 Recent Improvements (August 2025)
+
+**Enhanced Email Processing Pipeline:**
+
+1. **Improved Trade Matching Integration:**
+   - Automated emails now triggered directly from trade matching results
+   - Support for both "Confirmation OK" and "Difference" status handling
+   - Automatic email queuing using Cloud Tasks for reliable delivery
+
+2. **Field Discrepancy Reporting:**
+   - Detailed reporting of specific field differences in dispute emails
+   - Multi-language support (Spanish, Portuguese, English) for email content
+   - Structured discrepancy data showing both email and client values
+
+3. **Email Address Validation:**
+   - Robust validation to ensure only valid email addresses are used for automated sending
+   - Graceful handling of MSG files that contain only display names
+   - Error logging for invalid email addresses with appropriate fallback behavior
+
+4. **System Reliability Improvements:**
+   - Removed overly aggressive email address guessing logic
+   - Clean error handling for cases where sender email cannot be determined
+   - Streamlined debugging and logging for production environments
+
 ---
 
-## 9.0 Deployment & Ongoing Management
+## 9.0 Google Cloud Tasks Integration
 
-### 9.1 Terraform Deployment
+### 9.1 Overview
+
+**Added:** August 2025 - Asynchronous task processing for automated email operations
+
+Google Cloud Tasks provides a reliable, scalable queue service that enables the CCM2.0 application to handle automated email processing asynchronously. This integration ensures that automated email operations don't block the main application flow and can be retried on failure.
+
+### 9.2 Service Configuration
+
+**Service Account:** Uses existing application default credentials (ADC) with minimal required permissions
+**Location:** `us-east4` (Northern Virginia) - Cloud Tasks doesn't support `southamerica-west1`
+**Authentication:** No additional service account keys required - leverages existing ADC setup
+
+### 9.3 Task Queue Architecture
+
+The application implements multiple task queues for different types of operations:
+
+1. **General Queue** (`general-queue`):
+   - Default queue for general background tasks
+   - Standard processing rate and retry policies
+
+2. **Email Queue** (`email-queue`):
+   - Dedicated queue for automated email processing
+   - Optimized for email delivery operations
+
+3. **Priority Queue** (`priority-queue`):
+   - High-priority queue for time-sensitive operations
+   - Faster processing with higher resource allocation
+
+### 9.4 Email Automation Integration
+
+**Automated Email Types Supported:**
+- **Confirmation Emails:** Sent when trades are successfully matched
+- **Dispute Emails:** Sent when discrepancies are found between email trades and client records
+
+**Task Processing Flow:**
+1. Main application processes email confirmations and matches trades
+2. Based on match results, creates appropriate Cloud Tasks for email automation
+3. Tasks are queued with delay (configurable, default: immediate processing)
+4. Worker processes execute tasks asynchronously
+5. Failed tasks are automatically retried according to queue configuration
+
+### 9.5 Implementation Details
+
+**Task Creation:**
+- Tasks are created with unique identifiers to prevent duplication
+- Payload includes all necessary data for email generation (trade data, client info, match results)
+- Task routing based on operation type (confirmation vs. dispute)
+
+**Error Handling:**
+- Comprehensive error logging for failed tasks
+- Automatic retry with exponential backoff
+- Dead letter queue handling for permanently failed tasks
+- Detailed error messages for debugging
+
+**Performance Benefits:**
+- Non-blocking email processing
+- Improved application responsiveness
+- Scalable processing of high email volumes
+- Resilient handling of temporary Gmail API failures
+
+### 9.6 Required GCP APIs
+
+The following Google Cloud APIs must be enabled for Cloud Tasks integration:
+
+```bash
+# Enable Cloud Tasks API
+gcloud services enable cloudtasks.googleapis.com --project=ccm-dev-pool
+
+# Verify API is enabled
+gcloud services list --enabled --project=ccm-dev-pool | grep cloudtasks
+```
+
+### 9.7 IAM Permissions
+
+The application service account requires the following Cloud Tasks permissions:
+
+- `roles/cloudtasks.enqueuer` - Create and submit tasks to queues
+- `roles/cloudtasks.viewer` - View queue status and task details (for monitoring)
+
+### 9.8 Monitoring and Observability
+
+**Queue Monitoring:**
+- Cloud Tasks provides built-in metrics for queue depth, processing rates, and error rates
+- Integration with existing central logging and monitoring infrastructure
+- Custom application logs for task execution tracking
+
+**Alert Configuration:**
+- Recommended alerts for queue depth exceeding thresholds
+- Error rate monitoring for failed task detection
+- Integration with existing SCC monitoring setup
+
+### 9.9 Production Deployment Considerations
+
+For production deployment:
+
+1. **Queue Configuration:** Review and adjust queue processing rates based on expected email volume
+2. **Regional Deployment:** Use `us-east4` region for queues (Cloud Tasks limitation - doesn't support `southamerica-west1`)
+3. **Monitoring Setup:** Configure production alerts and monitoring dashboards
+4. **Error Handling:** Implement dead letter queue processing for manual intervention on critical failures
+
+---
+
+## 10.0 Deployment & Ongoing Management
+
+### 10.1 Terraform Deployment
 
 * The entire foundation described in this document was deployed from a single, unified Terraform configuration that was generated and downloaded from the Google Cloud Foundation Setup guide.
 
-### 9.2 Terraform State Management
+### 10.2 Terraform State Management
 
 * During the download process, a Google Cloud Storage (GCS) bucket was created in the `southamerica-west1` region. This bucket is configured as the remote backend for the Terraform project, providing a secure and reliable location to store the Terraform state file.
 
-### 9.3 Future Management Strategy
+### 10.3 Future Management Strategy
 
 * All future changes to the foundational infrastructure should be managed through the Terraform code. The standard workflow is as follows:
     1.  **Edit Code:** Modify the `.tf` files to reflect the desired change.
@@ -341,7 +469,7 @@ For production deployment:
     4.  **Apply:** Run `terraform apply` to implement the changes.
 * This IaC-first approach prevents configuration drift, provides a full audit trail of changes, and ensures that the infrastructure remains consistent and well-documented over time. Manual changes via the GCP Console should be avoided for foundational resources.
 
-### 9.4 Development Environment Management
+### 10.4 Development Environment Management
 
 * **Development Database:** The `ccm-development` Firestore database was created manually following Google Cloud security best practices for CMEK implementation.
 * **Gmail Integration:** Service account and authentication configured manually due to organization policy restrictions.

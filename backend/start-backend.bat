@@ -1,6 +1,18 @@
 @echo off
 cd /d "%~dp0"
 
+REM Check ngrok tunnels for client demos
+echo Checking ngrok tunnels...
+curl -s http://localhost:4040/api/tunnels >nul 2>&1
+if errorlevel 1 (
+    echo ⚠️  No ngrok tunnels detected - needed for client demos
+    echo    To start tunnels: run start-ngrok-tunnels.bat
+    echo    Or manually: ngrok http 8000 and ngrok http 3000
+) else (
+    echo ✅ Ngrok tunnels are running - ready for demos
+)
+echo.
+
 REM Check if virtual environment exists
 if exist "venv\Scripts\activate.bat" (
     echo Activating virtual environment...
