@@ -1,6 +1,6 @@
 1) Update GCP description doc for Cloud Tasks and Gmail stuff. DONE
 2) Not using locale files, language text in python files.
-3) Document ngrok and include in startup script to alert if not present
+3) Document ngrok and include in startup script to alert if not present. DONE
 4) Cloud Tasks to identify incoming emails, instead of current polling (SSE)
 5) Field Names on dispute emails
 6) Allow correction of individual fields.

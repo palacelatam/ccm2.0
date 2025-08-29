@@ -292,8 +292,22 @@ class AutoEmailService:
                 return None
                 
             client_data = client_doc.to_dict()
-            cc_email = client_data.get('confirmationEmail', 'confirmaciones_dev@servicios.palace.cl')  # Fallback to default
-            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))  # Get organization name
+            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))
+            
+            # Get CC email from client configuration settings for confirmed trades
+            config_ref = client_ref.collection('settings').document('configuration')
+            config_doc = config_ref.get()
+            
+            cc_email = 'confirmaciones_dev@servicios.palace.cl'  # Default fallback
+            if config_doc.exists:
+                config_data = config_doc.to_dict()
+                alerts = config_data.get('alerts', {})
+                confirmed_emails = alerts.get('emailConfirmedTrades', {}).get('emails', [])
+                if confirmed_emails:
+                    cc_email = ', '.join(confirmed_emails) if isinstance(confirmed_emails, list) else confirmed_emails
+                    logger.info(f"Using CC emails for confirmed trades: {cc_email}")
+                else:
+                    logger.warning(f"No emailConfirmedTrades.emails found in client {client_id} configuration, using default")
             
             # Get language preference (default to Spanish)
             preferences = client_data.get('preferences', {})
@@ -405,8 +419,22 @@ Best regards,
                 return None
                 
             client_data = client_doc.to_dict()
-            cc_email = client_data.get('confirmationEmail', 'confirmaciones_dev@servicios.palace.cl')  # Fallback to default
-            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))  # Get organization name
+            organization_name = client_data.get('name', client_data.get('organizationName', 'Your Organization'))
+            
+            # Get CC email from client configuration settings for disputed trades
+            config_ref = client_ref.collection('settings').document('configuration')
+            config_doc = config_ref.get()
+            
+            cc_email = 'confirmaciones_dev@servicios.palace.cl'  # Default fallback
+            if config_doc.exists:
+                config_data = config_doc.to_dict()
+                alerts = config_data.get('alerts', {})
+                disputed_emails = alerts.get('emailDisputedTrades', {}).get('emails', [])
+                if disputed_emails:
+                    cc_email = ', '.join(disputed_emails) if isinstance(disputed_emails, list) else disputed_emails
+                    logger.info(f"Using CC emails for disputed trades: {cc_email}")
+                else:
+                    logger.warning(f"No emailDisputedTrades.emails found in client {client_id} configuration, using default")
             
             # Get language preference (default to Spanish)
             preferences = client_data.get('preferences', {})
