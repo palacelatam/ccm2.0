@@ -166,6 +166,42 @@ class StorageService:
                 "error": f"Failed to get document info: {str(e)}"
             }
     
+    async def download_document(
+        self, 
+        storage_path: str, 
+        local_path: str
+    ) -> Dict[str, Any]:
+        """
+        Download document from Cloud Storage to local file
+        """
+        try:
+            blob = self.bucket.blob(storage_path)
+            
+            if not blob.exists():
+                return {
+                    "success": False,
+                    "error": "Document not found in storage"
+                }
+            
+            # Download to local file
+            blob.download_to_filename(local_path)
+            
+            logger.info(f"Successfully downloaded document from {storage_path} to {local_path}")
+            
+            return {
+                "success": True,
+                "local_path": local_path,
+                "storage_path": storage_path,
+                "size": blob.size
+            }
+            
+        except Exception as e:
+            logger.error(f"Error downloading document from {storage_path} to {local_path}: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to download document: {str(e)}"
+            }
+    
     async def generate_document_signed_url(
         self, 
         storage_path: str, 

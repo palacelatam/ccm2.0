@@ -392,7 +392,7 @@ class BankService:
                     logger.warning(f"Error deleting old document {old_storage_path}: {delete_error}")
             
             # Upload the new document to Cloud Storage
-            segment_id = letter_update.client_segment_id if letter_update.client_segment_id else current_letter.clientSegmentId or "default"
+            segment_id = letter_update.client_segment_id if letter_update.client_segment_id else current_letter.client_segment_id or "default"
             
             upload_result = await self.storage_service.upload_settlement_document(
                 file_content=file_content,

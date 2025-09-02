@@ -552,18 +552,36 @@ async def test_specific_trade():
     print("\nGenerating Settlement Instruction Document...")
     print("-" * 60)
     
-    # Select template based on settlement type
-    settlement_type = trade.get('SettlementType', '')
-    if settlement_type == 'Compensación':
-        template_name = 'Template Carta Instrucción Banco ABC (Compensación).docx'
-    else:  # Entrega Física
-        template_name = 'Template Carta Instrucción Banco ABC (Entrega Física).docx'
+    # Get client segment ID from trade data if available
+    client_segment_id = trade.get('client_segment_id')
+    counterparty = trade.get('CounterpartyName', '')
     
-    print(f"  Using template: {template_name}")
+    # Map counterparty to bank ID - "Banco ABC" -> "banco-abc"
+    if 'banco abc' in counterparty.lower():
+        bank_id = "banco-abc"
+    else:
+        # Default mapping - convert to lowercase and replace spaces with hyphens
+        bank_id = counterparty.lower().replace(' ', '-').replace('ó', 'o')
+    
+    # Get the correct product field
+    product = trade.get('ProductType', trade.get('Product', 'N/A'))
+    
+    print(f"  Counterparty: {counterparty}")
+    print(f"  Bank ID (mapped): {bank_id}")
+    print(f"  Client segment ID: {client_segment_id or 'None'}")
+    print(f"  Settlement type: {trade.get('SettlementType', 'N/A')}")
+    print(f"  Product: {product}")
+    print(f"  System will query database for best matching template...")
+    
+    # Ensure trade_data has the Product field for template matching
+    trade_data_with_product = trade.copy()
+    if 'Product' not in trade_data_with_product and 'ProductType' in trade_data_with_product:
+        trade_data_with_product['Product'] = trade_data_with_product['ProductType']
     
     result = await settlement_instruction_service.generate_settlement_instruction(
-        trade_data=trade,
-        template_name=template_name,
+        trade_data=trade_data_with_product,
+        bank_id=bank_id,
+        client_segment_id=client_segment_id,
         settlement_data=settlement_data
     )
     
@@ -571,6 +589,8 @@ async def test_specific_trade():
         print("SUCCESS: Document generated!")
         print(f"  Path: {result['document_path']}")
         print(f"  Template: {result['template_used']}")
+        print(f"  Template ID: {result.get('template_id', 'N/A')}")
+        print(f"  Match score: {result.get('match_score', 'N/A')}")
         print(f"  Variables populated: {result['variables_populated']}")
         
         filename = os.path.basename(result['document_path'])

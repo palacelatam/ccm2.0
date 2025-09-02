@@ -10,6 +10,8 @@ from docx import Document
 from docx.shared import Inches
 import tempfile
 import uuid
+from services.storage_service import StorageService
+from config.firebase_config import get_cmek_firestore_client
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,12 @@ class SettlementInstructionService:
         
         # Ensure templates directory exists
         os.makedirs(self.templates_dir, exist_ok=True)
+        
+        # Initialize CMEK Firestore client (same as rest of application)
+        self.db = get_cmek_firestore_client()
+        
+        # Initialize storage service
+        self.storage_service = StorageService()
         
         logger.info(f"Settlement Instruction Service initialized with templates dir: {self.templates_dir}")
     
@@ -106,6 +114,201 @@ class SettlementInstructionService:
         logger.info(f"Standard template created at: {template_path}")
         
         return template_path
+    
+    async def find_matching_template(
+        self,
+        bank_id: str,
+        trade_data: Dict[str, Any],
+        client_segment_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Find the best matching settlement instruction template from the database
+        
+        Args:
+            bank_id: Bank ID to search templates for
+            trade_data: Trade information for matching
+            client_segment_id: Optional client segment ID for more specific matching
+            
+        Returns:
+            Template document data or None if no match found
+        """
+        try:
+            # Get settlement type from trade data
+            settlement_type = trade_data.get('SettlementType', trade_data.get('settlement_type', ''))
+            product = trade_data.get('Product', trade_data.get('product', ''))
+            
+            logger.info(f"🔍 Template search criteria:")
+            logger.info(f"   Bank ID: '{bank_id}'")
+            logger.info(f"   Settlement type: '{settlement_type}'")
+            logger.info(f"   Product: '{product}'")
+            logger.info(f"   Client segment ID: '{client_segment_id}'")
+            
+            # Query settlement instruction letters from database
+            logger.info(f"🔍 Querying database: banks/{bank_id}/settlementInstructionLetters")
+            letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
+            
+            # First, let's see if the bank document exists
+            bank_doc = self.db.collection('banks').document(bank_id).get()
+            if not bank_doc.exists:
+                logger.error(f"❌ Bank document 'banks/{bank_id}' does not exist in database!")
+                return None
+            
+            logger.info(f"✅ Bank document exists: {bank_doc.to_dict()}")
+            
+            # Check if there are any settlement instruction letters at all
+            all_letters_query = letters_ref.limit(10)  # Just get first 10 to check
+            all_letters = list(all_letters_query.stream())
+            
+            logger.info(f"🔍 Total settlement instruction letters in banks/{bank_id}/settlementInstructionLetters: {len(all_letters)}")
+            
+            if len(all_letters) == 0:
+                logger.error(f"❌ No settlement instruction letters found for bank '{bank_id}' at all!")
+                return None
+            
+            # Show all available templates for debugging
+            logger.info(f"📋 Available templates for bank '{bank_id}':")
+            for i, letter in enumerate(all_letters, 1):
+                data = letter.to_dict()
+                logger.info(f"   {i}. ID: {letter.id}")
+                logger.info(f"      Rule name: {data.get('rule_name', 'N/A')}")
+                logger.info(f"      Settlement type: {data.get('settlement_type', 'N/A')}")
+                logger.info(f"      Product: {data.get('product', 'N/A')}")
+                logger.info(f"      Client segment: {data.get('client_segment_id', 'default')}")
+                logger.info(f"      Active: {data.get('active', 'N/A')}")
+                logger.info(f"      Priority: {data.get('priority', 'N/A')}")
+                logger.info(f"      Storage path: {data.get('document_storage_path', 'N/A')}")
+            
+            # Start with active templates only
+            logger.info(f"🔍 Filtering by active=True...")
+            query = letters_ref.where('active', '==', True)
+            active_templates = list(query.stream())
+            logger.info(f"   Found {len(active_templates)} active templates")
+            
+            # Filter by settlement type if available
+            if settlement_type:
+                logger.info(f"🔍 Filtering by settlement_type='{settlement_type}'...")
+                query = query.where('settlement_type', '==', settlement_type)
+                settlement_filtered = list(query.stream())
+                logger.info(f"   Found {len(settlement_filtered)} templates matching settlement_type")
+            else:
+                settlement_filtered = active_templates
+                logger.info(f"⚠️ No settlement type provided, using all active templates")
+            
+            # Get all matching templates
+            templates = query.stream()
+            
+            # Convert to list and sort by priority and specificity
+            template_list = []
+            for template in templates:
+                template_data = template.to_dict()
+                template_data['id'] = template.id
+                
+                logger.info(f"🧮 Scoring template '{template_data.get('rule_name')}':")
+                
+                # Calculate match score (higher = better match)
+                score = 0
+                
+                # Exact settlement type match
+                template_settlement_type = template_data.get('settlement_type', '')
+                if template_settlement_type == settlement_type:
+                    score += 100
+                    logger.info(f"   Settlement type match: +100 ('{template_settlement_type}' == '{settlement_type}')")
+                else:
+                    logger.info(f"   Settlement type mismatch: +0 ('{template_settlement_type}' != '{settlement_type}')")
+                    
+                # Product match
+                template_product = template_data.get('product', '')
+                if template_product and product:
+                    if template_product.upper() in product.upper():
+                        score += 50
+                        logger.info(f"   Product partial match: +50 ('{template_product}' in '{product}')")
+                    elif product.upper() in template_product.upper():
+                        score += 30
+                        logger.info(f"   Product partial match: +30 ('{product}' in '{template_product}')")
+                    else:
+                        logger.info(f"   Product mismatch: +0 ('{template_product}' vs '{product}')")
+                else:
+                    logger.info(f"   Product not specified: +0")
+                    
+                # Client segment match (most specific)
+                template_client_segment = template_data.get('client_segment_id')
+                if client_segment_id and template_client_segment == client_segment_id:
+                    score += 200
+                    logger.info(f"   Client segment exact match: +200 ('{template_client_segment}' == '{client_segment_id}')")
+                elif not template_client_segment:
+                    score += 10
+                    logger.info(f"   Default template (no client segment): +10")
+                else:
+                    logger.info(f"   Client segment mismatch: +0 ('{template_client_segment}' vs '{client_segment_id}')")
+                    
+                # Priority from database (lower number = higher priority)
+                priority = template_data.get('priority', 999)
+                priority_score = (1000 - priority)
+                score += priority_score
+                logger.info(f"   Priority bonus: +{priority_score} (priority {priority})")
+                
+                template_data['match_score'] = score
+                logger.info(f"   Total score: {score}")
+                template_list.append(template_data)
+                
+            # Sort by match score (descending)
+            template_list.sort(key=lambda x: x['match_score'], reverse=True)
+            
+            logger.info(f"🏆 Final template ranking:")
+            for i, template in enumerate(template_list, 1):
+                logger.info(f"   {i}. {template.get('rule_name')} (score: {template['match_score']})")
+            
+            if template_list:
+                best_match = template_list[0]
+                logger.info(f"✅ Selected best template: {best_match.get('rule_name')} (score: {best_match['match_score']})")
+                return best_match
+            else:
+                logger.error(f"❌ No templates passed the filtering criteria!")
+                return None
+                
+        except Exception as e:
+            logger.error(f"💥 Error finding matching template: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+    
+    async def download_template_from_storage(self, template_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Download template document from cloud storage to local temp file
+        
+        Args:
+            template_data: Template document data from database
+            
+        Returns:
+            Path to downloaded template file or None if failed
+        """
+        try:
+            storage_path = template_data.get('document_storage_path')
+            if not storage_path:
+                logger.error(f"No storage path found for template {template_data.get('id')}")
+                return None
+                
+            # Create temporary file
+            temp_dir = tempfile.gettempdir()
+            temp_filename = f"template_{template_data.get('id', 'unknown')}_{uuid.uuid4().hex}.docx"
+            temp_path = os.path.join(temp_dir, temp_filename)
+            
+            # Download from storage
+            download_result = await self.storage_service.download_document(
+                storage_path=storage_path,
+                local_path=temp_path
+            )
+            
+            if download_result.get('success'):
+                logger.info(f"Template downloaded to: {temp_path}")
+                return temp_path
+            else:
+                logger.error(f"Failed to download template: {download_result.get('error')}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error downloading template from storage: {e}")
+            return None
     
     def populate_template(
         self, 
@@ -400,8 +603,8 @@ class SettlementInstructionService:
     async def generate_settlement_instruction(
         self,
         trade_data: Dict[str, Any],
-        #template_name: str = 'standard_settlement_instruction.docx',
-        template_name: str = 'Template Carta Instrucción Banco ABC.docx',
+        bank_id: str,
+        client_segment_id: Optional[str] = None,
         settlement_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
@@ -409,38 +612,83 @@ class SettlementInstructionService:
         
         Args:
             trade_data: Trade information dictionary
-            template_name: Name of template file to use
+            bank_id: Bank ID to find appropriate template for
+            client_segment_id: Optional client segment ID for more specific template matching
             settlement_data: Optional settlement account information
             
         Returns:
             Dictionary with generation results
         """
         try:
-            # Get template path
-            template_path = os.path.join(self.templates_dir, template_name)
+            logger.info(f"🔍 Starting settlement instruction generation:")
+            logger.info(f"   Bank ID: {bank_id}")
+            logger.info(f"   Client segment ID: {client_segment_id}")
+            logger.info(f"   Settlement type: {trade_data.get('SettlementType', trade_data.get('settlement_type', 'N/A'))}")
+            logger.info(f"   Product: {trade_data.get('Product', trade_data.get('product', 'N/A'))}")
             
-            # Create standard template if it doesn't exist
-            if not os.path.exists(template_path):
-                logger.info(f"Template {template_name} not found, creating standard template")
-                template_path = self.create_standard_template()
+            # Find matching template from database
+            template_data = await self.find_matching_template(
+                bank_id=bank_id,
+                trade_data=trade_data,
+                client_segment_id=client_segment_id
+            )
+            
+            if not template_data:
+                error_msg = f"❌ No matching template found in database for bank_id='{bank_id}', settlement_type='{trade_data.get('SettlementType', trade_data.get('settlement_type'))}', product='{trade_data.get('Product', trade_data.get('product'))}'"
+                logger.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'generated_at': datetime.now().isoformat()
+                }
+            
+            logger.info(f"✅ Found matching template: {template_data.get('rule_name')} (ID: {template_data.get('id')}, Score: {template_data.get('match_score')})")
+            
+            # Download template from cloud storage
+            template_path = await self.download_template_from_storage(template_data)
+            template_name = template_data.get('rule_name', 'Unknown Template')
+            
+            if not template_path:
+                error_msg = f"❌ Failed to download template '{template_name}' from cloud storage"
+                logger.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'template_id': template_data.get('id'),
+                    'generated_at': datetime.now().isoformat()
+                }
+            
+            logger.info(f"✅ Template downloaded to: {template_path}")
             
             # Populate template
             populated_doc_path = self.populate_template(template_path, trade_data, settlement_data)
+            logger.info(f"✅ Document generated: {populated_doc_path}")
+            
+            # Clean up downloaded template file if it was temporary
+            if template_path.startswith(tempfile.gettempdir()):
+                try:
+                    os.remove(template_path)
+                    logger.info(f"🧹 Cleaned up temporary template file: {template_path}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not clean up temporary file {template_path}: {e}")
             
             return {
                 'success': True,
                 'document_path': populated_doc_path,
                 'template_used': template_name,
+                'template_id': template_data.get('id'),
+                'match_score': template_data.get('match_score'),
                 'variables_populated': len(self._prepare_variables(trade_data, settlement_data)),
                 'generated_at': datetime.now().isoformat()
             }
             
         except Exception as e:
-            logger.error(f"Failed to generate settlement instruction: {e}")
+            logger.error(f"💥 Failed to generate settlement instruction: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return {
                 'success': False,
                 'error': str(e),
-                'template_used': template_name,
                 'generated_at': datetime.now().isoformat()
             }
 

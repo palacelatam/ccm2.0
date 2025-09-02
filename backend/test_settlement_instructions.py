@@ -60,32 +60,34 @@ async def test_basic_generation():
     # Test 1: Generate with settlement data
     result1 = await settlement_instruction_service.generate_settlement_instruction(
         trade_data=sample_trade_data,
+        bank_id="test_bank_123",  # Test bank ID
         settlement_data=sample_settlement_data
     )
     
     if result1['success']:
-        print("✅ Test 1: Generation with settlement data - SUCCESS")
+        print("[OK] Test 1: Generation with settlement data - SUCCESS")
         print(f"   Document: {result1['document_path']}")
         print(f"   Variables: {result1['variables_populated']}")
         print(f"   Template: {result1['template_used']}")
     else:
-        print("❌ Test 1: Generation with settlement data - FAILED")
+        print("[FAIL] Test 1: Generation with settlement data - FAILED")
         print(f"   Error: {result1['error']}")
     
     print()
     
     # Test 2: Generate without settlement data (should use defaults)
     result2 = await settlement_instruction_service.generate_settlement_instruction(
-        trade_data=sample_trade_data
+        trade_data=sample_trade_data,
+        bank_id="test_bank_123"  # Test bank ID
     )
     
     if result2['success']:
-        print("✅ Test 2: Generation without settlement data - SUCCESS")
+        print("[OK] Test 2: Generation without settlement data - SUCCESS")
         print(f"   Document: {result2['document_path']}")
         print(f"   Variables: {result2['variables_populated']}")
         print(f"   Template: {result2['template_used']}")
     else:
-        print("❌ Test 2: Generation without settlement data - FAILED")
+        print("[FAIL] Test 2: Generation without settlement data - FAILED")
         print(f"   Error: {result2['error']}")
     
     print()
@@ -117,16 +119,17 @@ async def test_basic_generation():
     
     result3 = await settlement_instruction_service.generate_settlement_instruction(
         trade_data=forward_trade_data,
+        bank_id="test_bank_456",  # Different test bank ID  
         settlement_data=forward_settlement_data
     )
     
     if result3['success']:
-        print("✅ Test 3: Forward trade generation - SUCCESS")
+        print("[OK] Test 3: Forward trade generation - SUCCESS")
         print(f"   Document: {result3['document_path']}")
         print(f"   Variables: {result3['variables_populated']}")
         print(f"   Template: {result3['template_used']}")
     else:
-        print("❌ Test 3: Forward trade generation - FAILED")
+        print("[FAIL] Test 3: Forward trade generation - FAILED")
         print(f"   Error: {result3['error']}")
     
     print("\n" + "=" * 60)
@@ -137,11 +140,11 @@ async def test_basic_generation():
     print(f"Tests passed: {success_count}/3")
     
     if success_count == 3:
-        print("🎉 All tests passed! Settlement instruction generation is working correctly.")
+        print("[SUCCESS] All tests passed! Settlement instruction generation is working correctly.")
         print("\nGenerated documents are available in:")
         print("   backend/templates/generated/")
     else:
-        print("⚠️  Some tests failed. Please check the error messages above.")
+        print("[WARNING] Some tests failed. Please check the error messages above.")
 
 
 async def test_with_minimal_data():
@@ -156,15 +159,16 @@ async def test_with_minimal_data():
     }
     
     result = await settlement_instruction_service.generate_settlement_instruction(
-        trade_data=minimal_trade_data
+        trade_data=minimal_trade_data,
+        bank_id="test_bank_minimal"  # Test bank ID for minimal data
     )
     
     if result['success']:
-        print("✅ Minimal data test - SUCCESS")
+        print("[OK] Minimal data test - SUCCESS")
         print(f"   Document: {result['document_path']}")
         print("   Service handled missing data gracefully")
     else:
-        print("❌ Minimal data test - FAILED")
+        print("[FAIL] Minimal data test - FAILED")
         print(f"   Error: {result['error']}")
 
 
