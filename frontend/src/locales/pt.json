@@ -66,7 +66,7 @@
       "noSpecificSegment": "Sem Segmento Específico",
       "productLabel": "Produto",
       "productPlaceholder": "Selecionar produto...",
-      "documentLabel": "Carregar Modelo de Documento PDF",
+      "documentLabel": "Carregar Modelo de Documento Word",
       "saveTemplate": "Salvar Modelo de Carta",
       "cancel": "Cancelar",
       "templateInfo": "Informações do Modelo",
@@ -241,6 +241,7 @@
         "direction": "Direção",
         "bankName": "Nome do Banco",
         "accountNumber": "Número da Conta",
+        "settlementType": "Tipo de Liquidação",
         "actions": "Ações",
         "notCounterpartySpecific": "Não Específico por Contraparte"
       },
@@ -250,6 +251,10 @@
         "save": "Salvar Regra",
         "saving": "Salvando...",
         "cancel": "Cancelar"
+      },
+      "settlementTypes": {
+        "compensacion": "Compensação",
+        "entregaFisica": "Entrega Física"
       },
       "placeholders": {
         "name": "Ex: Regra USD Santander Entrada",

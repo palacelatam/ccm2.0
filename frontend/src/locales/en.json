@@ -66,7 +66,7 @@
       "noSpecificSegment": "No Specific Segment",
       "productLabel": "Product",
       "productPlaceholder": "Select product...",
-      "documentLabel": "Upload PDF Document Template",
+      "documentLabel": "Upload Word Document Template",
       "saveTemplate": "Save Letter Template",
       "cancel": "Cancel",
       "templateInfo": "Template Information",
@@ -259,6 +259,7 @@
         "direction": "Direction",
         "bankName": "Bank Name",
         "accountNumber": "Account Number",
+        "settlementType": "Settlement Type",
         "actions": "Actions",
         "notCounterpartySpecific": "Not Counterparty Specific"
       },
@@ -268,6 +269,10 @@
         "save": "Save Rule",
         "saving": "Saving...",
         "cancel": "Cancel"
+      },
+      "settlementTypes": {
+        "compensacion": "Net Settlement",
+        "entregaFisica": "Physical Delivery"
       },
       "placeholders": {
         "name": "Ex: USD Santander Inbound Rule",

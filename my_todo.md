@@ -11,3 +11,4 @@
 11) Deal with uploaded .msg file which only has email display name, not an email address.
 12) Move Guardar Confirmation button up on Client Admin screen, it is not noticeable.
 13) Complete SMS implementation, waiting on Twilio
+14) Preview of template on grid and detail page.

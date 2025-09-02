@@ -66,6 +66,7 @@ export interface SettlementInstructionLetter {
   priority: number;
   ruleName: string;
   product: string;
+  settlementType: string;
   clientSegmentId?: string;
   documentName: string;
   documentUrl: string;
@@ -78,6 +79,7 @@ export interface SettlementInstructionLetterCreate {
   priority: number;
   rule_name: string;
   product: string;
+  settlement_type: string;
   client_segment_id?: string;
   document_name: string;
   document_url: string;
@@ -90,6 +92,7 @@ export interface SettlementInstructionLetterUpdate {
   priority?: number;
   rule_name?: string;
   product?: string;
+  settlement_type?: string;
   client_segment_id?: string;
   document_name?: string;
   document_url?: string;
@@ -209,6 +212,7 @@ class BankService {
     letterData: {
       rule_name: string;
       product: string;
+      settlement_type: string;
       client_segment_id?: string;
       priority?: number;
       active?: boolean;
@@ -222,6 +226,7 @@ class BankService {
     // Add form fields
     formData.append('rule_name', letterData.rule_name);
     formData.append('product', letterData.product);
+    formData.append('settlement_type', letterData.settlement_type);
     formData.append('priority', String(letterData.priority || 1));
     formData.append('active', String(letterData.active !== false)); // Default to true
     
@@ -259,6 +264,7 @@ class BankService {
     letterData: {
       rule_name: string;
       product: string;
+      settlement_type: string;
       client_segment_id?: string;
       priority?: number;
       active?: boolean;
@@ -272,6 +278,7 @@ class BankService {
     // Add form fields
     formData.append('rule_name', letterData.rule_name);
     formData.append('product', letterData.product);
+    formData.append('settlement_type', letterData.settlement_type);
     formData.append('priority', String(letterData.priority || 1));
     formData.append('active', String(letterData.active !== false)); // Default to true
     

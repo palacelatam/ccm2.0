@@ -14,6 +14,7 @@ interface SettlementInstructionLetter {
   clientSegment: string; // This will be mapped from clientSegmentId
   clientSegmentId?: string;
   product: string;
+  settlementType: string;
   documentUrl?: string;
   documentName?: string;
   templateVariables?: string[];
@@ -128,6 +129,7 @@ const BankDashboard: React.FC = () => {
           priority: letter.priority,
           ruleName: letter.rule_name || letter.ruleName, // Handle both formats
           product: letter.product,
+          settlementType: letter.settlement_type || letter.settlementType || '', // Handle both formats
           clientSegmentId: letter.client_segment_id || letter.clientSegmentId,
           documentName: letter.document_name || letter.documentName,
           documentUrl: letter.document_url || letter.documentUrl,
@@ -327,6 +329,7 @@ const BankDashboard: React.FC = () => {
             priority: letter.priority,
             ruleName: letter.rule_name || letter.ruleName,
             product: letter.product,
+            settlementType: letter.settlement_type || letter.settlementType || '', // Handle both formats
             clientSegmentId: letter.client_segment_id || letter.clientSegmentId,
             documentName: letter.document_name || letter.documentName,
             documentUrl: letter.document_url || letter.documentUrl,
@@ -496,6 +499,7 @@ const BankDashboard: React.FC = () => {
       priority: Math.max(...settlementLetters.map(r => r.priority), 0) + 1,
       clientSegment: '',
       product: '',
+      settlementType: '',
       ruleName: ''
     });
     setShowLetterForm(true);
@@ -512,7 +516,20 @@ const BankDashboard: React.FC = () => {
   };
 
   const handleSaveLetter = async () => {
-    if (!letterForm.ruleName || !letterForm.product) return;
+    if (!letterForm.ruleName || !letterForm.product || !letterForm.settlementType) {
+      let missingFields = [];
+      if (!letterForm.ruleName) missingFields.push('Rule Name');
+      if (!letterForm.product) missingFields.push('Product');
+      if (!letterForm.settlementType) missingFields.push('Settlement Type');
+      
+      setAlertModal({
+        isOpen: true,
+        title: 'Validation Error',
+        message: `Please fill in the following required fields: ${missingFields.join(', ')}`,
+        type: 'error'
+      });
+      return;
+    }
 
     setIsSavingSegments(true);
     try {
@@ -523,6 +540,7 @@ const BankDashboard: React.FC = () => {
           priority: letterForm.priority || 1,
           rule_name: letterForm.ruleName,
           product: letterForm.product,
+          settlement_type: letterForm.settlementType,
           client_segment_id: letterForm.clientSegmentId,
           document_name: letterForm.documentName || '',
           document_url: letterForm.documentUrl || '',
@@ -539,6 +557,7 @@ const BankDashboard: React.FC = () => {
           const letterData = {
             rule_name: letterForm.ruleName,
             product: letterForm.product,
+            settlement_type: letterForm.settlementType,
             client_segment_id: letterForm.clientSegmentId,
             priority: letterForm.priority || 1,
             active: letterForm.active || true,
@@ -563,6 +582,7 @@ const BankDashboard: React.FC = () => {
             priority: apiData.priority,
             ruleName: apiData.rule_name,
             product: apiData.product,
+            settlementType: apiData.settlement_type,
             clientSegmentId: apiData.client_segment_id,
             documentName: apiData.document_name,
             documentUrl: apiData.document_url,
@@ -599,6 +619,7 @@ const BankDashboard: React.FC = () => {
           const letterData = {
             rule_name: letterForm.ruleName,
             product: letterForm.product,
+            settlement_type: letterForm.settlementType,
             client_segment_id: letterForm.clientSegmentId,
             priority: letterForm.priority || 1,
             active: letterForm.active !== false, // Default to true
@@ -620,6 +641,7 @@ const BankDashboard: React.FC = () => {
             priority: letterForm.priority || 1,
             rule_name: letterForm.ruleName,
             product: letterForm.product,
+            settlement_type: letterForm.settlementType!,
             client_segment_id: letterForm.clientSegmentId,
             document_name: letterForm.documentName || '',
             document_url: letterForm.documentUrl || '',
@@ -639,6 +661,7 @@ const BankDashboard: React.FC = () => {
             priority: apiData.priority,
             ruleName: apiData.rule_name,
             product: apiData.product,
+            settlementType: apiData.settlement_type,
             clientSegmentId: apiData.client_segment_id,
             documentName: apiData.document_name,
             documentUrl: apiData.document_url,
@@ -1212,7 +1235,7 @@ const BankDashboard: React.FC = () => {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
+    if (file && file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       setUploadedFile(file);
       setLetterForm(prev => ({ 
         ...prev, 
@@ -1220,7 +1243,7 @@ const BankDashboard: React.FC = () => {
         documentUrl: URL.createObjectURL(file)
       }));
       
-      // Create preview URL for PDF
+      // Create preview URL for DOCX
       setFilePreviewUrl(URL.createObjectURL(file));
     }
   };
@@ -1304,6 +1327,7 @@ const BankDashboard: React.FC = () => {
                   <div className="header-cell">{t('bank.table.ruleName')}</div>
                   <div className="header-cell">{t('bank.table.clientSegment')}</div>
                   <div className="header-cell">{t('bank.table.product')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.settlementType')}</div>
                   <div className="header-cell">{t('bank.table.document')}</div>
                   <div className="header-cell">{t('bank.table.actions')}</div>
                 </div>
@@ -1335,6 +1359,7 @@ const BankDashboard: React.FC = () => {
                       <div className="table-cell">{letter.ruleName}</div>
                       <div className="table-cell">{letter.clientSegment}</div>
                       <div className="table-cell">{letter.product}</div>
+                      <div className="table-cell">{letter.settlementType}</div>
                       <div className="table-cell center">
                         {letter.documentUrl ? (
                           <button 
@@ -1342,7 +1367,7 @@ const BankDashboard: React.FC = () => {
                             onClick={() => handleDocumentPreview(letter)}
                             title="Preview document template"
                           >
-                            📄
+                            📝
                           </button>
                         ) : (
                           <span className="no-doc-text">—</span>
@@ -1440,11 +1465,20 @@ const BankDashboard: React.FC = () => {
                       onChange={(e) => updateLetterForm('product', e.target.value)}
                     >
                       <option value="">Select product...</option>
-                      <option value="FX SPOT">FX SPOT</option>
-                      <option value="FX FORWARD">FX FORWARD</option>
-                      <option value="FX SWAP">FX SWAP</option>
-                      <option value="NDF">NDF</option>
-                      <option value="OPTION">OPTION</option>
+                      <option value="Spot">Spot</option>
+                      <option value="Forward">Forward</option>
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>{t('admin.settlement.table.settlementType')} *</label>
+                    <select
+                      value={letterForm.settlementType || ''}
+                      onChange={(e) => updateLetterForm('settlementType', e.target.value)}
+                    >
+                      <option value="">Select settlement type...</option>
+                      <option value="Compensación">Compensación</option>
+                      <option value="Entrega Física">Entrega Física</option>
                     </select>
                   </div>
                 </div>
@@ -1456,12 +1490,12 @@ const BankDashboard: React.FC = () => {
                   <label>{t('bank.letters.documentLabel')}</label>
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept=".docx"
                     onChange={handleFileUpload}
                   />
                   {(uploadedFile || letterForm.documentName) && (
                     <div className="uploaded-document">
-                      <span>📄 {uploadedFile?.name || letterForm.documentName}</span>
+                      <span>📝 {uploadedFile?.name || letterForm.documentName}</span>
                       <button 
                         type="button"
                         className="remove-document"
@@ -1474,12 +1508,11 @@ const BankDashboard: React.FC = () => {
                   {filePreviewUrl && (
                     <div className="file-preview">
                       <h5>{t('bank.letters.documentPreview')}</h5>
-                      <iframe
-                        src={filePreviewUrl}
-                        width="100%"
-                        height="400px"
-                        title="PDF Document Preview"
-                      />
+                      <div className="docx-preview">
+                        <div className="docx-icon" style={{fontSize: '48px', textAlign: 'center', margin: '20px 0'}}>📝</div>
+                        <p style={{textAlign: 'center'}}>Word document uploaded: {uploadedFile?.name}</p>
+                        <p style={{textAlign: 'center', fontSize: '0.9em', color: '#666'}}>Preview functionality coming soon</p>
+                      </div>
                     </div>
                   )}
                 </div>
