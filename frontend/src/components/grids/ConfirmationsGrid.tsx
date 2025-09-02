@@ -631,7 +631,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
     },
     { 
       headerName: t('grid.columns.price'), 
-      field: 'ForwardPrice', 
+      field: 'Price', 
       width: 120,
       cellRenderer: (params: any) => {
         const value = params.value || 0;
@@ -641,7 +641,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         });
         
         const differingFields = params.data?.differingFields || [];
-        const hasDifference = differingFields.includes('ForwardPrice');
+        const hasDifference = differingFields.includes('Price');
         
         return React.createElement('div', {
           style: {

@@ -88,10 +88,6 @@ const SettlementRulesSettings: React.FC<SettlementRulesSettingsProps> = ({ clien
                     <span className="detail-value">{rule.cashflowCurrency}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Direction:</span>
-                    <span className="detail-value">{rule.direction}</span>
-                  </div>
-                  <div className="detail-row">
                     <span className="detail-label">Bank Account:</span>
                     <span className="detail-value">{rule.bankAccountId}</span>
                   </div>

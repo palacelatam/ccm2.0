@@ -392,7 +392,7 @@ class EmailParserService:
                             "ValueDate": date in format dd-mm-yyyy,
                             "MaturityDate": date in format dd-mm-yyyy,
                             "PaymentDate": date in format dd-mm-yyyy,
-                            "ForwardPrice": number to a minimum of two decimal places,
+                            "Price": number to a minimum of two decimal places,
                             "FixingReference": string,
                             "CounterpartyPaymentMethod": string,
                             "OurPaymentMethod": string

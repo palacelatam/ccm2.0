@@ -144,10 +144,10 @@ Single document containing all client admin settings:
   - `emailDisputedTrades`: `map`
     - `enabled`: `boolean`
     - `emails`: `array<string>`
-  - `whatsappConfirmedTrades`: `map`
+  - `smsConfirmedTrades`: `map`
     - `enabled`: `boolean`
     - `phones`: `array<string>`
-  - `whatsappDisputedTrades`: `map`
+  - `smsDisputedTrades`: `map`
     - `enabled`: `boolean`
     - `phones`: `array<string>`
 

@@ -14,6 +14,7 @@ from services.csv_parser import CSVParserService
 from services.email_parser import EmailParserService
 from services.task_queue_service import task_queue_service
 from services.auto_email_service import auto_email_service
+from services.auto_sms_service import auto_sms_service
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
     BankAccount, BankAccountCreate, BankAccountUpdate,
@@ -839,7 +840,7 @@ class ClientService:
                             'QuantityCurrency2': trade.get('QuantityCurrency2', 0),
                             'ExchangeRate': trade.get('ExchangeRate', 0),
                             'MaturityDate': trade.get('MaturityDate', ''),
-                            'ForwardPrice': trade.get('ForwardPrice', 0),
+                            'Price': trade.get('Price', 0),
                             'FixingReference': trade.get('FixingReference', ''),
                             'SettlementType': trade.get('SettlementType', ''),
                             'SettlementCurrency': trade.get('SettlementCurrency', ''),
@@ -925,7 +926,7 @@ class ClientService:
                         'QuantityCurrency2': 0,
                         'ExchangeRate': 0,
                         'MaturityDate': '',
-                        'ForwardPrice': 0,
+                        'Price': 0,
                         'FixingReference': '',
                         'SettlementType': '',
                         'SettlementCurrency': '',
@@ -1523,12 +1524,12 @@ class ClientService:
                 differences.append(f"QuantityCurrency1: {email_amount} vs {client_amount}")
                 differing_fields.append('QuantityCurrency1')
             
-            # 7. Price (Forward Price) - exact match
-            email_price = float(email_trade.get('ForwardPrice', 0))
-            client_price = float(client_trade.get('ForwardPrice', 0))
+            # 7. Price - exact match
+            email_price = float(email_trade.get('Price', 0))
+            client_price = float(client_trade.get('Price', 0))
             if email_price != client_price:
-                differences.append(f"ForwardPrice: {email_price} vs {client_price}")
-                differing_fields.append('ForwardPrice')
+                differences.append(f"Price: {email_price} vs {client_price}")
+                differing_fields.append('Price')
             
             # 8. Currency 2
             email_cur2 = str(email_trade.get('Currency2', '')).strip()
@@ -1694,7 +1695,7 @@ class ClientService:
                         'TradeDate': '',
                         'ValueDate': '',
                         'MaturityDate': '',
-                        'ForwardPrice': 0.0,
+                        'Price': 0.0,
                         'FixingReference': '',
                         'SettlementType': '',
                         'SettlementCurrency': '',
@@ -1792,10 +1793,39 @@ class ClientService:
             
             if task_name:
                 logger.info(f"✅ Successfully scheduled {email_type} email task: {task_name}")
-                return True
             else:
                 logger.error(f"❌ Failed to schedule {email_type} email task")
-                return False
+            
+            # Also trigger SMS notifications if configured
+            # SMS is sent immediately (no delay like emails)
+            try:
+                trade_data = match_data.get("client_trade_data", {})
+                if not trade_data:
+                    trade_data = match_data.get("email_trade_data", {})
+                
+                # Add trade number if not present
+                if "TradeNumber" not in trade_data:
+                    trade_data["TradeNumber"] = match_data.get("bank_trade_number", "Unknown")
+                if "CounterpartyName" not in trade_data:
+                    trade_data["CounterpartyName"] = match_data.get("counterparty_name", "Unknown")
+                
+                sms_result = await auto_sms_service.process_trade_sms_notifications(
+                    client_id=client_id,
+                    trade_status=comparison_status,
+                    trade_data=trade_data,
+                    discrepancies=differing_fields if comparison_status != "Confirmation OK" else None
+                )
+                
+                if sms_result.get('sms_sent'):
+                    logger.info(f"✅ SMS notifications sent for {email_type} trade")
+                else:
+                    logger.debug(f"No SMS sent (may be disabled or no phone numbers configured)")
+                    
+            except Exception as sms_error:
+                logger.error(f"Error sending SMS notifications: {sms_error}")
+                # Don't fail the whole process if SMS fails
+            
+            return task_name is not None
                 
         except Exception as e:
             logger.error(f"Error scheduling automation emails for client {client_id}: {e}")

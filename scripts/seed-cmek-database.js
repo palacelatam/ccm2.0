@@ -242,11 +242,11 @@ async function seedClients() {
         enabled: true,
         emails: ['admin@xyz.cl', 'treasury@xyz.cl', 'risk@xyz.cl']
       },
-      whatsappConfirmedTrades: {
+      smsConfirmedTrades: {
         enabled: false,
         phones: []
       },
-      whatsappDisputedTrades: {
+      smsDisputedTrades: {
         enabled: false,
         phones: []
       }
@@ -460,7 +460,7 @@ async function seedClientDashboardData() {
       Direction: "Buy",
       Currency1: "USD",
       QuantityCurrency1: 330000.0,
-      ForwardPrice: 932.33,
+      Price: 932.33,
       Currency2: "CLP",
       MaturityDate: "01-10-2026",
       FixingReference: "USD Obs",
@@ -482,7 +482,7 @@ async function seedClientDashboardData() {
       Direction: "Sell",
       Currency1: "EUR",
       QuantityCurrency1: 500000.0,
-      ForwardPrice: 1015.75,
+      Price: 1015.75,
       Currency2: "CLP",
       MaturityDate: "04-10-2025",
       FixingReference: "EUR Obs",
@@ -514,7 +514,7 @@ async function seedClientDashboardData() {
       Direction: "Buy",
       Currency1: "USD",
       QuantityCurrency1: 1000000.0,
-      ForwardPrice: 932.88,
+      Price: 932.88,
       Currency2: "CLP",
       MaturityDate: "30-10-2025",
       FixingReference: "USD Obs",
@@ -563,7 +563,7 @@ async function seedClientDashboardData() {
       MaturityDate: "30-10-2025",
       PaymentDate: "01-11-2025",
       Duration: 0,
-      ForwardPrice: 932.98,
+      Price: 932.98,
       FixingReference: "USD Obs",
       CounterpartyPaymentMethod: "SWIFT",
       OurPaymentMethod: "SWIFT",

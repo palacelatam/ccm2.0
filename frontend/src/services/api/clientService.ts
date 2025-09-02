@@ -22,7 +22,7 @@ export interface EmailAlertSettings {
   emails: string[];
 }
 
-export interface WhatsappAlertSettings {
+export interface SmsAlertSettings {
   enabled: boolean;
   phones: string[];
 }
@@ -30,8 +30,8 @@ export interface WhatsappAlertSettings {
 export interface AlertSettings {
   emailConfirmedTrades: EmailAlertSettings;
   emailDisputedTrades: EmailAlertSettings;
-  whatsappConfirmedTrades: WhatsappAlertSettings;
-  whatsappDisputedTrades: WhatsappAlertSettings;
+  smsConfirmedTrades: SmsAlertSettings;
+  smsDisputedTrades: SmsAlertSettings;
 }
 
 export interface PreferencesSettings {
@@ -102,7 +102,6 @@ export interface SettlementRule {
   name: string;
   counterparty: string;
   cashflowCurrency: string;
-  direction: string;
   product: string;
   bankAccountId: string;
 }
@@ -111,7 +110,6 @@ export interface SettlementRuleCreate {
   name: string;
   counterparty: string;
   cashflowCurrency: string;
-  direction: string;
   product: string;
   bankAccountId: string;
   priority: number;
@@ -123,7 +121,6 @@ export interface SettlementRuleUpdate {
   name?: string;
   counterparty?: string;
   cashflowCurrency?: string;
-  direction?: string;
   product?: string;
   bankAccountId?: string;
 }

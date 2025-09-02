@@ -222,10 +222,10 @@
       "title": "Alert Configuration",
       "emailConfirmed": "Email Alerts - Confirmed Trades",
       "emailDisputed": "Email Alerts - Disputed Trades",
-      "whatsappConfirmed": "WhatsApp Alerts - Confirmed Trades",
-      "whatsappDisputed": "WhatsApp Alerts - Disputed Trades",
+      "smsConfirmed": "SMS Alerts - Confirmed Trades",
+      "smsDisputed": "SMS Alerts - Disputed Trades",
       "enableEmail": "Enable email alerts",
-      "enableWhatsapp": "Enable WhatsApp alerts",
+      "enableSms": "Enable SMS alerts",
       "addEmail": "Add email...",
       "addPhone": "+56912345678",
       "addButton": "Add"
@@ -257,7 +257,7 @@
         "cashflowCurrency": "Cashflow Currency",
         "product": "Product",
         "direction": "Direction",
-        "bankSwift": "Bank SWIFT",
+        "bankName": "Bank Name",
         "accountNumber": "Account Number",
         "actions": "Actions",
         "notCounterpartySpecific": "Not Counterparty Specific"

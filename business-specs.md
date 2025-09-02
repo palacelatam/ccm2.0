@@ -169,7 +169,7 @@ If a discrepancy is found between the confirmation and the client’s internal r
     - Turn On/Off Autoconfirm on disputed trades, which entails the generation and sending of an automated email back to the bank indicating the fields of the trade where there is a discrepancy. There will also be a field to configure the amount of time to wait before automatically sending the confirmation email back to the bank.
     - Turn On/Off Email Confirmed Trade Alert, together with the email address, or list of destination email addresses
     - Turn On/Off Email Disputed Trade Alert, together with the email address, or list of destination email addresses
-    - Turn On/Off WhatsApp Confirmed Trade Alert, together with the phone numbers, or list of destination phone numbers
+    - Turn On/Off SMS Confirmed Trade Alert, together with the phone numbers, or list of destination phone numbers
     - Turn On/Off Email Disputed Trade Alert, together with the phone numbers, or list of destination phone numbers
 - Settlement Instructions Page:
    ### Settlement Tab Structure

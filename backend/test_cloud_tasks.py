@@ -120,7 +120,7 @@ async def test_auto_email_service():
             "Currency2": "CLP",
             "Direction": "Buy",
             "QuantityCurrency1": 1000000,
-            "ForwardPrice": 950.00,
+            "Price": 950.00,
             "TradeDate": "28-08-2025",
             "ValueDate": "30-08-2025"
         }
@@ -140,7 +140,7 @@ async def test_auto_email_service():
         
         # Test scheduling dispute email
         print("📧 Testing dispute email scheduling...")
-        differing_fields = ["Direction", "ForwardPrice", "ValueDate"]
+        differing_fields = ["Direction", "Price", "ValueDate"]
         
         dispute_task = await auto_email_service.schedule_dispute_email(
             client_id="test-client",

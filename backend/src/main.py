@@ -12,7 +12,7 @@ import logging
 
 from config.firebase_config import initialize_firebase
 from config.settings import get_settings
-from api.routes import auth, users, health, clients, banks, gmail, events, internal_tasks
+from api.routes import auth, users, health, clients, banks, gmail, events, internal_tasks, sms
 from api.middleware.auth_middleware import AuthMiddleware
 from services.gmail_service import gmail_service
 
@@ -103,6 +103,7 @@ app.include_router(banks.router, prefix="/api/v1", tags=["Banks"])
 app.include_router(gmail.router, prefix="/api/v1", tags=["Gmail"])
 app.include_router(events.router, prefix="/api/v1", tags=["Events"])
 app.include_router(internal_tasks.router, prefix="", tags=["Internal Tasks"])
+app.include_router(sms.router)
 
 
 # Root and health endpoints are handled by health.router

@@ -48,6 +48,13 @@ class Settings:
         self.vertex_project_id = os.getenv("VERTEX_PROJECT_ID", self.firebase_project_id)
         self.vertex_location = os.getenv("VERTEX_LOCATION", "us-central1")
         self.vertex_model = os.getenv("VERTEX_MODEL", "claude-3-5-sonnet@20241022")
+        
+        # Twilio SMS Configuration
+        self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        self.twilio_auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        self.twilio_phone_number = os.getenv("TWILIO_PHONE_NUMBER")
+        self.sms_rate_limit_per_minute = int(os.getenv("SMS_RATE_LIMIT_PER_MINUTE", "10"))
+        self.sms_daily_limit_default = int(os.getenv("SMS_DAILY_LIMIT_DEFAULT", "100"))
 
 
 # Global settings instance

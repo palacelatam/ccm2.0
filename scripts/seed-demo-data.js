@@ -239,11 +239,11 @@ async function seedClients() {
         enabled: true,
         emails: ['admin@xyz.cl', 'treasury@xyz.cl', 'risk@xyz.cl']
       },
-      whatsappConfirmedTrades: {
+      smsConfirmedTrades: {
         enabled: false,
         phones: []
       },
-      whatsappDisputedTrades: {
+      smsDisputedTrades: {
         enabled: false,
         phones: []
       }

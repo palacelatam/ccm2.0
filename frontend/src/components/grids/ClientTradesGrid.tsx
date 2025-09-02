@@ -157,21 +157,27 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
       width: 130, 
       sortable: true, 
       filter: true, 
-      valueFormatter: (params) => params.value.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }) 
+      valueFormatter: (params) => {
+        const value = params.value || 0;
+        return value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
     },
     { 
       headerName: t('grid.columns.price'), 
-      field: 'ForwardPrice', 
+      field: 'Price', 
       width: 100, 
       sortable: true, 
       filter: true, 
-      valueFormatter: (params) => params.value.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }) 
+      valueFormatter: (params) => {
+        const value = params.value || 0;
+        return value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
     },
     { 
       headerName: t('grid.columns.currency2'), 

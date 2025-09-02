@@ -26,7 +26,7 @@ class CSVParserService:
         'Currency 1': 'Currency1',
         'Currency 2': 'Currency2',
         'Amount': 'QuantityCurrency1',
-        'Forward Price': 'ForwardPrice',
+        'Forward Price': 'Price',
         'Maturity Date': 'MaturityDate',
         'Fixing Reference': 'FixingReference',
         'Settlement Type': 'SettlementType',
@@ -40,7 +40,7 @@ class CSVParserService:
     DATE_FIELDS = ['TradeDate', 'ValueDate', 'MaturityDate', 'PaymentDate']
     
     # Numeric fields that need conversion
-    NUMERIC_FIELDS = ['QuantityCurrency1', 'ForwardPrice']
+    NUMERIC_FIELDS = ['QuantityCurrency1', 'Price']
     
     def parse_csv_content(self, csv_content: str) -> Tuple[List[Dict[str, Any]], List[str]]:
         """

@@ -24,9 +24,13 @@ python-multipart==0.0.6
 # Email and document processing
 extract_msg==0.47.0
 PyPDF2==3.0.1
+python-docx==1.1.0
 
 # LLM services
 anthropic==0.39.0
+
+# SMS services
+twilio==8.10.0
 
 # Environment management
 python-dotenv==1.0.0

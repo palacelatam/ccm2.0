@@ -143,7 +143,7 @@
    - Auto Carta de Instrucción generation toggle
 
 2. **Alert Configuration**:
-   - Email and WhatsApp alert management
+   - Email and SMS alert management
    - Separate distribution lists for confirmed vs disputed trades
    - Add/remove functionality for email addresses and phone numbers
    - Toggle switches for enabling/disabling each alert type

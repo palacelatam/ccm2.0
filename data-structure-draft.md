@@ -88,10 +88,10 @@ Top-level collection to store client companies.
                 - **emailDisputedTrades**: `map`
                     - **enabled**: `boolean`
                     - **emails**: `array` of `string`
-                - **whatsappConfirmedTrades**: `map`
+                - **smsConfirmedTrades**: `map`
                     - **enabled**: `boolean`
                     - **phones**: `array` of `string`
-                - **whatsappDisputedTrades**: `map`
+                - **smsDisputedTrades**: `map`
                     - **enabled**: `boolean`
                     - **phones**: `array` of `string`
             - **lastUpdatedAt**: `timestamp`

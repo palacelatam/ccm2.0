@@ -91,11 +91,11 @@ async function seedAdditionalClients() {
             enabled: true,
             emails: [`admin@${client.id}.cl`, `risk@${client.id}.cl`]
           },
-          whatsappConfirmedTrades: {
+          smsConfirmedTrades: {
             enabled: false,
             phones: []
           },
-          whatsappDisputedTrades: {
+          smsDisputedTrades: {
             enabled: false,
             phones: []
           }

@@ -220,7 +220,7 @@ class MatchingService:
         # Fields to compare (excluding match fields and IDs)
         fields_to_compare = [
             'ProductType', 'Direction', 'Currency1', 'Currency2',
-            'QuantityCurrency1', 'ForwardPrice', 'SettlementType',
+            'QuantityCurrency1', 'Price', 'SettlementType',
             'SettlementCurrency', 'TradeDate', 'ValueDate', 
             'MaturityDate', 'PaymentDate', 'FixingReference',
             'CounterpartyPaymentMethod', 'OurPaymentMethod'

@@ -39,8 +39,8 @@ class EmailAlertSettings(BaseModel):
         populate_by_name = True
 
 
-class WhatsappAlertSettings(BaseModel):
-    """WhatsApp alert configuration"""
+class SmsAlertSettings(BaseModel):
+    """SMS alert configuration"""
     enabled: bool = False
     phones: List[str] = Field(default_factory=list)
     
@@ -52,8 +52,8 @@ class AlertSettings(BaseModel):
     """Alert configuration settings"""
     email_confirmed_trades: EmailAlertSettings = Field(default_factory=EmailAlertSettings, alias="emailConfirmedTrades")
     email_disputed_trades: EmailAlertSettings = Field(default_factory=EmailAlertSettings, alias="emailDisputedTrades")
-    whatsapp_confirmed_trades: WhatsappAlertSettings = Field(default_factory=WhatsappAlertSettings, alias="whatsappConfirmedTrades")
-    whatsapp_disputed_trades: WhatsappAlertSettings = Field(default_factory=WhatsappAlertSettings, alias="whatsappDisputedTrades")
+    sms_confirmed_trades: SmsAlertSettings = Field(default_factory=SmsAlertSettings, alias="smsConfirmedTrades")
+    sms_disputed_trades: SmsAlertSettings = Field(default_factory=SmsAlertSettings, alias="smsDisputedTrades")
     
     class Config:
         populate_by_name = True
@@ -134,7 +134,6 @@ class SettlementRule(BaseFirestoreModel):
     name: str
     counterparty: str
     cashflow_currency: str = Field(alias="cashflowCurrency")
-    direction: str  # IN, OUT
     product: str  # FX_SPOT, FX_FORWARD, FX_SWAP
     bank_account_id: str = Field(alias="bankAccountId")  # Reference to bank account
     
@@ -147,7 +146,6 @@ class SettlementRuleCreate(BaseModel):
     name: str
     counterparty: str
     cashflow_currency: str = Field(alias="cashflowCurrency")
-    direction: str
     product: str
     bank_account_id: str = Field(alias="bankAccountId")
     priority: int = 1
@@ -163,7 +161,6 @@ class SettlementRuleUpdate(BaseModel):
     name: Optional[str] = None
     counterparty: Optional[str] = None
     cashflow_currency: Optional[str] = Field(None, alias="cashflowCurrency")
-    direction: Optional[str] = None
     product: Optional[str] = None
     bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
     

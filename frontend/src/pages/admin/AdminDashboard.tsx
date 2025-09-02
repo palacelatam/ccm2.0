@@ -15,11 +15,11 @@ interface AlertSettings {
     enabled: boolean;
     emails: string[];
   };
-  whatsappConfirmedTrades: {
+  smsConfirmedTrades: {
     enabled: boolean;
     phones: string[];
   };
-  whatsappDisputedTrades: {
+  smsDisputedTrades: {
     enabled: boolean;
     phones: string[];
   };
@@ -45,7 +45,6 @@ interface SettlementRule {
   name: string;
   counterparty: string;
   cashflowCurrency: string;
-  direction: 'IN' | 'OUT';
   product: string;
   bankName: string;
   swiftCode: string;
@@ -103,7 +102,6 @@ const AdminDashboard: React.FC = () => {
     { name: 'productType', type: 'enum', format: 'text', required: true, enumValues: ['FX Spot', 'FX Forward'], description: 'Type of financial product' },
     { name: 'tradeDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Date when trade was executed' },
     { name: 'valueDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Settlement/value date for the trade' },
-    { name: 'direction', type: 'enum', format: 'text', required: true, enumValues: ['BUY', 'SELL'], description: 'Trade direction (buy or sell)' },
     { name: 'currency1', type: 'enum', format: 'ISO code', required: true, enumValues: ['USD', 'CLP', 'EUR', 'GBP', 'CLF'], description: 'Primary currency (3-letter ISO code)' },
     { name: 'currency2', type: 'enum', format: 'ISO code', required: true, enumValues: ['USD', 'CLP', 'EUR', 'GBP', 'CLF'], description: 'Secondary currency (3-letter ISO code)' },
     { name: 'amount', type: 'number', format: 'decimal', required: true, description: 'Trade amount/notional value' },
@@ -165,11 +163,11 @@ const AdminDashboard: React.FC = () => {
       enabled: true,
       emails: ['admin@palace.cl', 'disputes@palace.cl']
     },
-    whatsappConfirmedTrades: {
+    smsConfirmedTrades: {
       enabled: false,
       phones: ['+56912345678']
     },
-    whatsappDisputedTrades: {
+    smsDisputedTrades: {
       enabled: true,
       phones: ['+56912345678', '+56987654321']
     }
@@ -223,7 +221,6 @@ const AdminDashboard: React.FC = () => {
       name: 'USD Santander Inbound',
       counterparty: 'Banco Santander Chile',
       cashflowCurrency: 'USD',
-      direction: 'IN',
       product: 'FX SPOT',
       bankName: 'Banco Santander Chile',
       swiftCode: 'BSCHCLRM',
@@ -237,7 +234,6 @@ const AdminDashboard: React.FC = () => {
       name: 'EUR BCI Outbound',
       counterparty: 'Banco de Crédito e Inversiones',
       cashflowCurrency: 'EUR',
-      direction: 'OUT',
       product: 'FX FORWARD',
       bankName: 'Banco de Crédito e Inversiones',
       swiftCode: 'BCICHCL2',
@@ -347,7 +343,6 @@ const AdminDashboard: React.FC = () => {
               name: rule.name,
               counterparty: rule.counterparty,
               cashflowCurrency: rule.cashflowCurrency,
-              direction: (rule.direction === 'IN' ? 'IN' : 'OUT') as 'IN' | 'OUT',
               product: rule.product,
               bankName: bankAccount?.bankName || '',
               swiftCode: bankAccount?.swiftCode || '',
@@ -428,9 +423,9 @@ const AdminDashboard: React.FC = () => {
     setHasUnsavedChanges(true);
   };
   
-  const addPhone = (alertType: 'whatsappConfirmedTrades' | 'whatsappDisputedTrades') => {
-    const phone = alertType === 'whatsappConfirmedTrades' ? newPhoneConfirmed : newPhoneDisputed;
-    const setPhone = alertType === 'whatsappConfirmedTrades' ? setNewPhoneConfirmed : setNewPhoneDisputed;
+  const addPhone = (alertType: 'smsConfirmedTrades' | 'smsDisputedTrades') => {
+    const phone = alertType === 'smsConfirmedTrades' ? newPhoneConfirmed : newPhoneDisputed;
+    const setPhone = alertType === 'smsConfirmedTrades' ? setNewPhoneConfirmed : setNewPhoneDisputed;
     
     if (phone && phone.startsWith('+')) {
       if (alertSettings[alertType].phones.includes(phone)) {
@@ -456,7 +451,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
   
-  const removePhone = (alertType: 'whatsappConfirmedTrades' | 'whatsappDisputedTrades', phone: string) => {
+  const removePhone = (alertType: 'smsConfirmedTrades' | 'smsDisputedTrades', phone: string) => {
     setAlertSettings(prev => ({
       ...prev,
       [alertType]: {
@@ -480,7 +475,6 @@ const AdminDashboard: React.FC = () => {
       name: '',
       counterparty: '',
       cashflowCurrency: '',
-      direction: 'IN',
       product: '',
       bankName: '',
       swiftCode: '',
@@ -498,7 +492,6 @@ const AdminDashboard: React.FC = () => {
       return (
         existingRule.counterparty === rule.counterparty &&
         existingRule.cashflowCurrency === rule.cashflowCurrency &&
-        existingRule.direction === rule.direction &&
         existingRule.product === rule.product &&
         existingRule.bankName === rule.bankName &&
         existingRule.accountCurrency === rule.accountCurrency
@@ -545,7 +538,7 @@ const AdminDashboard: React.FC = () => {
         setAlertModal({
           isOpen: true,
           title: 'Validation Error',
-          message: 'Please fill in all required fields (Active, Priority, Rule Name, Cashflow Currency, Direction, Bank Name, SWIFT Code, Account Currency, Account Number).',
+          message: 'Please fill in all required fields (Active, Priority, Rule Name, Cashflow Currency, Bank Name, SWIFT Code, Account Currency, Account Number).',
           type: 'warning'
         });
         return;
@@ -611,7 +604,6 @@ const AdminDashboard: React.FC = () => {
         name: ruleForm.name!,
         counterparty: ruleForm.counterparty || '',
         cashflowCurrency: ruleForm.cashflowCurrency!,
-        direction: ruleForm.direction!,
         product: ruleForm.product || '',
         bankAccountId: matchingAccount.id,
         priority: ruleForm.priority || 1
@@ -1308,13 +1300,13 @@ const AdminDashboard: React.FC = () => {
     return [
       { 
         'TradeID': 'TR1001', 'TradeDate': '2025-01-15', 'ValueDate': '2025-01-17', 'Counterparty': 'Bank ABC', 
-        'Product': 'FX SPOT', 'Direction': 'BUY', 'Ccy1': 'USD', 'Ccy2': 'CLP', 'Amount': '100000.50', 
+        'Product': 'FX SPOT', 'Ccy1': 'USD', 'Ccy2': 'CLP', 'Amount': '100000.50', 
         'Rate': '920.45', 'PaymentDate': '2025-01-17', 'SettlementType': 'DVP', 'Reference': 'REF001',
         'Comments': 'Standard trade', 'Status': 'ACTIVE', 'User': 'admin', 'Source': 'SYSTEM_A'
       },
       { 
         'TradeID': 'TR1002', 'TradeDate': '2025-01-16', 'ValueDate': '2025-01-18', 'Counterparty': 'Bank XYZ', 
-        'Product': 'FX FORWARD', 'Direction': 'SELL', 'Ccy1': 'EUR', 'Ccy2': 'USD', 'Amount': '50000.00', 
+        'Product': 'FX FORWARD', 'Ccy1': 'EUR', 'Ccy2': 'USD', 'Amount': '50000.00', 
         'Rate': '1.0856', 'PaymentDate': '2025-01-18', 'SettlementType': 'NET', 'Reference': 'REF002',
         'Comments': 'Forward EUR/USD', 'Status': 'PENDING', 'User': 'trader1', 'Source': 'SYSTEM_B'
       }
@@ -1351,9 +1343,6 @@ const AdminDashboard: React.FC = () => {
       }
       else if (lowerField.includes('valor') || lowerField.includes('value date') || lowerField === 'valuedate') {
         mappings.push({ sourceField, targetField: 'valueDate', transformation: { type: 'format', params: { from: 'auto', to: 'YYYY-MM-DD' } } });
-      }
-      else if (lowerField.includes('compra') || lowerField.includes('venta') || lowerField === 'direction') {
-        mappings.push({ sourceField, targetField: 'direction', transformation: { type: 'enum', params: { mapping: { 'C': 'BUY', 'V': 'SELL', 'BUY': 'BUY', 'SELL': 'SELL' } } } });
       }
       else if (lowerField.includes('moneda1') || lowerField === 'ccy1' || lowerField === 'currency1' || lowerField.includes('currency 1')) {
         mappings.push({ sourceField, targetField: 'currency1', transformation: { type: 'enum', params: { mapping: { 
@@ -1795,17 +1784,17 @@ const AdminDashboard: React.FC = () => {
             </div>
             
             <div className="alert-section">
-              <h3>{t('admin.alerts.whatsappConfirmed')}</h3>
+              <h3>{t('admin.alerts.smsConfirmed')}</h3>
               <div className="alert-toggle">
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
-                    checked={alertSettings.whatsappConfirmedTrades.enabled}
+                    checked={alertSettings.smsConfirmedTrades.enabled}
                     onChange={(e) => {
                       setAlertSettings(prev => ({
                         ...prev,
-                        whatsappConfirmedTrades: {
-                          ...prev.whatsappConfirmedTrades,
+                        smsConfirmedTrades: {
+                          ...prev.smsConfirmedTrades,
                           enabled: e.target.checked
                         }
                       }));
@@ -1814,9 +1803,9 @@ const AdminDashboard: React.FC = () => {
                   />
                   <span className="slider"></span>
                 </label>
-                <span>{t('admin.alerts.enableWhatsapp')}</span>
+                <span>{t('admin.alerts.enableSms')}</span>
               </div>
-              {alertSettings.whatsappConfirmedTrades.enabled && (
+              {alertSettings.smsConfirmedTrades.enabled && (
                 <div className="contact-list">
                   <div className="add-contact">
                     <input 
@@ -1825,13 +1814,13 @@ const AdminDashboard: React.FC = () => {
                       value={newPhoneConfirmed}
                       onChange={(e) => setNewPhoneConfirmed(e.target.value)}
                     />
-                    <button onClick={() => addPhone('whatsappConfirmedTrades')}>{t('admin.alerts.addButton')}</button>
+                    <button onClick={() => addPhone('smsConfirmedTrades')}>{t('admin.alerts.addButton')}</button>
                   </div>
                   <div className="contact-items">
-                    {alertSettings.whatsappConfirmedTrades.phones.map((phone, index) => (
+                    {alertSettings.smsConfirmedTrades.phones.map((phone, index) => (
                       <div key={index} className="contact-item">
                         <span>{phone}</span>
-                        <button onClick={() => removePhone('whatsappConfirmedTrades', phone)}>×</button>
+                        <button onClick={() => removePhone('smsConfirmedTrades', phone)}>×</button>
                       </div>
                     ))}
                   </div>
@@ -1840,17 +1829,17 @@ const AdminDashboard: React.FC = () => {
             </div>
             
             <div className="alert-section">
-              <h3>{t('admin.alerts.whatsappDisputed')}</h3>
+              <h3>{t('admin.alerts.smsDisputed')}</h3>
               <div className="alert-toggle">
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
-                    checked={alertSettings.whatsappDisputedTrades.enabled}
+                    checked={alertSettings.smsDisputedTrades.enabled}
                     onChange={(e) => {
                       setAlertSettings(prev => ({
                         ...prev,
-                        whatsappDisputedTrades: {
-                          ...prev.whatsappDisputedTrades,
+                        smsDisputedTrades: {
+                          ...prev.smsDisputedTrades,
                           enabled: e.target.checked
                         }
                       }));
@@ -1859,9 +1848,9 @@ const AdminDashboard: React.FC = () => {
                   />
                   <span className="slider"></span>
                 </label>
-                <span>{t('admin.alerts.enableWhatsapp')}</span>
+                <span>{t('admin.alerts.enableSms')}</span>
               </div>
-              {alertSettings.whatsappDisputedTrades.enabled && (
+              {alertSettings.smsDisputedTrades.enabled && (
                 <div className="contact-list">
                   <div className="add-contact">
                     <input 
@@ -1870,13 +1859,13 @@ const AdminDashboard: React.FC = () => {
                       value={newPhoneDisputed}
                       onChange={(e) => setNewPhoneDisputed(e.target.value)}
                     />
-                    <button onClick={() => addPhone('whatsappDisputedTrades')}>{t('admin.alerts.addButton')}</button>
+                    <button onClick={() => addPhone('smsDisputedTrades')}>{t('admin.alerts.addButton')}</button>
                   </div>
                   <div className="contact-items">
-                    {alertSettings.whatsappDisputedTrades.phones.map((phone, index) => (
+                    {alertSettings.smsDisputedTrades.phones.map((phone, index) => (
                       <div key={index} className="contact-item">
                         <span>{phone}</span>
-                        <button onClick={() => removePhone('whatsappDisputedTrades', phone)}>×</button>
+                        <button onClick={() => removePhone('smsDisputedTrades', phone)}>×</button>
                       </div>
                     ))}
                   </div>
@@ -1907,9 +1896,8 @@ const AdminDashboard: React.FC = () => {
                   <div className="header-cell">{t('admin.settlement.table.counterparty')}</div>
                   <div className="header-cell">{t('admin.settlement.table.cashflowCurrency')}</div>
                   <div className="header-cell">{t('admin.settlement.table.product')}</div>
-                  <div className="header-cell">{t('admin.settlement.table.direction')}</div>
                   <div className="separator-cell"></div>
-                  <div className="header-cell">{t('admin.settlement.table.bankSwift')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.bankName')}</div>
                   <div className="header-cell">{t('admin.settlement.table.accountNumber')}</div>
                   <div className="header-cell">{t('admin.settlement.table.actions')}</div>
                 </div>
@@ -1954,13 +1942,8 @@ const AdminDashboard: React.FC = () => {
                           <div className="table-cell">{rule.counterparty || '-'}</div>
                           <div className="table-cell">{rule.cashflowCurrency}</div>
                           <div className="table-cell">{rule.product || '-'}</div>
-                          <div className="table-cell direction-cell">
-                            <span className={`direction-badge ${rule.direction.toLowerCase()}`}>
-                              {rule.direction}
-                            </span>
-                          </div>
                           <div className="separator-cell"></div>
-                          <div className="table-cell">{rule.swiftCode}</div>
+                          <div className="table-cell">{rule.bankName}</div>
                           <div className="table-cell">{rule.accountNumber}</div>
                           <div className="table-cell actions">
                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
@@ -2060,16 +2043,6 @@ const AdminDashboard: React.FC = () => {
                       </select>
                     </div>
                     
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.direction')} *</label>
-                      <select
-                        value={ruleForm.direction || 'IN'}
-                        onChange={(e) => updateRuleForm('direction', e.target.value as 'IN' | 'OUT')}
-                      >
-                        <option value="IN">IN</option>
-                        <option value="OUT">OUT</option>
-                      </select>
-                    </div>
                     
                     <div className="form-group">
                       <label>{t('admin.settlement.rules.product')}</label>
@@ -2078,11 +2051,8 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => updateRuleForm('product', e.target.value)}
                       >
                         <option value="">{t('admin.settlement.placeholders.product')}</option>
-                        <option value="FX SPOT">FX SPOT</option>
-                        <option value="FX FORWARD">FX FORWARD</option>
-                        <option value="FX SWAP">FX SWAP</option>
-                        <option value="NDF">NDF</option>
-                        <option value="OPTION">OPTION</option>
+                        <option value="Spot">Spot</option>
+                        <option value="Forward">Forward</option>                    
                       </select>
                     </div>
                   </div>

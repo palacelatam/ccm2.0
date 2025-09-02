@@ -209,7 +209,7 @@ interface AutomationSettings {
 - Email templates customization per client
 - Advanced scheduling rules (business hours only, etc.)
 - Email delivery status tracking and reporting
-- Integration with WhatsApp notifications (mentioned in business-specs.md)
+- Integration with SMS notifications (mentioned in business-specs.md)
 - Bulk email operations for multiple trades
 
 ---

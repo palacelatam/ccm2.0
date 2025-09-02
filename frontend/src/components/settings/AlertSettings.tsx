@@ -49,7 +49,7 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
     handleChange(`${type}.emails`, emails);
   };
 
-  const addPhone = (type: 'whatsappConfirmedTrades' | 'whatsappDisputedTrades') => {
+  const addPhone = (type: 'smsConfirmedTrades' | 'smsDisputedTrades') => {
     if (newPhone && !formData[type].phones.includes(newPhone)) {
       const phones = [...formData[type].phones, newPhone];
       handleChange(`${type}.phones`, phones);
@@ -57,7 +57,7 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
     }
   };
 
-  const removePhone = (type: 'whatsappConfirmedTrades' | 'whatsappDisputedTrades', phone: string) => {
+  const removePhone = (type: 'smsConfirmedTrades' | 'smsDisputedTrades', phone: string) => {
     const phones = formData[type].phones.filter(p => p !== phone);
     handleChange(`${type}.phones`, phones);
   };
@@ -76,7 +76,7 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
     <div className="settings-section">
       <div className="settings-section-header">
         <h2>Alert Settings</h2>
-        <p>Configure email and WhatsApp notifications for trade confirmations and disputes</p>
+        <p>Configure email and SMS notifications for trade confirmations and disputes</p>
       </div>
 
       <div className="settings-form">
@@ -190,27 +190,27 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
           )}
         </div>
 
-        {/* WhatsApp Confirmed Trades */}
+        {/* SMS Confirmed Trades */}
         <div className="form-group">
-          <h3>WhatsApp Notifications - Confirmed Trades</h3>
+          <h3>SMS Notifications - Confirmed Trades</h3>
           <div className="form-row">
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={formData.whatsappConfirmedTrades.enabled}
-                onChange={(e) => handleChange('whatsappConfirmedTrades.enabled', e.target.checked)}
+                checked={formData.smsConfirmedTrades.enabled}
+                onChange={(e) => handleChange('smsConfirmedTrades.enabled', e.target.checked)}
               />
               <span className="checkmark"></span>
               <div className="label-content">
-                <span className="label-title">Enable WhatsApp Notifications</span>
+                <span className="label-title">Enable SMS Notifications</span>
                 <span className="label-description">
-                  Send WhatsApp notifications when trades are confirmed
+                  Send SMS notifications when trades are confirmed
                 </span>
               </div>
             </label>
           </div>
           
-          {formData.whatsappConfirmedTrades.enabled && (
+          {formData.smsConfirmedTrades.enabled && (
             <div className="list-input-group">
               <div className="list-input-row">
                 <input
@@ -221,7 +221,7 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
                   className="text-input"
                 />
                 <button
-                  onClick={() => addPhone('whatsappConfirmedTrades')}
+                  onClick={() => addPhone('smsConfirmedTrades')}
                   className="btn-small btn-add"
                   disabled={!newPhone}
                 >
@@ -229,11 +229,11 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
                 </button>
               </div>
               <div className="phone-list">
-                {formData.whatsappConfirmedTrades.phones.map((phone, index) => (
+                {formData.smsConfirmedTrades.phones.map((phone, index) => (
                   <div key={index} className="list-item">
                     <span>{phone}</span>
                     <button
-                      onClick={() => removePhone('whatsappConfirmedTrades', phone)}
+                      onClick={() => removePhone('smsConfirmedTrades', phone)}
                       className="btn-small btn-remove"
                     >
                       Remove
@@ -245,27 +245,27 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
           )}
         </div>
 
-        {/* WhatsApp Disputed Trades */}
+        {/* SMS Disputed Trades */}
         <div className="form-group">
-          <h3>WhatsApp Notifications - Disputed Trades</h3>
+          <h3>SMS Notifications - Disputed Trades</h3>
           <div className="form-row">
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={formData.whatsappDisputedTrades.enabled}
-                onChange={(e) => handleChange('whatsappDisputedTrades.enabled', e.target.checked)}
+                checked={formData.smsDisputedTrades.enabled}
+                onChange={(e) => handleChange('smsDisputedTrades.enabled', e.target.checked)}
               />
               <span className="checkmark"></span>
               <div className="label-content">
-                <span className="label-title">Enable WhatsApp Notifications</span>
+                <span className="label-title">Enable SMS Notifications</span>
                 <span className="label-description">
-                  Send WhatsApp notifications when trades are disputed
+                  Send SMS notifications when trades are disputed
                 </span>
               </div>
             </label>
           </div>
           
-          {formData.whatsappDisputedTrades.enabled && (
+          {formData.smsDisputedTrades.enabled && (
             <div className="list-input-group">
               <div className="list-input-row">
                 <input
@@ -276,7 +276,7 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
                   className="text-input"
                 />
                 <button
-                  onClick={() => addPhone('whatsappDisputedTrades')}
+                  onClick={() => addPhone('smsDisputedTrades')}
                   className="btn-small btn-add"
                   disabled={!newPhone}
                 >
@@ -284,11 +284,11 @@ const AlertSettings: React.FC<AlertSettingsProps> = ({
                 </button>
               </div>
               <div className="phone-list">
-                {formData.whatsappDisputedTrades.phones.map((phone, index) => (
+                {formData.smsDisputedTrades.phones.map((phone, index) => (
                   <div key={index} className="list-item">
                     <span>{phone}</span>
                     <button
-                      onClick={() => removePhone('whatsappDisputedTrades', phone)}
+                      onClick={() => removePhone('smsDisputedTrades', phone)}
                       className="btn-small btn-remove"
                     >
                       Remove

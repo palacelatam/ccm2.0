@@ -205,7 +205,7 @@ Email Body:
                     "ValueDate": datetime.now().strftime('%d-%m-%Y'),
                     "MaturityDate": datetime.now().strftime('%d-%m-%Y'),
                     "PaymentDate": datetime.now().strftime('%d-%m-%Y'),
-                    "ForwardPrice": 850.25,
+                    "Price": 850.25,
                     "FixingReference": "USD Obs",
                     "CounterpartyPaymentMethod": "SWIFT",
                     "OurPaymentMethod": "SWIFT"
@@ -373,7 +373,7 @@ Email Body:
                             "ValueDate": date in format dd-mm-yyyy,
                             "MaturityDate": date in format dd-mm-yyyy,
                             "PaymentDate": date in format dd-mm-yyyy,
-                            "ForwardPrice": number to a minimum of two decimal places,
+                            "Price": number to a minimum of two decimal places,
                             "FixingReference": string,
                             "CounterpartyPaymentMethod": string,
                             "OurPaymentMethod": string
