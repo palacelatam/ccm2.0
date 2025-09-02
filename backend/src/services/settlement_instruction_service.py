@@ -231,6 +231,8 @@ class SettlementInstructionService:
             'amount_currency_1': self._format_amount(trade_data.get('QuantityCurrency1', trade_data.get('amount_currency_1'))),
             'amount_currency_2': self._format_amount(trade_data.get('QuantityCurrency2', trade_data.get('amount_currency_2'))),
             'price': str(trade_data.get('Price', trade_data.get('exchange_rate', 'N/A'))),
+            'settlement_currency': str(trade_data.get('SettlementCurrency', trade_data.get('settlement_currency', 'N/A'))),
+            'settlement_type': str(trade_data.get('SettlementType', trade_data.get('settlement_type', 'N/A'))),
             'direction': localized_direction,  # Use localized direction
             'direction_original': str(trade_data.get('Direction', trade_data.get('direction', 'N/A'))),  # Keep original for reference
             'action_currency_1': action_currency_1,
