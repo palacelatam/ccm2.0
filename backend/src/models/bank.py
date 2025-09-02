@@ -66,6 +66,7 @@ class SettlementInstructionLetter(BaseFirestoreModel):
     priority: int = Field(0, description="Priority order for template selection")
     rule_name: str = Field(..., description="Template rule name")
     product: str = Field(..., description="Financial product type")
+    settlement_type: str = Field(..., description="Settlement type (Compensación or Entrega Física)")
     client_segment_id: Optional[str] = Field(None, description="Associated client segment ID")
     document_name: Optional[str] = Field(None, description="Original document filename")
     document_url: Optional[str] = Field(None, description="Cloud storage URL for the document")
@@ -83,6 +84,7 @@ class SettlementInstructionLetterCreate(BaseModel):
     priority: int = 0
     rule_name: str
     product: str
+    settlement_type: str
     client_segment_id: Optional[str] = None
     document_name: Optional[str] = None
     document_url: Optional[str] = None
@@ -96,6 +98,7 @@ class SettlementInstructionLetterUpdate(BaseModel):
     priority: Optional[int] = None
     rule_name: Optional[str] = None
     product: Optional[str] = None
+    settlement_type: Optional[str] = None
     client_segment_id: Optional[str] = None
     document_name: Optional[str] = None
     document_url: Optional[str] = None

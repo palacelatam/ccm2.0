@@ -515,13 +515,14 @@ async def create_settlement_letter_with_document(
     # Form fields for the letter data
     rule_name: str = Form(..., description="Settlement instruction rule name"),
     product: str = Form(..., description="Product type"),
+    settlement_type: str = Form(..., description="Settlement type"),
     client_segment_id: str = Form(None, description="Client segment ID"),
     priority: int = Form(1, description="Priority order"),
     active: bool = Form(True, description="Whether the letter is active"),
     template_variables: str = Form("[]", description="JSON array of template variables"),
     conditions: str = Form("{}", description="JSON object of conditions"),
     # File upload
-    document: UploadFile = File(..., description="PDF document to upload")
+    document: UploadFile = File(..., description="Word document to upload")
 ):
     """Create a new settlement instruction letter with document upload"""
     auth_context = get_auth_context(request)
@@ -536,10 +537,10 @@ async def create_settlement_letter_with_document(
         )
     
     # Validate file type
-    if document.content_type != "application/pdf":
+    if document.content_type != "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are allowed"
+            detail="Only Word documents are allowed"
         )
     
     try:
@@ -561,6 +562,7 @@ async def create_settlement_letter_with_document(
         letter_data = SettlementInstructionLetterCreate(
             rule_name=rule_name,
             product=product,
+            settlement_type=settlement_type,
             client_segment_id=client_segment_id,
             priority=priority,
             active=active,
@@ -640,13 +642,14 @@ async def update_settlement_letter_with_document(
     # Form fields for the letter data
     rule_name: str = Form(..., description="Settlement instruction rule name"),
     product: str = Form(..., description="Product type"),
+    settlement_type: str = Form(..., description="Settlement type"),
     client_segment_id: str = Form(None, description="Client segment ID"),
     priority: int = Form(1, description="Priority order"),
     active: bool = Form(True, description="Whether the letter is active"),
     template_variables: str = Form("[]", description="JSON array of template variables"),
     conditions: str = Form("{}", description="JSON object of conditions"),
     # File upload
-    document: UploadFile = File(..., description="PDF document to upload")
+    document: UploadFile = File(..., description="Word document to upload")
 ):
     """Update settlement instruction letter with document replacement"""
     auth_context = get_auth_context(request)
@@ -661,10 +664,10 @@ async def update_settlement_letter_with_document(
         )
     
     # Validate file type
-    if document.content_type != "application/pdf":
+    if document.content_type != "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are allowed"
+            detail="Only Word documents are allowed"
         )
     
     try:
@@ -686,6 +689,7 @@ async def update_settlement_letter_with_document(
         letter_update = SettlementInstructionLetterUpdate(
             rule_name=rule_name,
             product=product,
+            settlement_type=settlement_type,
             client_segment_id=client_segment_id,
             priority=priority,
             active=active,

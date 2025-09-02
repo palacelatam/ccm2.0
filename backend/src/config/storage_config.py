@@ -16,8 +16,8 @@ STORAGE_LOCATION = "southamerica-west1"  # Santiago region
 
 # File upload constraints
 MAX_FILE_SIZE_MB = 10  # 10MB max file size
-ALLOWED_CONTENT_TYPES = ["application/pdf"]
-ALLOWED_EXTENSIONS = [".pdf"]
+ALLOWED_CONTENT_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+ALLOWED_EXTENSIONS = [".docx"]
 
 def get_storage_client():
     """
@@ -83,7 +83,7 @@ def generate_storage_path(bank_id: str, segment_id: str, filename: str, unique_s
         unique_suffix = str(uuid.uuid4())[:8]
     
     # Build filename
-    final_filename = f"{name_without_ext}_{timestamp}_{unique_suffix}.pdf"
+    final_filename = f"{name_without_ext}_{timestamp}_{unique_suffix}.docx"
     
     # Build full path
     return f"{bank_id}/{segment_id or 'default'}/{final_filename}"
@@ -100,15 +100,15 @@ def validate_file(file_content: bytes, filename: str, content_type: str) -> tupl
     
     # Check content type
     if content_type not in ALLOWED_CONTENT_TYPES:
-        return False, f"Content type '{content_type}' not allowed. Only PDF files are permitted."
+        return False, f"Content type '{content_type}' not allowed. Only Word documents are permitted."
     
     # Check file extension
     if not any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
         return False, f"File extension not allowed. Only {', '.join(ALLOWED_EXTENSIONS)} files are permitted."
     
-    # Basic PDF signature check (PDF files start with %PDF)
-    if not file_content.startswith(b'%PDF'):
-        return False, "Invalid PDF file format"
+    # Basic DOCX signature check (DOCX files start with PK as they are ZIP archives)
+    if not file_content.startswith(b'PK'):
+        return False, "Invalid Word document format"
     
     return True, ""
 
