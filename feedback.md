@@ -1,93 +1,15 @@
-Compiled with problems:
-×
-ERROR in src/pages/admin/AdminDashboard.tsx:432:7
-TS2345: Argument of type '{ active: true; priority: number; name: string; counterparty: string; cashflowCurrency: string; product: string; bankName: string; swiftCode: string; accountCurrency: string; accountNumber: string; }' is not assignable to parameter of type 'SetStateAction<Partial<SettlementRule>>'.
-  Object literal may only specify known properties, and 'cashflowCurrency' does not exist in type 'SetStateAction<Partial<SettlementRule>>'.
-    430 |       name: '',
-    431 |       counterparty: '',
-  > 432 |       cashflowCurrency: '',
-        |       ^^^^^^^^^^^^^^^^^^^^
-    433 |       product: '',
-    434 |       bankName: '',
-    435 |       swiftCode: '',
-ERROR in src/pages/admin/AdminDashboard.tsx:449:22
-TS2339: Property 'cashflowCurrency' does not exist on type 'SettlementRule'.
-    447 |       return (
-    448 |         existingRule.counterparty === rule.counterparty &&
-  > 449 |         existingRule.cashflowCurrency === rule.cashflowCurrency &&
-        |                      ^^^^^^^^^^^^^^^^
-    450 |         existingRule.product === rule.product &&
-    451 |         existingRule.bankName === rule.bankName &&
-    452 |         existingRule.accountCurrency === rule.accountCurrency
-ERROR in src/pages/admin/AdminDashboard.tsx:449:48
-TS2339: Property 'cashflowCurrency' does not exist on type 'Partial<SettlementRule>'.
-    447 |       return (
-    448 |         existingRule.counterparty === rule.counterparty &&
-  > 449 |         existingRule.cashflowCurrency === rule.cashflowCurrency &&
-        |                                                ^^^^^^^^^^^^^^^^
-    450 |         existingRule.product === rule.product &&
-    451 |         existingRule.bankName === rule.bankName &&
-    452 |         existingRule.accountCurrency === rule.accountCurrency
-ERROR in src/pages/admin/AdminDashboard.tsx:451:22
-TS2339: Property 'bankName' does not exist on type 'SettlementRule'.
-    449 |         existingRule.cashflowCurrency === rule.cashflowCurrency &&
-    450 |         existingRule.product === rule.product &&
-  > 451 |         existingRule.bankName === rule.bankName &&
-        |                      ^^^^^^^^
-    452 |         existingRule.accountCurrency === rule.accountCurrency
-    453 |       );
-    454 |     });
-ERROR in src/pages/admin/AdminDashboard.tsx:451:40
-TS2339: Property 'bankName' does not exist on type 'Partial<SettlementRule>'.
-    449 |         existingRule.cashflowCurrency === rule.cashflowCurrency &&
-    450 |         existingRule.product === rule.product &&
-  > 451 |         existingRule.bankName === rule.bankName &&
-        |                                        ^^^^^^^^
-    452 |         existingRule.accountCurrency === rule.accountCurrency
-    453 |       );
-    454 |     });
-ERROR in src/pages/admin/AdminDashboard.tsx:452:22
-TS2339: Property 'accountCurrency' does not exist on type 'SettlementRule'.
-    450 |         existingRule.product === rule.product &&
-    451 |         existingRule.bankName === rule.bankName &&
-  > 452 |         existingRule.accountCurrency === rule.accountCurrency
-        |                      ^^^^^^^^^^^^^^^
-    453 |       );
-    454 |     });
-    455 |   };
-ERROR in src/pages/admin/AdminDashboard.tsx:452:47
-TS2339: Property 'accountCurrency' does not exist on type 'Partial<SettlementRule>'.
-    450 |         existingRule.product === rule.product &&
-    451 |         existingRule.bankName === rule.bankName &&
-  > 452 |         existingRule.accountCurrency === rule.accountCurrency
-        |                                               ^^^^^^^^^^^^^^^
-    453 |       );
-    454 |     });
-    455 |   };
-ERROR in src/pages/admin/AdminDashboard.tsx:1891:61
-TS2339: Property 'cashflowCurrency' does not exist on type 'SettlementRule'.
-    1889 |                           <div className="table-cell">{rule.name}</div>
-    1890 |                           <div className="table-cell">{rule.counterparty || '-'}</div>
-  > 1891 |                           <div className="table-cell">{rule.cashflowCurrency}</div>
-         |                                                             ^^^^^^^^^^^^^^^^
-    1892 |                           <div className="table-cell">{rule.product || '-'}</div>
-    1893 |                           <div className="separator-cell"></div>
-    1894 |                           <div className="table-cell">{rule.bankName}</div>
-ERROR in src/pages/admin/AdminDashboard.tsx:1894:61
-TS2339: Property 'bankName' does not exist on type 'SettlementRule'.
-    1892 |                           <div className="table-cell">{rule.product || '-'}</div>
-    1893 |                           <div className="separator-cell"></div>
-  > 1894 |                           <div className="table-cell">{rule.bankName}</div>
-         |                                                             ^^^^^^^^
-    1895 |                           <div className="table-cell">{rule.accountNumber}</div>
-    1896 |                           <div className="table-cell actions">
-    1897 |                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
-ERROR in src/pages/admin/AdminDashboard.tsx:1895:61
-TS2339: Property 'accountNumber' does not exist on type 'SettlementRule'.
-    1893 |                           <div className="separator-cell"></div>
-    1894 |                           <div className="table-cell">{rule.bankName}</div>
-  > 1895 |                           <div className="table-cell">{rule.accountNumber}</div>
-         |                                                             ^^^^^^^^^^^^^
-    1896 |                           <div className="table-cell actions">
-    1897 |                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
-    1898 |                             <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>
+2025-09-03 16:23:13,145 - urllib3.connectionpool - DEBUG - https://identitytoolkit.googleapis.com:443 "POST /v1/projects/ccm-dev-pool/accounts:lookup HTTP/1.1" 200 None
+2025-09-03 16:23:13,226 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
+2025-09-03 16:23:13,256 - services.client_service - INFO - Raw Firestore document: id='Du3zZkTyLp4PMyXHeby3', exists=True
+2025-09-03 16:23:13,256 - services.client_service - INFO - Document data: {'abonarCurrency': 'CLP', 'lastUpdatedAt': DatetimeWithNanoseconds(2025, 9, 3, 15, 35, 50, 939746, tzinfo=datetime.timezone.utc), 'cargarAccountNumber': '2015678901', 'direction': 'compra', 'cargarSwiftCode': 'ABCCCL22', 'centralBankTradeCode': '10053', 'lastUpdatedBy': <google.cloud.firestore_v1.document.DocumentReference object at 0x00000154B4A86150>, 'cargarCurrency': 'USD', 'product': 'Spot', 'name': 'Test 4', 'active': True, 'cargarBankName': 'Banco ABC', 'counterparty': '', 'abonarAccountNumber': '2011234568', 'abonarBankName': 'Banco ABC', 'modalidad': 'entregaFisica', 'abonarSwiftCode': 'ABCCCL22', 'createdAt': DatetimeWithNanoseconds(2025, 9, 3, 15, 35, 50, 939746, tzinfo=datetime.timezone.utc), 'priority': 1}
+2025-09-03 16:23:13,256 - services.client_service - INFO - Using document ID: Du3zZkTyLp4PMyXHeby3
+2025-09-03 16:23:13,256 - services.client_service - INFO - Final rule data: id=Du3zZkTyLp4PMyXHeby3, name=Test 4, priority=1
+2025-09-03 16:23:13,258 - services.client_service - INFO - Raw Firestore document: id='FTcTs2RDLNKiMLpwpsBz', exists=True
+2025-09-03 16:23:13,258 - services.client_service - INFO - Document data: {'active': True, 'centralBankTradeCodeIn': '10425', 'counterparty': 'Banco ABC', 'name': 'USD Fwd Settlements', 'lastUpdatedAt': DatetimeWithNanoseconds(2025, 9, 3, 10, 39, 44, 733958, tzinfo=datetime.timezone.utc), 'direction': 'IN', 'bankAccountId': 'usd-account-xyz', 'lastUpdatedBy': <google.cloud.firestore_v1.document.DocumentReference object at 0x00000154B4C76DD0>, 'createdAt': DatetimeWithNanoseconds(2025, 8, 11, 14, 31, 28, 70000, tzinfo=datetime.timezone.utc), 'product': 'Forward', 'centralBankTradeCodeOut': '20500', 'priority': 1, 'cashflowCurrency': 'USD'}
+2025-09-03 16:23:13,259 - services.client_service - INFO - Using document ID: FTcTs2RDLNKiMLpwpsBz
+2025-09-03 16:23:13,259 - services.client_service - INFO - Final rule data: id=FTcTs2RDLNKiMLpwpsBz, name=USD Fwd Settlements, priority=1
+2025-09-03 16:23:13,259 - services.client_service - ERROR - Error getting settlement rules for client xyz-corp: 1 validation error for SettlementRule
+modalidad
+  Field required [type=missing, input_value={'active': True, 'central... 'FTcTs2RDLNKiMLpwpsBz'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.5/v/missing
+INFO:     127.0.0.1:55925 - "GET /api/v1/clients/xyz-corp/settlement-rules HTTP/1.1" 200 OK

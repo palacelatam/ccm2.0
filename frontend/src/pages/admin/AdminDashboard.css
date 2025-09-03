@@ -456,9 +456,9 @@ input:checked + .slider:before {
   overflow: hidden;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1.2fr 0.8fr 0.8fr;
+.rules-table .table-header {
+  display: grid !important;
+  grid-template-columns: 70px 90px 2fr 1fr 1.2fr 0.8fr 1fr 1fr 1fr 80px !important;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   font-weight: 600;
@@ -475,9 +475,9 @@ input:checked + .slider:before {
   border-right: none;
 }
 
-.table-row {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1.2fr 0.8fr 0.8fr;
+.rules-table .table-row {
+  display: grid !important;
+  grid-template-columns: 70px 90px 2fr 1fr 1.2fr 0.8fr 1fr 1fr 1fr 80px !important;
   border-bottom: 1px solid var(--border-color);
   transition: background 0.2s ease;
 }
@@ -770,7 +770,7 @@ input:checked + .slider:before {
 @media (max-width: 1200px) {
   .table-header,
   .table-row {
-    grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr 1fr 0.6fr 0.6fr;
+    grid-template-columns: 50px 70px 1.5fr 1.2fr 1fr 0.8fr 1fr 0.8fr 0.8fr 60px;
   }
   
   .form-grid {
@@ -827,7 +827,7 @@ input:checked + .slider:before {
   
   .rules-table .table-header,
   .rules-table .table-row {
-    grid-template-columns: 50px 70px 2px 150px 100px 70px 80px 2px 100px 120px 60px;
+    grid-template-columns: 40px 60px 1fr 1fr 0.8fr 0.6fr 0.8fr 0.6fr 0.6fr 50px;
     font-size: 0.8rem;
   }
   
@@ -868,68 +868,7 @@ input:checked + .slider:before {
   padding: 0;
 }
 
-/* Settlement Rules Table */
-.rules-table .table-header,
-.rules-table .table-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.rules-table .table-header > *,
-.rules-table .table-row > * {
-  min-height: 30px;
-}
-
-.rules-table .header-cell:nth-child(1), /* Active */
-.rules-table .table-cell:nth-child(1) {
-  flex: 0 0 50px;
-}
-
-.rules-table .header-cell:nth-child(2), /* Priority */
-.rules-table .table-cell:nth-child(2) {
-  flex: 0 0 70px;
-}
-
-.rules-table .separator-cell {
-  flex: 0 0 2px;
-  background: var(--border-color);
-}
-
-.rules-table .header-cell:nth-child(4), /* Name */
-.rules-table .table-cell:nth-child(4) {
-  flex: 1 1 200px;
-}
-
-.rules-table .header-cell:nth-child(5), /* Counterparty */
-.rules-table .table-cell:nth-child(5) {
-  flex: 1 1 100px;
-}
-
-.rules-table .header-cell:nth-child(6), /* Currency */
-.rules-table .table-cell:nth-child(6) {
-  flex: 0 0 100px;
-}
-
-.rules-table .header-cell:nth-child(7), /* Product */
-.rules-table .table-cell:nth-child(7) {
-  flex: 0 0 100px;
-}
-
-.rules-table .header-cell:nth-child(9), /* Bank Name */
-.rules-table .table-cell:nth-child(9) {
-  flex: 0 0 100px;
-}
-
-.rules-table .header-cell:nth-child(10), /* Account Number */
-.rules-table .table-cell:nth-child(10) {
-  flex: 1 1 140px;
-}
-
-.rules-table .header-cell:nth-child(11), /* Actions */
-.rules-table .table-cell:nth-child(11) {
-  flex: 0 0 80px;
-}
+/* Settlement Rules Table - Use CSS Grid for consistent alignment */
 
 .rules-table .table-cell {
   padding: 0.5rem 0.25rem;

@@ -1845,14 +1845,13 @@ const AdminDashboard: React.FC = () => {
                 <div className="table-header">
                   <div className="header-cell">{t('admin.settlement.table.active')}</div>
                   <div className="header-cell">{t('admin.settlement.table.priority')}</div>
-                  <div className="separator-cell"></div>
                   <div className="header-cell">{t('admin.settlement.table.name')}</div>
-                  <div className="header-cell">{t('admin.settlement.table.counterparty')}</div>
                   <div className="header-cell">{t('admin.settlement.table.direction')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.counterparty')}</div>
                   <div className="header-cell">{t('admin.settlement.table.product')}</div>
-                  <div className="separator-cell"></div>
-                  <div className="header-cell">{t('admin.settlement.table.currencies')}</div>
-                  <div className="header-cell">{t('admin.settlement.table.banks')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.modalidad')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.payCurrency')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.receiveCurrency')}</div>
                   <div className="header-cell">{t('admin.settlement.table.actions')}</div>
                 </div>
                 
@@ -1891,14 +1890,17 @@ const AdminDashboard: React.FC = () => {
                             <span className="drag-handle">⋮⋮</span>
                             {rule.priority}
                           </div>
-                          <div className="separator-cell"></div>
-                          <div className="table-cell">{rule.name}</div>
-                          <div className="table-cell">{rule.counterparty || '-'}</div>
-                          <div className="table-cell">{rule.direction || '-'}</div>
-                          <div className="table-cell">{rule.product || '-'}</div>
-                          <div className="separator-cell"></div>
-                          <div className="table-cell">{rule.cargarCurrency || '-'} / {rule.abonarCurrency || '-'}</div>
-                          <div className="table-cell">{rule.cargarBankName || '-'} / {rule.abonarBankName || '-'}</div>
+                          <div className="table-cell" title="Name: {rule.name}">{rule.name}</div>
+                          <div className="table-cell" title="Direction">
+                            {rule.direction ? t(`admin.settlement.directions.${rule.direction}`) : '-'}
+                          </div>
+                          <div className="table-cell" title="Counterparty">{rule.counterparty || 'No Counterparty'}</div>
+                          <div className="table-cell" title="Product">{rule.product || '-'}</div>
+                          <div className="table-cell" title="Modalidad">
+                            {rule.modalidad ? t(`admin.settlement.modalidad.${rule.modalidad}`) : '-'}
+                          </div>
+                          <div className="table-cell" title="Pay Currency (Abonar)">{rule.abonarCurrency || '-'}</div>
+                          <div className="table-cell" title="Receive Currency (Cargar)">{rule.cargarCurrency || '-'}</div>
                           <div className="table-cell actions">
                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
                             <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>

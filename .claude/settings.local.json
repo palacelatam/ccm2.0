@@ -13,7 +13,9 @@
       "Bash(python:*)",
       "Bash(rm:*)",
       "Bash(cp:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Read(c:\\Users\\bencl\\OneDrive - palace.cl\\Pictures\\Screenshots/**)",
+      "Read(c:\\Users\\bencl\\OneDrive - palace.cl\\Pictures\\Screenshots/**)"
     ],
     "deny": []
   }
