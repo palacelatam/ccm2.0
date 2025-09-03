@@ -91,6 +91,22 @@ const SettlementRulesSettings: React.FC<SettlementRulesSettingsProps> = ({ clien
                     <span className="detail-label">Bank Account:</span>
                     <span className="detail-value">{rule.bankAccountId}</span>
                   </div>
+                  {(rule.centralBankTradeCodeIn || rule.centralBankTradeCodeOut) && (
+                    <>
+                      {rule.centralBankTradeCodeIn && (
+                        <div className="detail-row">
+                          <span className="detail-label">Inflow Code:</span>
+                          <span className="detail-value">{rule.centralBankTradeCodeIn}</span>
+                        </div>
+                      )}
+                      {rule.centralBankTradeCodeOut && (
+                        <div className="detail-row">
+                          <span className="detail-label">Outflow Code:</span>
+                          <span className="detail-value">{rule.centralBankTradeCodeOut}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div className="rule-actions">
                   <button className="btn-small btn-secondary">Edit</button>

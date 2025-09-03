@@ -247,7 +247,9 @@
         "bankName": "Bank Name",
         "swiftCode": "SWIFT Code",
         "accountCurrency": "Account Currency",
-        "accountNumber": "Account Number"
+        "accountNumber": "Account Number",
+        "centralBankTradeCodeIn": "Inflows Trade Code (Optional)",
+        "centralBankTradeCodeOut": "Outflows Trade Code (Optional)"
       },
       "table": {
         "active": "Active",
@@ -265,6 +267,7 @@
       },
       "form": {
         "generalInfo": "General Information",
+        "centralBankTradeCode": "Central Bank Trade Code",
         "accountDetails": "Account Details",
         "save": "Save Rule",
         "saving": "Saving...",
@@ -282,7 +285,9 @@
         "bankName": "Select bank...",
         "swiftCode": "Select SWIFT code...",
         "accountCurrency": "Select account currency...",
-        "accountNumber": "Select account..."
+        "accountNumber": "Select account...",
+        "centralBankTradeCodeIn": "Select inflow code (optional)...",
+        "centralBankTradeCodeOut": "Select outflow code (optional)..."
       }
     },
     "accounts": {

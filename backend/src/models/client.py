@@ -136,6 +136,8 @@ class SettlementRule(BaseFirestoreModel):
     cashflow_currency: str = Field(alias="cashflowCurrency")
     product: str  # FX_SPOT, FX_FORWARD, FX_SWAP
     bank_account_id: str = Field(alias="bankAccountId")  # Reference to bank account
+    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
+    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True
@@ -149,6 +151,8 @@ class SettlementRuleCreate(BaseModel):
     product: str
     bank_account_id: str = Field(alias="bankAccountId")
     priority: int = 1
+    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
+    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True
@@ -163,6 +167,8 @@ class SettlementRuleUpdate(BaseModel):
     cashflow_currency: Optional[str] = Field(None, alias="cashflowCurrency")
     product: Optional[str] = None
     bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
+    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
+    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True

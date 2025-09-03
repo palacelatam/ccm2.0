@@ -229,7 +229,9 @@
         "bankName": "Nome do Banco",
         "swiftCode": "Código SWIFT",
         "accountCurrency": "Moeda da Conta",
-        "accountNumber": "Número da Conta"
+        "accountNumber": "Número da Conta",
+        "centralBankTradeCodeIn": "Código Entradas (Opcional)",
+        "centralBankTradeCodeOut": "Código Saídas (Opcional)"
       },
       "table": {
         "active": "Ativa",
@@ -247,6 +249,7 @@
       },
       "form": {
         "generalInfo": "Informações Gerais",
+        "centralBankTradeCode": "Código de Comércio BCCh",
         "accountDetails": "Detalhes da Conta",
         "save": "Salvar Regra",
         "saving": "Salvando...",
@@ -264,7 +267,9 @@
         "bankName": "Selecionar banco...",
         "swiftCode": "Selecionar código SWIFT...",
         "accountCurrency": "Selecionar moeda da conta...",
-        "accountNumber": "Selecionar conta..."
+        "accountNumber": "Selecionar conta...",
+        "centralBankTradeCodeIn": "Selecionar código entradas (opcional)...",
+        "centralBankTradeCodeOut": "Selecionar código saídas (opcional)..."
       }
     },
     "accounts": {

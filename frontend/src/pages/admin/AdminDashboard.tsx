@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../../components/auth/AuthContext';
 import { clientService } from '../../services/api/clientService';
 import AlertModal from '../../components/common/AlertModal';
+import { getInflowTradeCodeOptions, getOutflowTradeCodeOptions } from '../../constants/tradeCodes';
 import './AdminDashboard.css';
 
 interface AlertSettings {
@@ -50,6 +51,8 @@ interface SettlementRule {
   swiftCode: string;
   accountCurrency: string;
   accountNumber: string;
+  centralBankTradeCodeIn?: string;
+  centralBankTradeCodeOut?: string;
 }
 
 interface BankAccount {
@@ -347,7 +350,9 @@ const AdminDashboard: React.FC = () => {
               bankName: bankAccount?.bankName || '',
               swiftCode: bankAccount?.swiftCode || '',
               accountCurrency: bankAccount?.accountCurrency || '',
-              accountNumber: bankAccount?.accountNumber || ''
+              accountNumber: bankAccount?.accountNumber || '',
+              centralBankTradeCodeIn: rule.centralBankTradeCodeIn || '',
+              centralBankTradeCodeOut: rule.centralBankTradeCodeOut || ''
             };
           });
           setSettlementRules(rules);
@@ -606,7 +611,9 @@ const AdminDashboard: React.FC = () => {
         cashflowCurrency: ruleForm.cashflowCurrency!,
         product: ruleForm.product || '',
         bankAccountId: matchingAccount.id,
-        priority: ruleForm.priority || 1
+        priority: ruleForm.priority || 1,
+        centralBankTradeCodeIn: ruleForm.centralBankTradeCodeIn || undefined,
+        centralBankTradeCodeOut: ruleForm.centralBankTradeCodeOut || undefined
       };
 
       if (editingRule && editingRule.id) {
@@ -2059,6 +2066,40 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="form-section">
+                  <h4>{t('admin.settlement.form.centralBankTradeCode')}</h4>
+                  <div className="form-grid two-column">
+                    <div className="form-group">
+                      <label>{t('admin.settlement.rules.centralBankTradeCodeIn')}</label>
+                      <select
+                        value={ruleForm.centralBankTradeCodeIn || ''}
+                        onChange={(e) => updateRuleForm('centralBankTradeCodeIn', e.target.value)}
+                      >
+                        <option value="">{t('admin.settlement.placeholders.centralBankTradeCodeIn')}</option>
+                        {getInflowTradeCodeOptions().map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>{t('admin.settlement.rules.centralBankTradeCodeOut')}</label>
+                      <select
+                        value={ruleForm.centralBankTradeCodeOut || ''}
+                        onChange={(e) => updateRuleForm('centralBankTradeCodeOut', e.target.value)}
+                      >
+                        <option value="">{t('admin.settlement.placeholders.centralBankTradeCodeOut')}</option>
+                        {getOutflowTradeCodeOptions().map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-section">
                   <h4>{t('admin.settlement.form.accountDetails')}</h4>
                   
                   {/* Show helpful message if no accounts match cashflow currency */}
@@ -2174,6 +2215,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
 
                 <div className="form-actions">
                   <button 

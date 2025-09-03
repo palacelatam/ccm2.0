@@ -104,6 +104,8 @@ export interface SettlementRule {
   cashflowCurrency: string;
   product: string;
   bankAccountId: string;
+  centralBankTradeCodeIn?: string;
+  centralBankTradeCodeOut?: string;
 }
 
 export interface SettlementRuleCreate {
@@ -113,6 +115,8 @@ export interface SettlementRuleCreate {
   product: string;
   bankAccountId: string;
   priority: number;
+  centralBankTradeCodeIn?: string;
+  centralBankTradeCodeOut?: string;
 }
 
 export interface SettlementRuleUpdate {
@@ -123,6 +127,8 @@ export interface SettlementRuleUpdate {
   cashflowCurrency?: string;
   product?: string;
   bankAccountId?: string;
+  centralBankTradeCodeIn?: string;
+  centralBankTradeCodeOut?: string;
 }
 
 // Data Mapping Types
