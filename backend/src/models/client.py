@@ -132,12 +132,25 @@ class SettlementRule(BaseFirestoreModel):
     active: bool = True
     priority: int = 1
     name: str
+    direction: str  # "compra" or "venta" (Purchase/Sale of Foreign Currency)
     counterparty: str
-    cashflow_currency: str = Field(alias="cashflowCurrency")
-    product: str  # FX_SPOT, FX_FORWARD, FX_SWAP
-    bank_account_id: str = Field(alias="bankAccountId")  # Reference to bank account
-    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
-    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
+    product: str  # "Spot" or "Forward" 
+    modalidad: str  # "entregaFisica" or "compensacion" (Physical Delivery or Net Settlement)
+    
+    # Account details - Cargar section
+    cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")
+    cargar_bank_name: Optional[str] = Field(None, alias="cargarBankName")
+    cargar_swift_code: Optional[str] = Field(None, alias="cargarSwiftCode")
+    cargar_account_number: Optional[str] = Field(None, alias="cargarAccountNumber")
+    
+    # Account details - Abonar section
+    abonar_currency: Optional[str] = Field(None, alias="abonarCurrency")
+    abonar_bank_name: Optional[str] = Field(None, alias="abonarBankName")
+    abonar_swift_code: Optional[str] = Field(None, alias="abonarSwiftCode")
+    abonar_account_number: Optional[str] = Field(None, alias="abonarAccountNumber")
+    
+    # Central Bank Trade Code - single field (not direction-specific)
+    central_bank_trade_code: Optional[str] = Field(None, alias="centralBankTradeCode", description="Central Bank trade code (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True
@@ -146,13 +159,26 @@ class SettlementRule(BaseFirestoreModel):
 class SettlementRuleCreate(BaseModel):
     """Model for creating a settlement rule"""
     name: str
+    direction: str  # "compra" or "venta"
     counterparty: str
-    cashflow_currency: str = Field(alias="cashflowCurrency")
-    product: str
-    bank_account_id: str = Field(alias="bankAccountId")
+    product: str  # "Spot" or "Forward"
+    modalidad: str  # "entregaFisica" or "compensacion"
     priority: int = 1
-    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
-    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
+    
+    # Account details - Cargar section
+    cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")
+    cargar_bank_name: Optional[str] = Field(None, alias="cargarBankName")
+    cargar_swift_code: Optional[str] = Field(None, alias="cargarSwiftCode")
+    cargar_account_number: Optional[str] = Field(None, alias="cargarAccountNumber")
+    
+    # Account details - Abonar section
+    abonar_currency: Optional[str] = Field(None, alias="abonarCurrency")
+    abonar_bank_name: Optional[str] = Field(None, alias="abonarBankName")
+    abonar_swift_code: Optional[str] = Field(None, alias="abonarSwiftCode")
+    abonar_account_number: Optional[str] = Field(None, alias="abonarAccountNumber")
+    
+    # Central Bank Trade Code
+    central_bank_trade_code: Optional[str] = Field(None, alias="centralBankTradeCode", description="Central Bank trade code (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True
@@ -163,12 +189,25 @@ class SettlementRuleUpdate(BaseModel):
     active: Optional[bool] = None
     priority: Optional[int] = None
     name: Optional[str] = None
+    direction: Optional[str] = None  # "compra" or "venta"
     counterparty: Optional[str] = None
-    cashflow_currency: Optional[str] = Field(None, alias="cashflowCurrency")
-    product: Optional[str] = None
-    bank_account_id: Optional[str] = Field(None, alias="bankAccountId")
-    central_bank_trade_code_in: Optional[str] = Field(None, alias="centralBankTradeCodeIn", description="Central Bank trade code for inflows (Código de Comercio BCCh)")
-    central_bank_trade_code_out: Optional[str] = Field(None, alias="centralBankTradeCodeOut", description="Central Bank trade code for outflows (Código de Comercio BCCh)")
+    product: Optional[str] = None  # "Spot" or "Forward"
+    modalidad: Optional[str] = None  # "entregaFisica" or "compensacion"
+    
+    # Account details - Cargar section
+    cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")
+    cargar_bank_name: Optional[str] = Field(None, alias="cargarBankName")
+    cargar_swift_code: Optional[str] = Field(None, alias="cargarSwiftCode")
+    cargar_account_number: Optional[str] = Field(None, alias="cargarAccountNumber")
+    
+    # Account details - Abonar section
+    abonar_currency: Optional[str] = Field(None, alias="abonarCurrency")
+    abonar_bank_name: Optional[str] = Field(None, alias="abonarBankName")
+    abonar_swift_code: Optional[str] = Field(None, alias="abonarSwiftCode")
+    abonar_account_number: Optional[str] = Field(None, alias="abonarAccountNumber")
+    
+    # Central Bank Trade Code
+    central_bank_trade_code: Optional[str] = Field(None, alias="centralBankTradeCode", description="Central Bank trade code (Código de Comercio BCCh)")
     
     class Config:
         populate_by_name = True

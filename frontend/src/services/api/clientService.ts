@@ -100,35 +100,65 @@ export interface SettlementRule {
   active: boolean;
   priority: number;
   name: string;
+  direction: string;
   counterparty: string;
-  cashflowCurrency: string;
   product: string;
-  bankAccountId: string;
-  centralBankTradeCodeIn?: string;
-  centralBankTradeCodeOut?: string;
+  modalidad: string;
+  // Account details - Cargar section
+  cargarCurrency?: string;
+  cargarBankName?: string;
+  cargarSwiftCode?: string;
+  cargarAccountNumber?: string;
+  // Account details - Abonar section
+  abonarCurrency?: string;
+  abonarBankName?: string;
+  abonarSwiftCode?: string;
+  abonarAccountNumber?: string;
+  // Central Bank Trade Code
+  centralBankTradeCode?: string;
 }
 
 export interface SettlementRuleCreate {
   name: string;
+  direction: string;
   counterparty: string;
-  cashflowCurrency: string;
   product: string;
-  bankAccountId: string;
+  modalidad: string;
   priority: number;
-  centralBankTradeCodeIn?: string;
-  centralBankTradeCodeOut?: string;
+  // Account details - Cargar section
+  cargarCurrency?: string;
+  cargarBankName?: string;
+  cargarSwiftCode?: string;
+  cargarAccountNumber?: string;
+  // Account details - Abonar section
+  abonarCurrency?: string;
+  abonarBankName?: string;
+  abonarSwiftCode?: string;
+  abonarAccountNumber?: string;
+  // Central Bank Trade Code
+  centralBankTradeCode?: string;
 }
 
 export interface SettlementRuleUpdate {
   active?: boolean;
   priority?: number;
   name?: string;
+  direction?: string;
   counterparty?: string;
-  cashflowCurrency?: string;
   product?: string;
-  bankAccountId?: string;
-  centralBankTradeCodeIn?: string;
-  centralBankTradeCodeOut?: string;
+  modalidad?: string;
+  // Account details - Cargar section
+  cargarCurrency?: string;
+  cargarBankName?: string;
+  cargarSwiftCode?: string;
+  cargarAccountNumber?: string;
+  // Account details - Abonar section
+  abonarCurrency?: string;
+  abonarBankName?: string;
+  abonarSwiftCode?: string;
+  abonarAccountNumber?: string;
+  // Central Bank Trade Code
+  centralBankTradeCode?: string;
 }
 
 // Data Mapping Types

@@ -84,28 +84,18 @@ const SettlementRulesSettings: React.FC<SettlementRulesSettingsProps> = ({ clien
                     <span className="detail-value">{rule.product}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Currency:</span>
-                    <span className="detail-value">{rule.cashflowCurrency}</span>
+                    <span className="detail-label">Cargar:</span>
+                    <span className="detail-value">{rule.cargarCurrency} - {rule.cargarBankName} ({rule.cargarAccountNumber})</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Bank Account:</span>
-                    <span className="detail-value">{rule.bankAccountId}</span>
+                    <span className="detail-label">Abonar:</span>
+                    <span className="detail-value">{rule.abonarCurrency} - {rule.abonarBankName} ({rule.abonarAccountNumber})</span>
                   </div>
-                  {(rule.centralBankTradeCodeIn || rule.centralBankTradeCodeOut) && (
-                    <>
-                      {rule.centralBankTradeCodeIn && (
-                        <div className="detail-row">
-                          <span className="detail-label">Inflow Code:</span>
-                          <span className="detail-value">{rule.centralBankTradeCodeIn}</span>
-                        </div>
-                      )}
-                      {rule.centralBankTradeCodeOut && (
-                        <div className="detail-row">
-                          <span className="detail-label">Outflow Code:</span>
-                          <span className="detail-value">{rule.centralBankTradeCodeOut}</span>
-                        </div>
-                      )}
-                    </>
+                  {rule.centralBankTradeCode && (
+                    <div className="detail-row">
+                      <span className="detail-label">Central Bank Code:</span>
+                      <span className="detail-value">{rule.centralBankTradeCode}</span>
+                    </div>
                   )}
                 </div>
                 <div className="rule-actions">

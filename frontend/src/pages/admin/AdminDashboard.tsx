@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../../components/auth/AuthContext';
 import { clientService } from '../../services/api/clientService';
 import AlertModal from '../../components/common/AlertModal';
-import { getInflowTradeCodeOptions, getOutflowTradeCodeOptions } from '../../constants/tradeCodes';
+import { getTradeCodeOptions } from '../../constants/tradeCodes';
 import './AdminDashboard.css';
 
 interface AlertSettings {
@@ -44,15 +44,22 @@ interface SettlementRule {
   active: boolean;
   priority: number;
   name: string;
+  direction: string;
   counterparty: string;
-  cashflowCurrency: string;
   product: string;
-  bankName: string;
-  swiftCode: string;
-  accountCurrency: string;
-  accountNumber: string;
-  centralBankTradeCodeIn?: string;
-  centralBankTradeCodeOut?: string;
+  modalidad: string;
+  // Account details - Cargar section
+  cargarCurrency?: string;
+  cargarBankName?: string;
+  cargarSwiftCode?: string;
+  cargarAccountNumber?: string;
+  // Account details - Abonar section
+  abonarCurrency?: string;
+  abonarBankName?: string;
+  abonarSwiftCode?: string;
+  abonarAccountNumber?: string;
+  // Central Bank Trade Code
+  centralBankTradeCode?: string;
 }
 
 interface BankAccount {
@@ -182,68 +189,10 @@ const AdminDashboard: React.FC = () => {
   const [newPhoneDisputed, setNewPhoneDisputed] = useState('');
   
   // Bank Accounts state
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([
-    {
-      id: '1',
-      active: true,
-      accountName: 'USD Main Account',
-      bankName: 'Banco Santander Chile',
-      swiftCode: 'BSCHCLRM',
-      accountCurrency: 'USD',
-      accountNumber: '1234567890',
-      isDefault: true
-    },
-    {
-      id: '2',
-      active: true,
-      accountName: 'EUR Operations Account',
-      bankName: 'Banco de Crédito e Inversiones',
-      swiftCode: 'BCICHCL2',
-      accountCurrency: 'EUR',
-      accountNumber: '2345678901',
-      isDefault: false
-    },
-    {
-      id: '3',
-      active: true,
-      accountName: 'CLP Clearing Account',
-      bankName: 'Banco del Estado de Chile',
-      swiftCode: 'BECHCLRM',
-      accountCurrency: 'CLP',
-      accountNumber: '3456789012',
-      isDefault: false
-    }
-  ]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   // Settlement Rules state
-  const [settlementRules, setSettlementRules] = useState<SettlementRule[]>([
-    {
-      id: '1',
-      active: true,
-      priority: 1,
-      name: 'USD Santander Inbound',
-      counterparty: 'Banco Santander Chile',
-      cashflowCurrency: 'USD',
-      product: 'FX SPOT',
-      bankName: 'Banco Santander Chile',
-      swiftCode: 'BSCHCLRM',
-      accountCurrency: 'USD',
-      accountNumber: '12345678901'
-    },
-    {
-      id: '2',
-      active: true,
-      priority: 2,
-      name: 'EUR BCI Outbound',
-      counterparty: 'Banco de Crédito e Inversiones',
-      cashflowCurrency: 'EUR',
-      product: 'FX FORWARD',
-      bankName: 'Banco de Crédito e Inversiones',
-      swiftCode: 'BCICHCL2',
-      accountCurrency: 'EUR',  
-      accountNumber: '23456789012'
-    }
-  ]);
+  const [settlementRules, setSettlementRules] = useState<SettlementRule[]>([]);
   
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [editingRule, setEditingRule] = useState<SettlementRule | null>(null);
@@ -336,23 +285,24 @@ const AdminDashboard: React.FC = () => {
               finalId = `rule-${rule.priority}-${rule.name.replace(/\s+/g, '-').toLowerCase()}`;
             }
             
-            // Look up bank account details from bankAccountId using the local accounts array
-            const bankAccount = accounts.find(account => account.id === rule.bankAccountId);
-            
             return {
               id: finalId,
               active: rule.active,
               priority: rule.priority,
               name: rule.name,
+              direction: rule.direction || '',
               counterparty: rule.counterparty,
-              cashflowCurrency: rule.cashflowCurrency,
               product: rule.product,
-              bankName: bankAccount?.bankName || '',
-              swiftCode: bankAccount?.swiftCode || '',
-              accountCurrency: bankAccount?.accountCurrency || '',
-              accountNumber: bankAccount?.accountNumber || '',
-              centralBankTradeCodeIn: rule.centralBankTradeCodeIn || '',
-              centralBankTradeCodeOut: rule.centralBankTradeCodeOut || ''
+              modalidad: rule.modalidad || '',
+              cargarCurrency: rule.cargarCurrency || '',
+              cargarBankName: rule.cargarBankName || '',
+              cargarSwiftCode: rule.cargarSwiftCode || '',
+              cargarAccountNumber: rule.cargarAccountNumber || '',
+              abonarCurrency: rule.abonarCurrency || '',
+              abonarBankName: rule.abonarBankName || '',
+              abonarSwiftCode: rule.abonarSwiftCode || '',
+              abonarAccountNumber: rule.abonarAccountNumber || '',
+              centralBankTradeCode: rule.centralBankTradeCode || ''
             };
           });
           setSettlementRules(rules);
@@ -479,12 +429,17 @@ const AdminDashboard: React.FC = () => {
       priority: settlementRules.length + 1,
       name: '',
       counterparty: '',
-      cashflowCurrency: '',
       product: '',
-      bankName: '',
-      swiftCode: '',
-      accountCurrency: '',
-      accountNumber: ''
+      direction: '',
+      modalidad: '',
+      cargarCurrency: '',
+      cargarBankName: '',
+      cargarSwiftCode: '',
+      cargarAccountNumber: '',
+      abonarCurrency: '',
+      abonarBankName: '',
+      abonarSwiftCode: '',
+      abonarAccountNumber: ''
     });
     setShowRuleForm(true);
     setHasUnsavedChanges(true);
@@ -496,10 +451,11 @@ const AdminDashboard: React.FC = () => {
       if (excludeId && existingRule.id === excludeId) return false;
       return (
         existingRule.counterparty === rule.counterparty &&
-        existingRule.cashflowCurrency === rule.cashflowCurrency &&
+        existingRule.direction === rule.direction &&
         existingRule.product === rule.product &&
-        existingRule.bankName === rule.bankName &&
-        existingRule.accountCurrency === rule.accountCurrency
+        existingRule.modalidad === rule.modalidad &&
+        existingRule.cargarCurrency === rule.cargarCurrency &&
+        existingRule.abonarCurrency === rule.abonarCurrency
       );
     });
   };
@@ -538,12 +494,13 @@ const AdminDashboard: React.FC = () => {
     
     try {
       // Validate required fields
-      if (!ruleForm.name || !ruleForm.cashflowCurrency || !ruleForm.bankName || !ruleForm.swiftCode || 
-          !ruleForm.accountCurrency || !ruleForm.accountNumber) {
+      if (!ruleForm.name || !ruleForm.direction || !ruleForm.product || !ruleForm.modalidad ||
+          !ruleForm.cargarCurrency || !ruleForm.cargarBankName || !ruleForm.cargarAccountNumber ||
+          !ruleForm.abonarCurrency || !ruleForm.abonarBankName || !ruleForm.abonarAccountNumber) {
         setAlertModal({
           isOpen: true,
           title: 'Validation Error',
-          message: 'Please fill in all required fields (Active, Priority, Rule Name, Cashflow Currency, Bank Name, SWIFT Code, Account Currency, Account Number).',
+          message: 'Please fill in all required fields (Rule Name, Direction, Product, Modalidad, Cargar Currency/Bank/Account, Abonar Currency/Bank/Account).',
           type: 'warning'
         });
         return;
@@ -588,32 +545,22 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      // Find matching bank account
-      const matchingAccount = bankAccounts.find(account => 
-        account.bankName === ruleForm.bankName && 
-        account.swiftCode === ruleForm.swiftCode &&
-        account.accountNumber === ruleForm.accountNumber
-      );
-
-      if (!matchingAccount) {
-        setAlertModal({
-          isOpen: true,
-          title: 'Bank Account Not Found',
-          message: 'Please create the bank account first before creating settlement rules.',
-          type: 'warning'
-        });
-        return;
-      }
-
       const ruleData = {
         name: ruleForm.name!,
+        direction: ruleForm.direction || '',
         counterparty: ruleForm.counterparty || '',
-        cashflowCurrency: ruleForm.cashflowCurrency!,
         product: ruleForm.product || '',
-        bankAccountId: matchingAccount.id,
+        modalidad: ruleForm.modalidad || '',
         priority: ruleForm.priority || 1,
-        centralBankTradeCodeIn: ruleForm.centralBankTradeCodeIn || undefined,
-        centralBankTradeCodeOut: ruleForm.centralBankTradeCodeOut || undefined
+        cargarCurrency: ruleForm.cargarCurrency || '',
+        cargarBankName: ruleForm.cargarBankName || '',
+        cargarSwiftCode: ruleForm.cargarSwiftCode || '',
+        cargarAccountNumber: ruleForm.cargarAccountNumber || '',
+        abonarCurrency: ruleForm.abonarCurrency || '',
+        abonarBankName: ruleForm.abonarBankName || '',
+        abonarSwiftCode: ruleForm.abonarSwiftCode || '',
+        abonarAccountNumber: ruleForm.abonarAccountNumber || '',
+        centralBankTradeCode: ruleForm.centralBankTradeCode || undefined
       };
 
       if (editingRule && editingRule.id) {
@@ -1901,11 +1848,11 @@ const AdminDashboard: React.FC = () => {
                   <div className="separator-cell"></div>
                   <div className="header-cell">{t('admin.settlement.table.name')}</div>
                   <div className="header-cell">{t('admin.settlement.table.counterparty')}</div>
-                  <div className="header-cell">{t('admin.settlement.table.cashflowCurrency')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.direction')}</div>
                   <div className="header-cell">{t('admin.settlement.table.product')}</div>
                   <div className="separator-cell"></div>
-                  <div className="header-cell">{t('admin.settlement.table.bankName')}</div>
-                  <div className="header-cell">{t('admin.settlement.table.accountNumber')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.currencies')}</div>
+                  <div className="header-cell">{t('admin.settlement.table.banks')}</div>
                   <div className="header-cell">{t('admin.settlement.table.actions')}</div>
                 </div>
                 
@@ -1947,11 +1894,11 @@ const AdminDashboard: React.FC = () => {
                           <div className="separator-cell"></div>
                           <div className="table-cell">{rule.name}</div>
                           <div className="table-cell">{rule.counterparty || '-'}</div>
-                          <div className="table-cell">{rule.cashflowCurrency}</div>
+                          <div className="table-cell">{rule.direction || '-'}</div>
                           <div className="table-cell">{rule.product || '-'}</div>
                           <div className="separator-cell"></div>
-                          <div className="table-cell">{rule.bankName}</div>
-                          <div className="table-cell">{rule.accountNumber}</div>
+                          <div className="table-cell">{rule.cargarCurrency || '-'} / {rule.abonarCurrency || '-'}</div>
+                          <div className="table-cell">{rule.cargarBankName || '-'} / {rule.abonarBankName || '-'}</div>
                           <div className="table-cell actions">
                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
                             <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>
@@ -2012,6 +1959,20 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   
                   <div className="form-grid">
+                    <div className="form-group">
+                      <label>{t('admin.settlement.rules.direction')} *</label>
+                      <select
+                        value={ruleForm.direction || ''}
+                        onChange={(e) => updateRuleForm('direction', e.target.value)}
+                      >
+                        <option value="">{t('admin.settlement.placeholders.direction')}</option>
+                        <option value="compra">{t('admin.settlement.directions.compra')}</option>
+                        <option value="venta">{t('admin.settlement.directions.venta')}</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="form-grid">
                     
                     <div className="form-group">
                       <label>{t('admin.settlement.rules.counterparty')}</label>
@@ -2027,195 +1988,290 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     
                     <div className="form-group">
-                      <label>{t('admin.settlement.rules.cashflowCurrency')} *</label>
-                      <select
-                        value={ruleForm.cashflowCurrency || ''}
-                        onChange={(e) => {
-                          const selectedCurrency = e.target.value;
-                          updateRuleForm('cashflowCurrency', selectedCurrency);
-                          // Auto-set account currency to match cashflow currency
-                          updateRuleForm('accountCurrency', selectedCurrency);
-                          // Clear other account details since they depend on currency
-                          updateRuleForm('bankName', '');
-                          updateRuleForm('swiftCode', '');
-                          updateRuleForm('accountNumber', '');
-                        }}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.cashflowCurrency')}</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="CLP">CLP</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                      </select>
-                    </div>
-                    
-                    
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.product')}</label>
+                      <label>{t('admin.settlement.rules.product')} *</label>
                       <select
                         value={ruleForm.product || ''}
-                        onChange={(e) => updateRuleForm('product', e.target.value)}
+                        onChange={(e) => {
+                          const selectedProduct = e.target.value;
+                          updateRuleForm('product', selectedProduct);
+                          
+                          // Implement modalidad logic from specs:
+                          // - If Spot: default to "Entrega Física", cannot select "Compensación"
+                          // - If Forward: default to "Compensación", can select "Entrega Física"
+                          if (selectedProduct === 'Spot') {
+                            updateRuleForm('modalidad', 'entregaFisica');
+                          } else if (selectedProduct === 'Forward') {
+                            updateRuleForm('modalidad', 'compensacion');
+                          } else {
+                            updateRuleForm('modalidad', '');
+                          }
+                        }}
                       >
                         <option value="">{t('admin.settlement.placeholders.product')}</option>
                         <option value="Spot">Spot</option>
                         <option value="Forward">Forward</option>                    
                       </select>
                     </div>
-                  </div>
-                </div>
-
-                <div className="form-section">
-                  <h4>{t('admin.settlement.form.centralBankTradeCode')}</h4>
-                  <div className="form-grid two-column">
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.centralBankTradeCodeIn')}</label>
-                      <select
-                        value={ruleForm.centralBankTradeCodeIn || ''}
-                        onChange={(e) => updateRuleForm('centralBankTradeCodeIn', e.target.value)}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.centralBankTradeCodeIn')}</option>
-                        {getInflowTradeCodeOptions().map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.centralBankTradeCodeOut')}</label>
-                      <select
-                        value={ruleForm.centralBankTradeCodeOut || ''}
-                        onChange={(e) => updateRuleForm('centralBankTradeCodeOut', e.target.value)}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.centralBankTradeCodeOut')}</option>
-                        {getOutflowTradeCodeOptions().map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-section">
-                  <h4>{t('admin.settlement.form.accountDetails')}</h4>
-                  
-                  {/* Show helpful message if no accounts match cashflow currency */}
-                  {ruleForm.cashflowCurrency && getAvailableAccounts(undefined, undefined, ruleForm.cashflowCurrency).length === 0 && (
-                    <div className="no-accounts-message">
-                      <p>
-                        <strong>No {ruleForm.cashflowCurrency} accounts found.</strong>
-                      </p>
-                      <p>
-                        Please go to the <strong>Accounts</strong> tab to create a {ruleForm.cashflowCurrency} account before setting up this settlement rule.
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="form-grid two-column">
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.accountCurrency')} * (matches cashflow currency)</label>
-                      <input
-                        type="text"
-                        value={ruleForm.accountCurrency || ''}
-                        readOnly
-                        disabled
-                        placeholder={ruleForm.cashflowCurrency ? ruleForm.cashflowCurrency : t('admin.settlement.placeholders.accountCurrency')}
-                        className="auto-populated-field"
-                      />
-                    </div>
                     
                     <div className="form-group">
-                      <label>{t('admin.settlement.rules.bankName')} *</label>
+                      <label>{t('admin.settlement.rules.modalidad')} *</label>
                       <select
-                        value={ruleForm.bankName || ''}
-                        onChange={(e) => {
-                          const selectedBankName = e.target.value;
-                          updateRuleForm('bankName', selectedBankName);
+                        value={ruleForm.modalidad || ''}
+                        onChange={(e) => updateRuleForm('modalidad', e.target.value)}
+                      >
+                        <option value="">{t('admin.settlement.placeholders.modalidad')}</option>
+                        <option value="entregaFisica">
+                          {t('admin.settlement.modalidad.entregaFisica')}
+                        </option>
+                        {ruleForm.product !== 'Spot' && (
+                          <option value="compensacion">
+                            {t('admin.settlement.modalidad.compensacion')}
+                          </option>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+{/* Only show Account Details and Central Bank Code sections if required General Information fields are filled */}
+                {ruleForm.name && ruleForm.direction && ruleForm.product && ruleForm.modalidad && (
+                  <>
+                    <div className="form-section">
+                      <h4>{t('admin.settlement.form.accountDetails')}</h4>
+                      
+                      <div className="account-details-grid">
+                        {/* Cargar column - left */}
+                        <div className="account-column">
+                          <h5 className="subsection-title">{t('admin.settlement.accountDetails.cargar')}</h5>
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.currency')} *</label>
+                            <select
+                              value={ruleForm.cargarCurrency || ''}
+                              onChange={(e) => updateRuleForm('cargarCurrency', e.target.value)}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.currency')}</option>
+                              <option value="USD">USD</option>
+                              <option value="EUR">EUR</option>
+                              <option value="CLP">CLP</option>
+                              <option value="GBP">GBP</option>
+                              <option value="JPY">JPY</option>
+                            </select>
+                          </div>
                           
-                          // Auto-populate SWIFT code if there's only one for this bank
-                          // Only consider accounts that match the cashflow currency
-                          const bankAccounts_filtered = bankAccounts.filter(acc => 
-                            acc.active && 
-                            acc.bankName === selectedBankName &&
-                            (!ruleForm.cashflowCurrency || acc.accountCurrency === ruleForm.cashflowCurrency)
-                          );
-                          const uniqueSwiftCodes = Array.from(new Set(bankAccounts_filtered.map(acc => acc.swiftCode)));
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.bankName')} *</label>
+                            <select
+                              value={ruleForm.cargarBankName || ''}
+                              onChange={(e) => {
+                                const selectedBankName = e.target.value;
+                                updateRuleForm('cargarBankName', selectedBankName);
+                                
+                                // Auto-populate SWIFT code if there's only one for this bank/currency combination
+                                const availableAccounts = getAvailableAccounts(selectedBankName, undefined, ruleForm.cargarCurrency);
+                                const uniqueSwiftCodes = Array.from(new Set(availableAccounts.map(acc => acc.swiftCode)));
+                                
+                                if (uniqueSwiftCodes.length === 1) {
+                                  updateRuleForm('cargarSwiftCode', uniqueSwiftCodes[0]);
+                                  
+                                  // If there's also only one account, populate account number
+                                  const matchingAccounts = availableAccounts.filter(acc => acc.swiftCode === uniqueSwiftCodes[0]);
+                                  if (matchingAccounts.length === 1) {
+                                    updateRuleForm('cargarAccountNumber', matchingAccounts[0].accountNumber);
+                                  } else {
+                                    updateRuleForm('cargarAccountNumber', '');
+                                  }
+                                } else {
+                                  updateRuleForm('cargarSwiftCode', '');
+                                  updateRuleForm('cargarAccountNumber', '');
+                                }
+                              }}
+                              disabled={!ruleForm.cargarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.bankName')}</option>
+                              {ruleForm.cargarCurrency ? (
+                                Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.cargarCurrency).map(acc => acc.bankName))).length > 0 ? (
+                                  Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.cargarCurrency).map(acc => acc.bankName))).map(bankName => (
+                                    <option key={bankName} value={bankName}>{bankName}</option>
+                                  ))
+                                ) : (
+                                  <option value="" disabled>No {ruleForm.cargarCurrency} accounts configured - please add one in Accounts tab</option>
+                                )
+                              ) : (
+                                <option value="" disabled>Please select currency first</option>
+                              )}
+                            </select>
+                          </div>
                           
-                          if (uniqueSwiftCodes.length === 1) {
-                            updateRuleForm('swiftCode', uniqueSwiftCodes[0]);
-                            
-                            // If there's also only one account with this bank/swift combination, populate currency and account
-                            const matchingAccounts = bankAccounts_filtered.filter(acc => acc.swiftCode === uniqueSwiftCodes[0]);
-                            if (matchingAccounts.length === 1) {
-                              updateRuleForm('accountCurrency', matchingAccounts[0].accountCurrency);
-                              updateRuleForm('accountNumber', matchingAccounts[0].accountNumber);
-                            } else {
-                              updateRuleForm('accountCurrency', '');
-                              updateRuleForm('accountNumber', '');
-                            }
-                          } else {
-                            // Clear account details when bank changes and there are multiple SWIFT codes
-                            updateRuleForm('swiftCode', '');
-                            updateRuleForm('accountCurrency', '');
-                            updateRuleForm('accountNumber', '');
-                          }
-                        }}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.bankName')}</option>
-                        {Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.cashflowCurrency).map(acc => acc.bankName))).map(bankName => (
-                          <option key={bankName} value={bankName}>{bankName}</option>
-                        ))}
-                      </select>
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.swiftCode')} *</label>
+                            <select
+                              value={ruleForm.cargarSwiftCode || ''}
+                              onChange={(e) => {
+                                updateRuleForm('cargarSwiftCode', e.target.value);
+                                // Auto-populate account number if there's only one matching account
+                                const matchingAccounts = getAvailableAccounts(ruleForm.cargarBankName, undefined, ruleForm.cargarCurrency)
+                                  .filter(acc => acc.swiftCode === e.target.value);
+                                if (matchingAccounts.length === 1) {
+                                  updateRuleForm('cargarAccountNumber', matchingAccounts[0].accountNumber);
+                                } else {
+                                  updateRuleForm('cargarAccountNumber', '');
+                                }
+                              }}
+                              disabled={!ruleForm.cargarBankName || !ruleForm.cargarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.swiftCode')}</option>
+                              {getAvailableAccounts(ruleForm.cargarBankName, undefined, ruleForm.cargarCurrency).map(account => (
+                                <option key={account.id} value={account.swiftCode}>
+                                  {account.swiftCode}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.accountNumber')} *</label>
+                            <select
+                              value={ruleForm.cargarAccountNumber || ''}
+                              onChange={(e) => updateRuleForm('cargarAccountNumber', e.target.value)}
+                              disabled={!ruleForm.cargarBankName || !ruleForm.cargarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.accountNumber')}</option>
+                              {getAvailableAccounts(ruleForm.cargarBankName, undefined, ruleForm.cargarCurrency).map(account => (
+                                <option key={account.id} value={account.accountNumber}>
+                                  {account.accountNumber} ({account.accountName})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        
+                        {/* Abonar column - right */}
+                        <div className="account-column">
+                          <h5 className="subsection-title">{t('admin.settlement.accountDetails.abonar')}</h5>
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.currency')} *</label>
+                            <select
+                              value={ruleForm.abonarCurrency || ''}
+                              onChange={(e) => updateRuleForm('abonarCurrency', e.target.value)}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.currency')}</option>
+                              <option value="USD">USD</option>
+                              <option value="EUR">EUR</option>
+                              <option value="CLP">CLP</option>
+                              <option value="GBP">GBP</option>
+                              <option value="JPY">JPY</option>
+                            </select>
+                          </div>
+                          
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.bankName')} *</label>
+                            <select
+                              value={ruleForm.abonarBankName || ''}
+                              onChange={(e) => {
+                                const selectedBankName = e.target.value;
+                                updateRuleForm('abonarBankName', selectedBankName);
+                                
+                                // Auto-populate SWIFT code if there's only one for this bank/currency combination
+                                const availableAccounts = getAvailableAccounts(selectedBankName, undefined, ruleForm.abonarCurrency);
+                                const uniqueSwiftCodes = Array.from(new Set(availableAccounts.map(acc => acc.swiftCode)));
+                                
+                                if (uniqueSwiftCodes.length === 1) {
+                                  updateRuleForm('abonarSwiftCode', uniqueSwiftCodes[0]);
+                                  
+                                  // If there's also only one account, populate account number
+                                  const matchingAccounts = availableAccounts.filter(acc => acc.swiftCode === uniqueSwiftCodes[0]);
+                                  if (matchingAccounts.length === 1) {
+                                    updateRuleForm('abonarAccountNumber', matchingAccounts[0].accountNumber);
+                                  } else {
+                                    updateRuleForm('abonarAccountNumber', '');
+                                  }
+                                } else {
+                                  updateRuleForm('abonarSwiftCode', '');
+                                  updateRuleForm('abonarAccountNumber', '');
+                                }
+                              }}
+                              disabled={!ruleForm.abonarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.bankName')}</option>
+                              {ruleForm.abonarCurrency ? (
+                                Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.abonarCurrency).map(acc => acc.bankName))).length > 0 ? (
+                                  Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.abonarCurrency).map(acc => acc.bankName))).map(bankName => (
+                                    <option key={bankName} value={bankName}>{bankName}</option>
+                                  ))
+                                ) : (
+                                  <option value="" disabled>No {ruleForm.abonarCurrency} accounts configured - please add one in Accounts tab</option>
+                                )
+                              ) : (
+                                <option value="" disabled>Please select currency first</option>
+                              )}
+                            </select>
+                          </div>
+                          
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.swiftCode')} *</label>
+                            <select
+                              value={ruleForm.abonarSwiftCode || ''}
+                              onChange={(e) => {
+                                updateRuleForm('abonarSwiftCode', e.target.value);
+                                // Auto-populate account number if there's only one matching account
+                                const matchingAccounts = getAvailableAccounts(ruleForm.abonarBankName, undefined, ruleForm.abonarCurrency)
+                                  .filter(acc => acc.swiftCode === e.target.value);
+                                if (matchingAccounts.length === 1) {
+                                  updateRuleForm('abonarAccountNumber', matchingAccounts[0].accountNumber);
+                                } else {
+                                  updateRuleForm('abonarAccountNumber', '');
+                                }
+                              }}
+                              disabled={!ruleForm.abonarBankName || !ruleForm.abonarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.swiftCode')}</option>
+                              {getAvailableAccounts(ruleForm.abonarBankName, undefined, ruleForm.abonarCurrency).map(account => (
+                                <option key={account.id} value={account.swiftCode}>
+                                  {account.swiftCode}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="form-group">
+                            <label>{t('admin.settlement.rules.accountNumber')} *</label>
+                            <select
+                              value={ruleForm.abonarAccountNumber || ''}
+                              onChange={(e) => updateRuleForm('abonarAccountNumber', e.target.value)}
+                              disabled={!ruleForm.abonarBankName || !ruleForm.abonarCurrency}
+                            >
+                              <option value="">{t('admin.settlement.placeholders.accountNumber')}</option>
+                              {getAvailableAccounts(ruleForm.abonarBankName, undefined, ruleForm.abonarCurrency).map(account => (
+                                <option key={account.id} value={account.accountNumber}>
+                                  {account.accountNumber} ({account.accountName})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.swiftCode')} *</label>
-                      <select
-                        value={ruleForm.swiftCode || ''}
-                        onChange={(e) => {
-                          updateRuleForm('swiftCode', e.target.value);
-                          // Auto-populate account number if there's only one matching account
-                          const matchingAccounts = getAvailableAccounts(ruleForm.bankName, ruleForm.accountCurrency, ruleForm.cashflowCurrency)
-                            .filter(acc => acc.swiftCode === e.target.value);
-                          if (matchingAccounts.length === 1) {
-                            updateRuleForm('accountNumber', matchingAccounts[0].accountNumber);
-                          } else {
-                            updateRuleForm('accountNumber', '');
-                          }
-                        }}
-                        disabled={!ruleForm.bankName || !ruleForm.accountCurrency}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.swiftCode')}</option>
-                        {getAvailableAccounts(ruleForm.bankName, ruleForm.accountCurrency, ruleForm.cashflowCurrency).map(account => (
-                          <option key={account.id} value={account.swiftCode}>
-                            {account.swiftCode}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    
-                    <div className="form-group">
-                      <label>{t('admin.settlement.rules.accountNumber')} *</label>
-                      <select
-                        value={ruleForm.accountNumber || ''}
-                        onChange={(e) => updateRuleForm('accountNumber', e.target.value)}
-                        disabled={!ruleForm.bankName || !ruleForm.accountCurrency}
-                      >
-                        <option value="">{t('admin.settlement.placeholders.accountNumber')}</option>
-                        {getAvailableAccounts(ruleForm.bankName, ruleForm.accountCurrency, ruleForm.cashflowCurrency).map(account => (
-                          <option key={account.id} value={account.accountNumber}>
-                            {account.accountNumber} ({account.accountName})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
 
+                    <div className="form-section">
+                      <h4>{t('admin.settlement.form.centralBankTradeCode')}</h4>
+                      <div className="form-grid">
+                        <div className="form-group">
+                          <select
+                            value={ruleForm.centralBankTradeCode || ''}
+                            onChange={(e) => updateRuleForm('centralBankTradeCode', e.target.value)}
+                          >
+                            <option value="">{t('admin.settlement.placeholders.centralBankTradeCode')}</option>
+                            {getTradeCodeOptions().map(option => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="form-actions">
                   <button 

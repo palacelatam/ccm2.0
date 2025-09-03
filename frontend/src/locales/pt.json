@@ -222,16 +222,17 @@
         "active": "Ativa",
         "priority": "Prioridade",
         "name": "Nome da Regra",
-        "counterparty": "Contraparte",
-        "cashflowCurrency": "Moeda do Fluxo",
         "direction": "Direção",
+        "counterparty": "Contraparte",
         "product": "Produto",
+        "modalidad": "Modalidade",
         "bankName": "Nome do Banco",
         "swiftCode": "Código SWIFT",
         "accountCurrency": "Moeda da Conta",
         "accountNumber": "Número da Conta",
         "centralBankTradeCodeIn": "Código Entradas (Opcional)",
-        "centralBankTradeCodeOut": "Código Saídas (Opcional)"
+        "centralBankTradeCodeOut": "Código Saídas (Opcional)",
+        "currency": "Moeda"
       },
       "table": {
         "active": "Ativa",
@@ -268,8 +269,22 @@
         "swiftCode": "Selecionar código SWIFT...",
         "accountCurrency": "Selecionar moeda da conta...",
         "accountNumber": "Selecionar conta...",
-        "centralBankTradeCodeIn": "Selecionar código entradas (opcional)...",
-        "centralBankTradeCodeOut": "Selecionar código saídas (opcional)..."
+        "centralBankTradeCode": "Selecionar código de comércio (opcional)...",
+        "direction": "Selecionar direção...",
+        "modalidad": "Selecionar modalidade...",
+        "currency": "Selecionar moeda..."
+      },
+      "directions": {
+        "compra": "Compra de Divisas",
+        "venta": "Venda de Divisas"
+      },
+      "modalidad": {
+        "entregaFisica": "Entrega Física",
+        "compensacion": "Compensação"
+      },
+      "accountDetails": {
+        "cargar": "Receber",
+        "abonar": "Pagar"
       }
     },
     "accounts": {

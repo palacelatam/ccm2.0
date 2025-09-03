@@ -13,3 +13,4 @@
 13) Complete SMS implementation, waiting on Twilio
 14) Preview of template on grid and detail page.
 15) Check the decorators are in place on all API calls (I don't think so).
+16) Automated upload of mandates into settlement rules

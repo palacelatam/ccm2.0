@@ -240,16 +240,17 @@
         "active": "Active",
         "priority": "Priority",
         "name": "Rule Name",
-        "counterparty": "Counterparty",
-        "cashflowCurrency": "Cashflow Currency",
         "direction": "Direction",
+        "counterparty": "Counterparty",
         "product": "Product",
+        "modalidad": "Settlement Mode",
         "bankName": "Bank Name",
         "swiftCode": "SWIFT Code",
         "accountCurrency": "Account Currency",
         "accountNumber": "Account Number",
         "centralBankTradeCodeIn": "Inflows Trade Code (Optional)",
-        "centralBankTradeCodeOut": "Outflows Trade Code (Optional)"
+        "centralBankTradeCodeOut": "Outflows Trade Code (Optional)",
+        "currency": "Currency"
       },
       "table": {
         "active": "Active",
@@ -286,8 +287,22 @@
         "swiftCode": "Select SWIFT code...",
         "accountCurrency": "Select account currency...",
         "accountNumber": "Select account...",
-        "centralBankTradeCodeIn": "Select inflow code (optional)...",
-        "centralBankTradeCodeOut": "Select outflow code (optional)..."
+        "centralBankTradeCode": "Select trade code (optional)...",
+        "direction": "Select direction...",
+        "modalidad": "Select settlement mode...",
+        "currency": "Select currency..."
+      },
+      "directions": {
+        "compra": "Purchase of Foreign Currency",
+        "venta": "Sale of Foreign Currency"
+      },
+      "modalidad": {
+        "entregaFisica": "Physical Delivery",
+        "compensacion": "Net Settlement"
+      },
+      "accountDetails": {
+        "cargar": "Receive",
+        "abonar": "Pay"
       }
     },
     "accounts": {

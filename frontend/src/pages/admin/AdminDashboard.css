@@ -2097,3 +2097,35 @@ input:checked + .slider:before {
     border-right: none !important;
   }
 }
+
+/* Account Details Grid Layout */
+.account-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.account-column {
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+}
+
+.subsection-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+@media (max-width: 768px) {
+  .account-details-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
