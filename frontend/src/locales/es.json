@@ -468,7 +468,9 @@
       "reject": "Rechazar",
       "edit": "Editar",
       "delete": "Eliminar",
-      "duplicate": "Duplicar"
+      "duplicate": "Duplicar",
+      "mailback": "Mailback",
+      "createSettlementInstruction": "Crear Carta de Instrucción"
     },
     "columns": {
       "tradeId": "ID Trade",
@@ -538,7 +540,18 @@
       "uploadFailed": "Falló la subida",
       "deleteFailed": "Falló la eliminación",
       "successfullyProcessed": "Se procesaron exitosamente {count} operaciones",
-      "successfullyDeleted": "Se eliminaron exitosamente {count} operaciones no emparejadas"
+      "successfullyDeleted": "Se eliminaron exitosamente {count} operaciones no emparejadas",
+      "settlementInstructionGenerated": "Carta de instrucción generada para trade {{tradeNumber}}",
+      "settlementInstructionFailed": "Error al generar carta de instrucción"
+    },
+    "dialogs": {
+      "settlementInstruction": {
+        "title": "Generar Carta de Instrucción",
+        "message": "¿Desea generar un documento de carta de instrucción para el trade {{tradeNumber}}?",
+        "yesButton": "Sí",
+        "noButton": "No",
+        "cancelButton": "Cancelar"
+      }
     }
   },
   "mailback": {

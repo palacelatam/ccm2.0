@@ -192,7 +192,8 @@
       },
       "autoCartaInstruccion": {
         "title": "Auto Instrução de Liquidação",
-        "description": "Gerar automaticamente documentos de Instrução de Liquidação baseados em modelos"
+        "description": "Gerar automaticamente documentos de Instrução de Liquidação baseados em modelos",
+        "warningMessage": "Cartas de instrução serão geradas e anexadas aos emails de confirmação"
       },
       "autoConfirmDisputed": {
         "title": "Auto-confirmação para Trades Disputados",
@@ -449,7 +450,9 @@
       "reject": "Rejeitar",
       "edit": "Editar",
       "delete": "Deletar",
-      "duplicate": "Duplicar"
+      "duplicate": "Duplicar",
+      "mailback": "Mailback",
+      "createSettlementInstruction": "Criar Carta de Instrução"
     },
     "columns": {
       "tradeId": "ID do Trade",
@@ -473,7 +476,15 @@
       "confidence": "Confiança",
       "received": "Recebido",
       "bank": "Banco",
-      "source": "Origem"
+      "source": "Origem",
+      "cartaInstruccion": "Carta de Instrução"
+    },
+    "tooltips": {
+      "cartaInstruccion": {
+        "generated": "Carta de instrução disponível - clique para baixar",
+        "generating": "Gerando carta de instrução",
+        "failed": "Erro ao gerar carta de instrução - clique para tentar novamente"
+      }
     },
     "status": {
       "matched": "Full Match",
@@ -502,7 +513,18 @@
       "uploadFailed": "Falha no carregamento",
       "deleteFailed": "Falha na exclusão",
       "successfullyProcessed": "{count} operações processadas com sucesso",
-      "successfullyDeleted": "{count} operações não correspondidas excluídas com sucesso"
+      "successfullyDeleted": "{count} operações não correspondidas excluídas com sucesso",
+      "settlementInstructionGenerated": "Carta de instrução gerada para trade {{tradeNumber}}",
+      "settlementInstructionFailed": "Falha ao gerar carta de instrução"
+    },
+    "dialogs": {
+      "settlementInstruction": {
+        "title": "Gerar Carta de Instrução",
+        "message": "Deseja gerar um documento de carta de instrução para o trade {{tradeNumber}}?",
+        "yesButton": "Sim",
+        "noButton": "Não",
+        "cancelButton": "Cancelar"
+      }
     }
   },
   "mailback": {

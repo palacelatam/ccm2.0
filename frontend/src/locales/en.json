@@ -473,7 +473,9 @@
       "viewEmailDetails": "View Email Details",
       "reviewMatch": "Review Match",
       "confirmMatch": "Confirm Match",
-      "disputeMatch": "Dispute Match"
+      "disputeMatch": "Dispute Match",
+      "mailback": "Mailback",
+      "createSettlementInstruction": "Create Settlement Instruction"
     },
     "columns": {
       "tradeId": "Trade ID",
@@ -543,7 +545,18 @@
       "uploadFailed": "Upload failed",
       "deleteFailed": "Delete failed",
       "successfullyProcessed": "Successfully processed {count} trades",
-      "successfullyDeleted": "Successfully deleted {count} unmatched trades"
+      "successfullyDeleted": "Successfully deleted {count} unmatched trades",
+      "settlementInstructionGenerated": "Settlement instruction generated for trade {{tradeNumber}}",
+      "settlementInstructionFailed": "Failed to generate settlement instruction"
+    },
+    "dialogs": {
+      "settlementInstruction": {
+        "title": "Generate Settlement Instruction",
+        "message": "Would you like to generate a settlement instruction document for trade {{tradeNumber}}?",
+        "yesButton": "Yes",
+        "noButton": "No",
+        "cancelButton": "Cancel"
+      }
     }
   },
   "mailback": {

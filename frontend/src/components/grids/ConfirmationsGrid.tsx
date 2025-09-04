@@ -45,6 +45,10 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   const [inlineMenuPosition, setInlineMenuPosition] = useState({ x: 0, y: 0 });
   const [selectedEmailForMenu, setSelectedEmailForMenu] = useState<any | null>(null);
   const [statusHistory, setStatusHistory] = useState<Map<string, string>>(new Map());
+  
+  // Settlement instruction dialog state
+  const [showSettlementDialog, setShowSettlementDialog] = useState(false);
+  const [settlementDialogTrade, setSettlementDialogTrade] = useState<any | null>(null);
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
@@ -359,6 +363,74 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
     
     // Open email client
     window.location.href = mailtoLink;
+  };
+
+  // Generate settlement instruction document
+  const generateSettlementInstruction = async (emailData: any) => {
+    try {
+      // Get client trade number from matched trade data
+      let clientTradeNumber = emailData.BankTradeNumber; // Fallback
+      
+      if (emailData.matchId && clientId) {
+        try {
+          const matchedTrades = await clientService.getMatchedTrades(clientId);
+          const matchedTrade = matchedTrades.find(trade => trade.matchId === emailData.matchId || trade.match_id === emailData.matchId);
+          
+          if (matchedTrade && matchedTrade.TradeNumber) {
+            clientTradeNumber = matchedTrade.TradeNumber;
+          }
+        } catch (error) {
+          console.error('Error fetching client trade number:', error);
+        }
+      }
+      
+      // TODO: Call backend service to generate settlement instruction
+      // This will be implemented in the backend phase
+      console.log('Generating settlement instruction for client trade:', clientTradeNumber);
+      
+      showToastNotification(t('grid.messages.settlementInstructionGenerated', { tradeNumber: clientTradeNumber }), 'success');
+      
+      // Refresh grid to show updated status
+      await loadEmails(true);
+      
+    } catch (error) {
+      console.error('Error generating settlement instruction:', error);
+      showToastNotification(t('grid.messages.settlementInstructionFailed'), 'error');
+    }
+  };
+
+  // Handle mailback with optional settlement instruction
+  const handleMailbackWithSettlement = async (emailData: any, includeSettlement: boolean = false) => {
+    if (includeSettlement && emailData.status === 'Confirmation OK') {
+      // Generate settlement instruction first
+      await generateSettlementInstruction(emailData);
+    }
+    
+    // Then proceed with normal mailback
+    await generateMailback(emailData);
+  };
+
+  // Show settlement instruction dialog for mailback
+  const showSettlementInstructionDialog = async (emailData: any) => {
+    // Get client trade number for display
+    let clientTradeNumber = emailData.BankTradeNumber; // Fallback
+    
+    if (emailData.matchId && clientId) {
+      try {
+        const matchedTrades = await clientService.getMatchedTrades(clientId);
+        const matchedTrade = matchedTrades.find(trade => trade.matchId === emailData.matchId || trade.match_id === emailData.matchId);
+        
+        if (matchedTrade && matchedTrade.TradeNumber) {
+          clientTradeNumber = matchedTrade.TradeNumber;
+        }
+      } catch (error) {
+        console.error('Error fetching client trade number for dialog:', error);
+      }
+    }
+    
+    setSettlementDialogTrade({...emailData, clientTradeNumber});
+    setShowSettlementDialog(true);
+    setShowInlineMenu(false);
   };
   
   const columnDefs: ColDef[] = useMemo(() => [
@@ -1092,34 +1164,97 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         <InlineMenu
             position={inlineMenuPosition}
             onClose={() => setShowInlineMenu(false)}
-            items={[
-            {
-              label: 'Confirmation OK',
-              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Confirmation OK'),
-              disabled: selectedEmailForMenu.status === 'Confirmation OK'
-            },
-            {
-              label: 'Tagged',
-              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Tagged'),
-              disabled: selectedEmailForMenu.status === 'Tagged'
-            },
-            {
-              label: 'Resolved',
-              action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Resolved'),
-              disabled: selectedEmailForMenu.status === 'Resolved'
-            },
-            {
-              label: 'Undo',
-              action: () => handleUndoStatus(selectedEmailForMenu.id),
-              disabled: !statusHistory.has(selectedEmailForMenu.id)
-            },
-            'separator',
-            {
-              label: 'Mailback',
-              action: async () => await generateMailback(selectedEmailForMenu)
+            items={(() => {
+            const baseItems: Array<InlineMenuItem | 'separator'> = [
+              {
+                label: 'Confirmation OK',
+                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Confirmation OK'),
+                disabled: selectedEmailForMenu.status === 'Confirmation OK'
+              },
+              {
+                label: 'Tagged',
+                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Tagged'),
+                disabled: selectedEmailForMenu.status === 'Tagged'
+              },
+              {
+                label: 'Resolved',
+                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Resolved'),
+                disabled: selectedEmailForMenu.status === 'Resolved'
+              },
+              {
+                label: 'Undo',
+                action: () => handleUndoStatus(selectedEmailForMenu.id),
+                disabled: !statusHistory.has(selectedEmailForMenu.id)
+              },
+              'separator',
+              {
+                label: t('grid.contextMenu.mailback'),
+                action: () => {
+                  // If status is "Confirmation OK", show dialog to ask about settlement instruction
+                  if (selectedEmailForMenu.status === 'Confirmation OK') {
+                    showSettlementInstructionDialog(selectedEmailForMenu);
+                  } else {
+                    // For other statuses, just do normal mailback
+                    generateMailback(selectedEmailForMenu);
+                  }
+                }
+              }
+            ];
+
+            // Add "Create Settlement Instruction" if conditions are met
+            if (selectedEmailForMenu.status === 'Confirmation OK' && 
+                (!selectedEmailForMenu.settlementInstructionDocument || 
+                 selectedEmailForMenu.settlementInstructionDocument.status === 'empty')) {
+              baseItems.push({
+                label: t('grid.contextMenu.createSettlementInstruction'),
+                action: async () => {
+                  setShowInlineMenu(false);
+                  await generateSettlementInstruction(selectedEmailForMenu);
+                }
+              });
             }
-          ]}
+
+            return baseItems;
+          })()}
         />
+      )}
+      
+      {/* Settlement Instruction Dialog */}
+      {showSettlementDialog && settlementDialogTrade && (
+        <div className="modal-overlay">
+          <div className="modal settlement-dialog">
+            <h3>{t('grid.dialogs.settlementInstruction.title')}</h3>
+            <p>{t('grid.dialogs.settlementInstruction.message', { 
+              tradeNumber: settlementDialogTrade.clientTradeNumber || settlementDialogTrade.BankTradeNumber || settlementDialogTrade.id 
+            })}</p>
+            <div className="modal-actions">
+              <button 
+                className="save-button primary"
+                onClick={async () => {
+                  setShowSettlementDialog(false);
+                  await handleMailbackWithSettlement(settlementDialogTrade, true);
+                }}
+              >
+                {t('grid.dialogs.settlementInstruction.yesButton')}
+              </button>
+              <button 
+                className="save-button secondary"
+                onClick={async () => {
+                  setShowSettlementDialog(false);
+                  await handleMailbackWithSettlement(settlementDialogTrade, false);
+                }}
+              >
+                {t('grid.dialogs.settlementInstruction.noButton')}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => setShowSettlementDialog(false)}
+              >
+                {t('grid.dialogs.settlementInstruction.cancelButton')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
