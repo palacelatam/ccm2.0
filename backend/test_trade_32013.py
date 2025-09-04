@@ -127,6 +127,8 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
     """
     Find settlement rules that match the trade based on SettlementType
     
+    Uses the new settlement rule structure with cargarCurrency/abonarCurrency
+    
     Returns:
         - For Compensación: Single rule or None
         - For Entrega Física: Dictionary with 'inflow' and 'outflow' rules or None
@@ -143,7 +145,7 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
     settlement_type = trade_data.get('SettlementType', '')
     settlement_currency = trade_data.get('SettlementCurrency', '')
     
-    print("\n  Matching logic for settlement rules:")
+    print("\n  Matching logic for settlement rules (NEW STRUCTURE):")
     print(f"    Trade counterparty: {trade_counterparty}")
     print(f"    Trade currencies: {trade_currency1}/{trade_currency2}")
     print(f"    Trade product: {trade_product}")
@@ -152,21 +154,23 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
     
     if settlement_type == "Compensación":
         print(f"    Settlement currency: {settlement_currency}")
-        print(f"\n    Looking for single rule matching settlement currency: {settlement_currency}")
+        print(f"\n    Looking for single rule with modalidad=compensacion and settlementCurrency={settlement_currency}")
         
-        # For Compensación, match based on settlement currency
+        # For Compensación, match based on modalidad and settlementCurrency
         for i, rule in enumerate(settlement_rules, 1):
             rule_name = rule.get('name', 'Unnamed')
             rule_counterparty = rule.get('counterparty', '').lower()
-            rule_currency = rule.get('cashflowCurrency', '')
             rule_product = rule.get('product', '')
+            rule_modalidad = rule.get('modalidad', '')
+            rule_settlement_currency = rule.get('settlementCurrency', '')
             rule_active = rule.get('active', True)
             
             print(f"\n    Rule {i}: {rule_name}")
             print(f"      Active: {rule_active}")
             print(f"      Counterparty: {rule_counterparty or 'ANY'}")
-            print(f"      Currency: {rule_currency or 'ANY'}")
             print(f"      Product: {rule_product or 'ANY'}")
+            print(f"      Modalidad: {rule_modalidad}")
+            print(f"      Settlement Currency: {rule_settlement_currency or 'None'}")
             
             if not rule_active:
                 print(f"      → SKIPPED (inactive)")
@@ -177,54 +181,54 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
                                  rule_counterparty in trade_counterparty or 
                                  trade_counterparty in rule_counterparty)
             
-            # For Compensación, match the settlement currency
-            currency_match = (rule_currency == settlement_currency)
-            
             product_match = (not rule_product or rule_product == trade_product)
-            
-            # For Compensación, direction is no longer relevant
+            modalidad_match = (rule_modalidad == 'compensacion')
+            currency_match = (rule_settlement_currency == settlement_currency)
             
             print(f"      Counterparty match: {counterparty_match}")
-            print(f"      Currency match: {currency_match} (looking for {settlement_currency})")
             print(f"      Product match: {product_match}")
+            print(f"      Modalidad match: {modalidad_match}")
+            print(f"      Settlement currency match: {currency_match}")
             
-            if counterparty_match and currency_match and product_match:
+            if counterparty_match and product_match and modalidad_match and currency_match:
                 print(f"      → MATCHED! Using this rule for Compensación")
                 return rule
             else:
                 print(f"      → No match")
     
     elif settlement_type == "Entrega Física":
-        print(f"\n    Looking for TWO rules for physical delivery:")
-        print(f"    - Inflow currency: {trade_currency1 if trade_direction == 'BUY' else trade_currency2}")
-        print(f"    - Outflow currency: {trade_currency2 if trade_direction == 'BUY' else trade_currency1}")
+        print(f"\n    Looking for ONE rule with modalidad=entregaFisica that matches currencies:")
         
-        # Determine inflow and outflow currencies based on direction
+        # Determine what we're paying (cargar) and receiving (abonar) based on direction
         if trade_direction == 'BUY':
-            inflow_currency = trade_currency1   # Buying Currency1
-            outflow_currency = trade_currency2  # Selling Currency2
+            # Buy USD/CLP means: pay CLP (cargar), receive USD (abonar)
+            pay_currency = trade_currency2    # Paying CLP
+            receive_currency = trade_currency1  # Receiving USD
         else:  # SELL
-            inflow_currency = trade_currency2   # Selling Currency1, receiving Currency2
-            outflow_currency = trade_currency1  # Selling Currency1
+            # Sell USD/CLP means: pay USD (cargar), receive CLP (abonar)
+            pay_currency = trade_currency1    # Paying USD
+            receive_currency = trade_currency2  # Receiving CLP
         
-        matched_rules = {
-            'inflow': None,
-            'outflow': None
-        }
+        print(f"    - Pay currency (cargar): {pay_currency}")
+        print(f"    - Receive currency (abonar): {receive_currency}")
         
-        # Find rules for both currencies
+        # Find a single rule that matches both currencies
         for i, rule in enumerate(settlement_rules, 1):
             rule_name = rule.get('name', 'Unnamed')
             rule_counterparty = rule.get('counterparty', '').lower()
-            rule_currency = rule.get('cashflowCurrency', '')
             rule_product = rule.get('product', '')
+            rule_modalidad = rule.get('modalidad', '')
+            rule_cargar_currency = rule.get('cargarCurrency', '')
+            rule_abonar_currency = rule.get('abonarCurrency', '')
             rule_active = rule.get('active', True)
             
             print(f"\n    Rule {i}: {rule_name}")
             print(f"      Active: {rule_active}")
             print(f"      Counterparty: {rule_counterparty or 'ANY'}")
-            print(f"      Currency: {rule_currency or 'ANY'}")
             print(f"      Product: {rule_product or 'ANY'}")
+            print(f"      Modalidad: {rule_modalidad}")
+            print(f"      Cargar Currency: {rule_cargar_currency or 'None'}")
+            print(f"      Abonar Currency: {rule_abonar_currency or 'None'}")
             
             if not rule_active:
                 print(f"      → SKIPPED (inactive)")
@@ -236,39 +240,29 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
                                  trade_counterparty in rule_counterparty)
             
             product_match = (not rule_product or rule_product == trade_product)
+            modalidad_match = (rule_modalidad == 'entregaFisica')
+            cargar_match = (rule_cargar_currency == pay_currency)
+            abonar_match = (rule_abonar_currency == receive_currency)
             
-            # Check if it matches inflow currency
-            if rule_currency == inflow_currency and not matched_rules['inflow']:
-                if counterparty_match and product_match:
-                    # Direction no longer checked - all rules are valid
-                    print(f"      → MATCHED for INFLOW ({inflow_currency})!")
-                    matched_rules['inflow'] = rule
-                    continue
+            print(f"      Counterparty match: {counterparty_match}")
+            print(f"      Product match: {product_match}")
+            print(f"      Modalidad match: {modalidad_match}")
+            print(f"      Cargar currency match: {cargar_match} (need {pay_currency})")
+            print(f"      Abonar currency match: {abonar_match} (need {receive_currency})")
             
-            # Check if it matches outflow currency
-            if rule_currency == outflow_currency and not matched_rules['outflow']:
-                if counterparty_match and product_match:
-                    # Direction no longer checked - all rules are valid
-                    print(f"      → MATCHED for OUTFLOW ({outflow_currency})!")
-                    matched_rules['outflow'] = rule
-                    continue
-            
-            print(f"      → No match")
+            if (counterparty_match and product_match and modalidad_match and 
+                cargar_match and abonar_match):
+                print(f"      → MATCHED! Using this rule for Entrega Física")
+                return {
+                    'matched_rule': rule,
+                    'pay_currency': pay_currency,
+                    'receive_currency': receive_currency
+                }
+            else:
+                print(f"      → No match")
         
-        # Check if we found both rules
-        if matched_rules['inflow'] and matched_rules['outflow']:
-            print(f"\n    ✓ Found both rules for physical delivery:")
-            print(f"      Inflow: {matched_rules['inflow'].get('name', 'Unnamed')}")
-            print(f"      Outflow: {matched_rules['outflow'].get('name', 'Unnamed')}")
-            return matched_rules
-        else:
-            missing = []
-            if not matched_rules['inflow']:
-                missing.append(f"inflow ({inflow_currency})")
-            if not matched_rules['outflow']:
-                missing.append(f"outflow ({outflow_currency})")
-            print(f"\n    ✗ Missing rules for: {', '.join(missing)}")
-            return None
+        print(f"\n    ✗ No rule found for physical delivery ({trade_direction} {trade_currency1}/{trade_currency2})")
+        return None
     
     else:
         print(f"\n    Unknown settlement type: {settlement_type}")
@@ -283,12 +277,12 @@ def find_matching_bank_accounts(settlement_rules, bank_accounts):
     Find bank accounts that match the settlement rules
     
     Args:
-        settlement_rules: Either a single rule or dict with 'inflow' and 'outflow' rules
+        settlement_rules: Either a single rule dict or dict with matched_rule for Entrega Física
         bank_accounts: List of available bank accounts
     
     Returns:
-        - For single rule: Single account or None
-        - For dict of rules: Dict with 'inflow' and 'outflow' accounts or None
+        - For Compensación: Single account or None
+        - For Entrega Física: Dict with 'cargar' and 'abonar' accounts or None
     """
     if not bank_accounts:
         print("    No bank accounts available")
@@ -298,82 +292,87 @@ def find_matching_bank_accounts(settlement_rules, bank_accounts):
         print("    No settlement rules to match against")
         return None
     
-    # Check if we have a dictionary of rules (Entrega Física) or single rule (Compensación)
-    # For Entrega Física, we get a dict with 'inflow' and 'outflow' keys
-    # For Compensación, we get a single rule dict (from Firestore)
-    if isinstance(settlement_rules, dict) and 'inflow' in settlement_rules and 'outflow' in settlement_rules:
-        # Physical delivery - need two accounts
+    # Check if we have Entrega Física result (dict with matched_rule) or Compensación (single rule)
+    if isinstance(settlement_rules, dict) and 'matched_rule' in settlement_rules:
+        # Physical delivery - need two accounts based on cargar/abonar from the rule
+        rule = settlement_rules['matched_rule']
+        pay_currency = settlement_rules['pay_currency']
+        receive_currency = settlement_rules['receive_currency']
+        
         print(f"\n  Matching bank accounts for physical delivery:")
+        print(f"    Rule: {rule.get('name', 'Unnamed')}")
+        print(f"    Pay currency (cargar): {pay_currency}")
+        print(f"    Receive currency (abonar): {receive_currency}")
         
         matched_accounts = {
-            'inflow': None,
-            'outflow': None
+            'cargar': None,  # Account for paying (outflow)
+            'abonar': None   # Account for receiving (inflow)
         }
         
-        # Find account for inflow rule
-        if settlement_rules.get('inflow'):
-            inflow_rule = settlement_rules['inflow']
-            rule_account_id = inflow_rule.get('bankAccountId', '')
-            rule_currency = inflow_rule.get('cashflowCurrency', '')
-            
-            print(f"\n    Looking for INFLOW account:")
-            print(f"      Rule: {inflow_rule.get('name', 'Unnamed')}")
-            print(f"      Account ID: {rule_account_id or 'Not specified'}")
-            print(f"      Currency: {rule_currency}")
-            
-            for account in bank_accounts:
-                account_id = account.get('id', '')
-                account_name = account.get('accountName', 'Unnamed')
-                account_currency = account.get('accountCurrency', '')
-                
-                # Check ID match first (highest priority)
-                if rule_account_id and account_id == rule_account_id:
-                    print(f"      → MATCHED by ID: {account_name}")
-                    matched_accounts['inflow'] = account
-                    break
-                
-                # Check currency match as secondary criteria
-                if not rule_account_id and account_currency == rule_currency:
-                    print(f"      → MATCHED by currency: {account_name}")
-                    matched_accounts['inflow'] = account
-                    break
-            
-            if not matched_accounts['inflow']:
-                print(f"      → No matching account found for inflow")
+        # Find account for cargar (pay/outflow) - look for cargarBankName and cargarAccountNumber
+        cargar_bank_name = rule.get('cargarBankName', '')
+        cargar_account_number = rule.get('cargarAccountNumber', '')
         
-        # Find account for outflow rule
-        if settlement_rules.get('outflow'):
-            outflow_rule = settlement_rules['outflow']
-            rule_account_id = outflow_rule.get('bankAccountId', '')
-            rule_currency = outflow_rule.get('cashflowCurrency', '')
+        print(f"\n    Looking for CARGAR account (pay {pay_currency}):")
+        print(f"      Bank: {cargar_bank_name or 'Not specified'}")
+        print(f"      Account: {cargar_account_number or 'Not specified'}")
+        
+        for account in bank_accounts:
+            account_name = account.get('accountName', 'Unnamed')
+            account_bank = account.get('bankName', '')
+            account_number = account.get('accountNumber', '')
+            account_currency = account.get('accountCurrency', '')
             
-            print(f"\n    Looking for OUTFLOW account:")
-            print(f"      Rule: {outflow_rule.get('name', 'Unnamed')}")
-            print(f"      Account ID: {rule_account_id or 'Not specified'}")
-            print(f"      Currency: {rule_currency}")
+            # Check bank name and account number match
+            bank_match = (cargar_bank_name and account_bank == cargar_bank_name)
+            account_match = (cargar_account_number and account_number == cargar_account_number)
+            currency_match = (account_currency == pay_currency)
             
-            for account in bank_accounts:
-                account_id = account.get('id', '')
-                account_name = account.get('accountName', 'Unnamed')
-                account_currency = account.get('accountCurrency', '')
-                
-                # Check ID match first (highest priority)
-                if rule_account_id and account_id == rule_account_id:
-                    print(f"      → MATCHED by ID: {account_name}")
-                    matched_accounts['outflow'] = account
-                    break
-                
-                # Check currency match as secondary criteria
-                if not rule_account_id and account_currency == rule_currency:
-                    print(f"      → MATCHED by currency: {account_name}")
-                    matched_accounts['outflow'] = account
-                    break
+            if bank_match and account_match:
+                print(f"      → MATCHED by bank & account: {account_name}")
+                matched_accounts['cargar'] = account
+                break
+            elif currency_match and not cargar_bank_name:
+                print(f"      → MATCHED by currency: {account_name}")
+                matched_accounts['cargar'] = account
+                break
+        
+        if not matched_accounts['cargar']:
+            print(f"      → No matching account found for cargar ({pay_currency})")
+        
+        # Find account for abonar (receive/inflow) - look for abonarBankName and abonarAccountNumber
+        abonar_bank_name = rule.get('abonarBankName', '')
+        abonar_account_number = rule.get('abonarAccountNumber', '')
+        
+        print(f"\n    Looking for ABONAR account (receive {receive_currency}):")
+        print(f"      Bank: {abonar_bank_name or 'Not specified'}")
+        print(f"      Account: {abonar_account_number or 'Not specified'}")
+        
+        for account in bank_accounts:
+            account_name = account.get('accountName', 'Unnamed')
+            account_bank = account.get('bankName', '')
+            account_number = account.get('accountNumber', '')
+            account_currency = account.get('accountCurrency', '')
             
-            if not matched_accounts['outflow']:
-                print(f"      → No matching account found for outflow")
+            # Check bank name and account number match
+            bank_match = (abonar_bank_name and account_bank == abonar_bank_name)
+            account_match = (abonar_account_number and account_number == abonar_account_number)
+            currency_match = (account_currency == receive_currency)
+            
+            if bank_match and account_match:
+                print(f"      → MATCHED by bank & account: {account_name}")
+                matched_accounts['abonar'] = account
+                break
+            elif currency_match and not abonar_bank_name:
+                print(f"      → MATCHED by currency: {account_name}")
+                matched_accounts['abonar'] = account
+                break
+        
+        if not matched_accounts['abonar']:
+            print(f"      → No matching account found for abonar ({receive_currency})")
         
         # Check if we found both accounts
-        if matched_accounts['inflow'] and matched_accounts['outflow']:
+        if matched_accounts['cargar'] and matched_accounts['abonar']:
             print(f"\n    ✓ Found both accounts for physical delivery")
             return matched_accounts
         else:
@@ -382,40 +381,35 @@ def find_matching_bank_accounts(settlement_rules, bank_accounts):
     
     else:
         # Single rule (Compensación)
-        rule_account_id = settlement_rules.get('bankAccountId', '')
-        rule_currency = settlement_rules.get('cashflowCurrency', '')
+        settlement_currency = settlement_rules.get('settlementCurrency', '')
         
         print(f"\n  Matching bank account for Compensación:")
         print(f"    Rule: {settlement_rules.get('name', 'Unnamed')}")
-        print(f"    Looking for account ID: {rule_account_id or 'Not specified'}")
-        print(f"    Settlement currency: {rule_currency}")
+        print(f"    Settlement currency: {settlement_currency}")
         print(f"\n    Checking {len(bank_accounts)} accounts:")
         
-        # Try to find account
+        # For Compensación, we need an account that matches the settlement currency
         for i, account in enumerate(bank_accounts, 1):
-            account_id = account.get('id', '')
             account_name = account.get('accountName', 'Unnamed')
             account_currency = account.get('accountCurrency', '')
             account_bank = account.get('bankName', 'Unnamed')
+            account_active = account.get('active', True)
             
             print(f"\n    Account {i}: {account_name}")
             print(f"      Bank: {account_bank}")
-            print(f"      ID: {account_id}")
             print(f"      Currency: {account_currency}")
+            print(f"      Active: {account_active}")
             
-            # Check ID match first (highest priority)
-            if rule_account_id and account_id == rule_account_id:
-                print(f"      → MATCHED by ID! Using this account")
+            # Check currency match and account is active
+            if account_currency == settlement_currency and account_active:
+                print(f"      → MATCHED by settlement currency! Using this account")
                 return account
-            
-            # Check currency match as secondary criteria
-            if not rule_account_id and account_currency == rule_currency:
-                print(f"      → MATCHED by currency! Using this account")
-                return account
-            
-            print(f"      → No match")
+            elif account_currency == settlement_currency and not account_active:
+                print(f"      → Currency matches but account is inactive")
+            else:
+                print(f"      → No match (need {settlement_currency})")
         
-        print("\n    No matching bank account found")
+        print("\n    No matching active bank account found for settlement currency")
         return None
 
 
@@ -476,61 +470,81 @@ async def test_specific_trade():
     print("\nMatching Settlement Configuration...")
     print("-" * 60)
     settlement_rules_matched = find_matching_settlement_rules(trade, settlement_rules)
+    
+    # Debug: Show what we got from settlement rule matching
+    print(f"\n  DEBUG: Settlement rules matching result:")
+    if settlement_rules_matched:
+        print(f"    Type: {type(settlement_rules_matched)}")
+        if isinstance(settlement_rules_matched, dict):
+            for key, value in settlement_rules_matched.items():
+                if key == 'matched_rule' and isinstance(value, dict):
+                    print(f"    {key}: (dict with {len(value)} keys)")
+                    print(f"      centralBankTradeCode: {value.get('centralBankTradeCode', 'NOT FOUND')}")
+                else:
+                    print(f"    {key}: {value}")
+        else:
+            print(f"    Data: {settlement_rules_matched}")
+            if hasattr(settlement_rules_matched, 'get'):
+                print(f"    centralBankTradeCode: {settlement_rules_matched.get('centralBankTradeCode', 'NOT FOUND')}")
+    else:
+        print(f"    Result: None")
+    
     bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
     
     # Prepare settlement data from matched rules and accounts
     settlement_data = None
     
     if bank_accounts_matched:
-        # Check if we have a dictionary with inflow/outflow (physical delivery) or single account (compensación)
-        if isinstance(bank_accounts_matched, dict) and 'inflow' in bank_accounts_matched:
+        # Check if we have a dictionary with cargar/abonar (physical delivery) or single account (compensación)
+        if isinstance(bank_accounts_matched, dict) and 'cargar' in bank_accounts_matched:
             # Physical delivery - combine both accounts into settlement data
             print("\nSettlement Data Prepared (Physical Delivery - Two Accounts):")
             
-            # Prepare inflow account data
-            inflow_account = bank_accounts_matched.get('inflow')
-            outflow_account = bank_accounts_matched.get('outflow')
+            # Prepare cargar and abonar account data
+            cargar_account = bank_accounts_matched.get('cargar')  # Pay/outflow account
+            abonar_account = bank_accounts_matched.get('abonar')  # Receive/inflow account
             
-            if inflow_account and outflow_account:
+            if cargar_account and abonar_account:
                 settlement_data = {
-                    # Inflow account details
-                    'inflow_account_name': inflow_account.get('accountName', 'N/A'),
-                    'inflow_account_number': inflow_account.get('accountNumber', 'N/A'),
-                    'inflow_bank_name': inflow_account.get('bankName', 'N/A'),
-                    'inflow_swift_code': inflow_account.get('swiftCode', 'N/A'),
-                    'inflow_currency': inflow_account.get('accountCurrency', 'N/A'),
+                    # Cargar (pay/outflow) account details
+                    'cargar_account_name': cargar_account.get('accountName', 'N/A'),
+                    'cargar_account_number': cargar_account.get('accountNumber', 'N/A'),
+                    'cargar_bank_name': cargar_account.get('bankName', 'N/A'),
+                    'cargar_swift_code': cargar_account.get('swiftCode', 'N/A'),
+                    'cargar_currency': cargar_account.get('accountCurrency', 'N/A'),
                     
-                    # Outflow account details
-                    'outflow_account_name': outflow_account.get('accountName', 'N/A'),
-                    'outflow_account_number': outflow_account.get('accountNumber', 'N/A'),
-                    'outflow_bank_name': outflow_account.get('bankName', 'N/A'),
-                    'outflow_swift_code': outflow_account.get('swiftCode', 'N/A'),
-                    'outflow_currency': outflow_account.get('accountCurrency', 'N/A'),
+                    # Abonar (receive/inflow) account details
+                    'abonar_account_name': abonar_account.get('accountName', 'N/A'),
+                    'abonar_account_number': abonar_account.get('accountNumber', 'N/A'),
+                    'abonar_bank_name': abonar_account.get('bankName', 'N/A'),
+                    'abonar_swift_code': abonar_account.get('swiftCode', 'N/A'),
+                    'abonar_currency': abonar_account.get('accountCurrency', 'N/A'),
                     
                     # Common fields
                     'cutoff_time': '15:00 Santiago Time',
                     'special_instructions': 'Physical delivery settlement - two-way transfer',
+                    'central_bank_trade_code': settlement_rules_matched.get('matched_rule', {}).get('centralBankTradeCode', 'N/A') if settlement_rules_matched else 'N/A',
                     
-                    # For backward compatibility, also include single account fields using inflow as primary
-                    'account_name': inflow_account.get('accountName', 'N/A'),
-                    'account_number': inflow_account.get('accountNumber', 'N/A'),
-                    'bank_name': inflow_account.get('bankName', 'N/A'),
-                    'swift_code': inflow_account.get('swiftCode', 'N/A'),
+                    # For backward compatibility, also include single account fields using abonar as primary (receiving)
+                    'account_name': abonar_account.get('accountName', 'N/A'),
+                    'account_number': abonar_account.get('accountNumber', 'N/A'),
+                    'bank_name': abonar_account.get('bankName', 'N/A'),
+                    'swift_code': abonar_account.get('swiftCode', 'N/A'),
                 }
                 
-                print("  Inflow Account:")
-                print(f"    Name: {settlement_data['inflow_account_name']}")
-                print(f"    Number: {settlement_data['inflow_account_number']}")
-                print(f"    Bank: {settlement_data['inflow_bank_name']}")
-                print(f"    SWIFT: {settlement_data['inflow_swift_code']}")
-                print(f"    Currency: {settlement_data['inflow_currency']}")
+                print("  Cargar Account (Pay/Outflow):")
+                print(f"    Name: {settlement_data['cargar_account_name']}")
+                print(f"    Number: {settlement_data['cargar_account_number']}")
+                print(f"    Bank: {settlement_data['cargar_bank_name']}")
+                print(f"    SWIFT: {settlement_data['cargar_swift_code']}")
+                print(f"    Currency: {settlement_data['cargar_currency']}")
                 
-                print("  Outflow Account:")
-                print(f"    Name: {settlement_data['outflow_account_name']}")
-                print(f"    Number: {settlement_data['outflow_account_number']}")
-                print(f"    Bank: {settlement_data['outflow_bank_name']}")
-                print(f"    SWIFT: {settlement_data['outflow_swift_code']}")
-                print(f"    Currency: {settlement_data['outflow_currency']}")
+                print("  Abonar Account (Receive/Inflow):")
+                print(f"    Name: {settlement_data['abonar_account_name']}")
+                print(f"    Number: {settlement_data['abonar_account_number']}")
+                print(f"    Bank: {settlement_data['abonar_bank_name']}")
+                print(f"    SWIFT: {settlement_data['abonar_swift_code']}")
+                print(f"    Currency: {settlement_data['abonar_currency']}")
         else:
             # Single account (Compensación)
             print("\nSettlement Data Prepared (Compensación - Single Account):")
@@ -540,7 +554,8 @@ async def test_specific_trade():
                 'bank_name': bank_accounts_matched.get('bankName', 'N/A'),
                 'swift_code': bank_accounts_matched.get('swiftCode', 'N/A'),
                 'cutoff_time': '15:00 Santiago Time',
-                'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.') if settlement_rules_matched else 'Standard settlement instructions apply.'
+                'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.') if settlement_rules_matched else 'Standard settlement instructions apply.',
+                'central_bank_trade_code': settlement_rules_matched.get('centralBankTradeCode', 'N/A') if settlement_rules_matched else 'N/A'
             }
             
             for key, value in settlement_data.items():
@@ -578,6 +593,17 @@ async def test_specific_trade():
     if 'Product' not in trade_data_with_product and 'ProductType' in trade_data_with_product:
         trade_data_with_product['Product'] = trade_data_with_product['ProductType']
     
+    # Debug: Show exactly what data we're sending to the template population
+    print(f"\n  DEBUG: Template Population Data:")
+    print(f"    Trade Data Keys: {list(trade_data_with_product.keys())}")
+    if settlement_data:
+        print(f"    Settlement Data Keys: {list(settlement_data.keys())}")
+        print(f"    Settlement Data Values:")
+        for key, value in settlement_data.items():
+            print(f"      {key}: {value}")
+    else:
+        print(f"    Settlement Data: None")
+    
     result = await settlement_instruction_service.generate_settlement_instruction(
         trade_data=trade_data_with_product,
         bank_id=bank_id,
@@ -592,6 +618,16 @@ async def test_specific_trade():
         print(f"  Template ID: {result.get('template_id', 'N/A')}")
         print(f"  Match score: {result.get('match_score', 'N/A')}")
         print(f"  Variables populated: {result['variables_populated']}")
+        
+        # Debug: Show what variables were actually used
+        if 'debug_variables' in result:
+            print(f"\n  DEBUG: All Template Variables Used:")
+            debug_vars = result['debug_variables']
+            for key in sorted(debug_vars.keys()):
+                value = debug_vars[key]
+                if isinstance(value, str) and len(value) > 50:
+                    value = value[:50] + "..."
+                print(f"    {key}: {value}")
         
         filename = os.path.basename(result['document_path'])
         print(f"\nDocument saved as:")

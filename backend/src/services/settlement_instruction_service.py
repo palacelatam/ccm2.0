@@ -446,60 +446,108 @@ class SettlementInstructionService:
         
         # Settlement data variables (if provided)
         if settlement_data:
-            # Check if this is physical delivery (has inflow/outflow accounts) or compensación (single account)
-            if 'inflow_account_number' in settlement_data:
-                # Physical delivery - we have two accounts (inflow and outflow)
-                # Map inflow/outflow to currency1/currency2 based on trade direction
+            # Check if this is physical delivery (has cargar/abonar accounts) or compensación (single account)
+            if 'cargar_account_number' in settlement_data and 'abonar_account_number' in settlement_data:
+                # Physical delivery - we have two accounts (cargar and abonar)
+                # Add the cargar/abonar structure directly for template variables
+                variables.update({
+                    # Cargar account (pay/outflow)
+                    'cargar_account_name': str(settlement_data.get('cargar_account_name', 'N/A')),
+                    'cargar_account_number': str(settlement_data.get('cargar_account_number', 'N/A')),
+                    'cargar_bank_name': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                    'cargar_swift_code': str(settlement_data.get('cargar_swift_code', 'N/A')),
+                    'cargar_currency': str(settlement_data.get('cargar_currency', 'N/A')),
+                    
+                    # Abonar account (receive/inflow)
+                    'abonar_account_name': str(settlement_data.get('abonar_account_name', 'N/A')),
+                    'abonar_account_number': str(settlement_data.get('abonar_account_number', 'N/A')),
+                    'abonar_bank_name': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                    'abonar_swift_code': str(settlement_data.get('abonar_swift_code', 'N/A')),
+                    'abonar_currency': str(settlement_data.get('abonar_currency', 'N/A')),
+                    
+                    # Generic fields for basic templates (use abonar account as primary)
+                    'account_name': str(settlement_data.get('abonar_account_name', 'N/A')),
+                    'account_number': str(settlement_data.get('abonar_account_number', 'N/A')),
+                    'bank_name': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                    'swift_code': str(settlement_data.get('abonar_swift_code', 'N/A')),
+                })
                 
-                # Determine which currency is inflow and which is outflow
+                # Map cargar/abonar to currency1/currency2 based on trade direction and currencies
                 currency_1 = str(trade_data.get('Currency1', 'N/A'))
                 currency_2 = str(trade_data.get('Currency2', 'N/A'))
+                cargar_currency = str(settlement_data.get('cargar_currency', 'N/A'))
+                abonar_currency = str(settlement_data.get('abonar_currency', 'N/A'))
                 
-                if trade_direction == 'BUY':
-                    # Buy: inflow is currency1, outflow is currency2
+                # Map accounts to currencies based on which currency they hold
+                if cargar_currency == currency_1:
+                    # Cargar account holds currency_1
                     variables.update({
-                        # Currency 1 account (inflow - receiving)
-                        'account_number_currency_1': str(settlement_data.get('inflow_account_number', 'N/A')),
-                        'account_bank_currency_1': str(settlement_data.get('inflow_bank_name', 'N/A')),
-                        'account_name_currency_1': str(settlement_data.get('inflow_account_name', 'N/A')),
-                        'swift_code_currency_1': str(settlement_data.get('inflow_swift_code', 'N/A')),
-                        
-                        # Currency 2 account (outflow - paying)
-                        'account_number_currency_2': str(settlement_data.get('outflow_account_number', 'N/A')),
-                        'account_bank_currency_2': str(settlement_data.get('outflow_bank_name', 'N/A')),
-                        'account_name_currency_2': str(settlement_data.get('outflow_account_name', 'N/A')),
-                        'swift_code_currency_2': str(settlement_data.get('outflow_swift_code', 'N/A')),
+                        'account_number_currency_1': str(settlement_data.get('cargar_account_number', 'N/A')),
+                        'account_bank_currency_1': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                        'account_name_currency_1': str(settlement_data.get('cargar_account_name', 'N/A')),
+                        'swift_code_currency_1': str(settlement_data.get('cargar_swift_code', 'N/A')),
+                        'account_number_currency_2': str(settlement_data.get('abonar_account_number', 'N/A')),
+                        'account_bank_currency_2': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                        'account_name_currency_2': str(settlement_data.get('abonar_account_name', 'N/A')),
+                        'swift_code_currency_2': str(settlement_data.get('abonar_swift_code', 'N/A')),
                     })
-                else:  # SELL
-                    # Sell: outflow is currency1, inflow is currency2
+                else:
+                    # Abonar account holds currency_1
                     variables.update({
-                        # Currency 1 account (outflow - paying)
-                        'account_number_currency_1': str(settlement_data.get('outflow_account_number', 'N/A')),
-                        'account_bank_currency_1': str(settlement_data.get('outflow_bank_name', 'N/A')),
-                        'account_name_currency_1': str(settlement_data.get('outflow_account_name', 'N/A')),
-                        'swift_code_currency_1': str(settlement_data.get('outflow_swift_code', 'N/A')),
-                        
-                        # Currency 2 account (inflow - receiving)
-                        'account_number_currency_2': str(settlement_data.get('inflow_account_number', 'N/A')),
-                        'account_bank_currency_2': str(settlement_data.get('inflow_bank_name', 'N/A')),
-                        'account_name_currency_2': str(settlement_data.get('inflow_account_name', 'N/A')),
-                        'swift_code_currency_2': str(settlement_data.get('inflow_swift_code', 'N/A')),
+                        'account_number_currency_1': str(settlement_data.get('abonar_account_number', 'N/A')),
+                        'account_bank_currency_1': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                        'account_name_currency_1': str(settlement_data.get('abonar_account_name', 'N/A')),
+                        'swift_code_currency_1': str(settlement_data.get('abonar_swift_code', 'N/A')),
+                        'account_number_currency_2': str(settlement_data.get('cargar_account_number', 'N/A')),
+                        'account_bank_currency_2': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                        'account_name_currency_2': str(settlement_data.get('cargar_account_name', 'N/A')),
+                        'swift_code_currency_2': str(settlement_data.get('cargar_swift_code', 'N/A')),
                     })
                 
-                # Also add generic fields for backwards compatibility
+                # Add settlement data fields
                 variables.update({
                     'cutoff_time': str(settlement_data.get('cutoff_time', 'N/A')),
-                    'special_instructions': str(settlement_data.get('special_instructions', 'Standard settlement instructions apply.'))
+                    'special_instructions': str(settlement_data.get('special_instructions', 'Standard settlement instructions apply.')),
+                    'central_bank_trade_code': str(settlement_data.get('central_bank_trade_code', 'N/A'))
                 })
             else:
                 # Compensación - single account
+                # Add single account fields
                 variables.update({
                     'account_name': str(settlement_data.get('account_name', 'N/A')),
                     'account_number': str(settlement_data.get('account_number', 'N/A')),
                     'account_bank': str(settlement_data.get('bank_name', 'N/A')),
                     'swift_code': str(settlement_data.get('swift_code', 'N/A')),
                     'cutoff_time': str(settlement_data.get('cutoff_time', 'N/A')),
-                    'special_instructions': str(settlement_data.get('special_instructions', 'Standard settlement instructions apply.'))
+                    'special_instructions': str(settlement_data.get('special_instructions', 'Standard settlement instructions apply.')),
+                    'central_bank_trade_code': str(settlement_data.get('central_bank_trade_code', 'N/A'))
+                })
+                
+                # Also add cargar/abonar fields using the single account for both (for template compatibility)
+                variables.update({
+                    # Cargar account (same as main account for Compensación)
+                    'cargar_account_name': str(settlement_data.get('account_name', 'N/A')),
+                    'cargar_account_number': str(settlement_data.get('account_number', 'N/A')),
+                    'cargar_bank_name': str(settlement_data.get('bank_name', 'N/A')),
+                    'cargar_swift_code': str(settlement_data.get('swift_code', 'N/A')),
+                    'cargar_currency': str(settlement_data.get('settlement_currency', trade_data.get('SettlementCurrency', trade_data.get('settlement_currency', 'N/A')))),
+                    
+                    # Abonar account (same as main account for Compensación)
+                    'abonar_account_name': str(settlement_data.get('account_name', 'N/A')),
+                    'abonar_account_number': str(settlement_data.get('account_number', 'N/A')),
+                    'abonar_bank_name': str(settlement_data.get('bank_name', 'N/A')),
+                    'abonar_swift_code': str(settlement_data.get('swift_code', 'N/A')),
+                    'abonar_currency': str(settlement_data.get('settlement_currency', trade_data.get('SettlementCurrency', trade_data.get('settlement_currency', 'N/A')))),
+                    
+                    # Currency-based mapping for backwards compatibility
+                    'account_number_currency_1': str(settlement_data.get('account_number', 'N/A')),
+                    'account_bank_currency_1': str(settlement_data.get('bank_name', 'N/A')),
+                    'account_name_currency_1': str(settlement_data.get('account_name', 'N/A')),
+                    'swift_code_currency_1': str(settlement_data.get('swift_code', 'N/A')),
+                    'account_number_currency_2': str(settlement_data.get('account_number', 'N/A')),
+                    'account_bank_currency_2': str(settlement_data.get('bank_name', 'N/A')),
+                    'account_name_currency_2': str(settlement_data.get('account_name', 'N/A')),
+                    'swift_code_currency_2': str(settlement_data.get('swift_code', 'N/A')),
                 })
         else:
             # Default settlement data
@@ -513,7 +561,19 @@ class SettlementInstructionService:
                 'account_number_currency_2': 'N/A',
                 'account_bank_currency_2': 'N/A',
                 'cutoff_time': 'N/A',
-                'special_instructions': 'Standard settlement instructions apply.'
+                'special_instructions': 'Standard settlement instructions apply.',
+                'central_bank_trade_code': 'N/A',
+                # Default cargar/abonar fields
+                'cargar_account_name': 'N/A',
+                'cargar_account_number': 'N/A',
+                'cargar_bank_name': 'N/A',
+                'cargar_swift_code': 'N/A',
+                'cargar_currency': 'N/A',
+                'abonar_account_name': 'N/A',
+                'abonar_account_number': 'N/A',
+                'abonar_bank_name': 'N/A',
+                'abonar_swift_code': 'N/A',
+                'abonar_currency': 'N/A'
             })
         
         return variables
@@ -672,13 +732,17 @@ class SettlementInstructionService:
                 except Exception as e:
                     logger.warning(f"⚠️ Could not clean up temporary file {template_path}: {e}")
             
+            # Get the variables for debugging
+            debug_variables = self._prepare_variables(trade_data, settlement_data)
+            
             return {
                 'success': True,
                 'document_path': populated_doc_path,
                 'template_used': template_name,
                 'template_id': template_data.get('id'),
                 'match_score': template_data.get('match_score'),
-                'variables_populated': len(self._prepare_variables(trade_data, settlement_data)),
+                'variables_populated': len(debug_variables),
+                'debug_variables': debug_variables,  # Add this for debugging
                 'generated_at': datetime.now().isoformat()
             }
             
