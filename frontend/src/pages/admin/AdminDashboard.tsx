@@ -48,6 +48,7 @@ interface SettlementRule {
   counterparty: string;
   product: string;
   modalidad: string;
+  settlementCurrency?: string; // For compensación modality
   // Account details - Cargar section
   cargarCurrency?: string;
   cargarBankName?: string;
@@ -432,6 +433,7 @@ const AdminDashboard: React.FC = () => {
       product: '',
       direction: '',
       modalidad: '',
+      settlementCurrency: '',
       cargarCurrency: '',
       cargarBankName: '',
       cargarSwiftCode: '',
@@ -496,11 +498,14 @@ const AdminDashboard: React.FC = () => {
       // Validate required fields
       if (!ruleForm.name || !ruleForm.direction || !ruleForm.product || !ruleForm.modalidad ||
           !ruleForm.cargarCurrency || !ruleForm.cargarBankName || !ruleForm.cargarAccountNumber ||
-          !ruleForm.abonarCurrency || !ruleForm.abonarBankName || !ruleForm.abonarAccountNumber) {
+          !ruleForm.abonarCurrency || !ruleForm.abonarBankName || !ruleForm.abonarAccountNumber ||
+          (ruleForm.modalidad === 'compensacion' && !ruleForm.settlementCurrency)) {
         setAlertModal({
           isOpen: true,
           title: 'Validation Error',
-          message: 'Please fill in all required fields (Rule Name, Direction, Product, Modalidad, Cargar Currency/Bank/Account, Abonar Currency/Bank/Account).',
+          message: ruleForm.modalidad === 'compensacion' && !ruleForm.settlementCurrency
+            ? 'Please fill in all required fields including Settlement Currency for Compensación.'
+            : 'Please fill in all required fields (Rule Name, Direction, Product, Modalidad, Cargar Currency/Bank/Account, Abonar Currency/Bank/Account).',
           type: 'warning'
         });
         return;
@@ -551,6 +556,7 @@ const AdminDashboard: React.FC = () => {
         counterparty: ruleForm.counterparty || '',
         product: ruleForm.product || '',
         modalidad: ruleForm.modalidad || '',
+        settlementCurrency: ruleForm.settlementCurrency || undefined,
         priority: ruleForm.priority || 1,
         cargarCurrency: ruleForm.cargarCurrency || '',
         cargarBankName: ruleForm.cargarBankName || '',
@@ -1974,7 +1980,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="form-grid">
+                  <div className="form-grid" style={{ gridTemplateColumns: ruleForm.modalidad === 'compensacion' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)' }}>
                     
                     <div className="form-group">
                       <label>{t('admin.settlement.rules.counterparty')}</label>
@@ -2002,10 +2008,12 @@ const AdminDashboard: React.FC = () => {
                           // - If Forward: default to "Compensación", can select "Entrega Física"
                           if (selectedProduct === 'Spot') {
                             updateRuleForm('modalidad', 'entregaFisica');
+                            updateRuleForm('settlementCurrency', '');
                           } else if (selectedProduct === 'Forward') {
                             updateRuleForm('modalidad', 'compensacion');
                           } else {
                             updateRuleForm('modalidad', '');
+                            updateRuleForm('settlementCurrency', '');
                           }
                         }}
                       >
@@ -2032,6 +2040,32 @@ const AdminDashboard: React.FC = () => {
                         )}
                       </select>
                     </div>
+                    
+                    {/* Settlement Currency field - only show for Compensación */}
+                    {ruleForm.modalidad === 'compensacion' && (
+                      <div className="form-group">
+                        <label>{t('admin.settlement.rules.settlementCurrency')} *</label>
+                        <select
+                          value={ruleForm.settlementCurrency || ''}
+                          onChange={(e) => {
+                            const currency = e.target.value;
+                            updateRuleForm('settlementCurrency', currency);
+                            // When settlement currency is set, update both cargar and abonar currencies
+                            if (currency) {
+                              updateRuleForm('cargarCurrency', currency);
+                              updateRuleForm('abonarCurrency', currency);
+                            }
+                          }}
+                        >
+                          <option value="">{t('admin.settlement.placeholders.currency')}</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="CLP">CLP</option>
+                          <option value="GBP">GBP</option>
+                          <option value="JPY">JPY</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2041,7 +2075,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="form-section">
                       <h4>{t('admin.settlement.form.accountDetails')}</h4>
                       
-                      <div className="account-details-grid">
+                      <div className="account-details-grid" style={{ position: 'relative' }}>
                         {/* Cargar column - left */}
                         <div className="account-column">
                           <h5 className="subsection-title">{t('admin.settlement.accountDetails.cargar')}</h5>
@@ -2050,13 +2084,20 @@ const AdminDashboard: React.FC = () => {
                             <select
                               value={ruleForm.cargarCurrency || ''}
                               onChange={(e) => updateRuleForm('cargarCurrency', e.target.value)}
+                              disabled={ruleForm.modalidad === 'compensacion' && !!ruleForm.settlementCurrency}
                             >
                               <option value="">{t('admin.settlement.placeholders.currency')}</option>
-                              <option value="USD">USD</option>
-                              <option value="EUR">EUR</option>
-                              <option value="CLP">CLP</option>
-                              <option value="GBP">GBP</option>
-                              <option value="JPY">JPY</option>
+                              {ruleForm.modalidad === 'compensacion' && ruleForm.settlementCurrency ? (
+                                <option value={ruleForm.settlementCurrency}>{ruleForm.settlementCurrency}</option>
+                              ) : (
+                                <>
+                                  <option value="USD">USD</option>
+                                  <option value="EUR">EUR</option>
+                                  <option value="CLP">CLP</option>
+                                  <option value="GBP">GBP</option>
+                                  <option value="JPY">JPY</option>
+                                </>
+                              )}
                             </select>
                           </div>
                           
@@ -2108,18 +2149,8 @@ const AdminDashboard: React.FC = () => {
                             <label>{t('admin.settlement.rules.swiftCode')} *</label>
                             <select
                               value={ruleForm.cargarSwiftCode || ''}
-                              onChange={(e) => {
-                                updateRuleForm('cargarSwiftCode', e.target.value);
-                                // Auto-populate account number if there's only one matching account
-                                const matchingAccounts = getAvailableAccounts(ruleForm.cargarBankName, undefined, ruleForm.cargarCurrency)
-                                  .filter(acc => acc.swiftCode === e.target.value);
-                                if (matchingAccounts.length === 1) {
-                                  updateRuleForm('cargarAccountNumber', matchingAccounts[0].accountNumber);
-                                } else {
-                                  updateRuleForm('cargarAccountNumber', '');
-                                }
-                              }}
-                              disabled={!ruleForm.cargarBankName || !ruleForm.cargarCurrency}
+                              disabled={true}
+                              title="SWIFT code is automatically set based on bank selection"
                             >
                               <option value="">{t('admin.settlement.placeholders.swiftCode')}</option>
                               {getAvailableAccounts(ruleForm.cargarBankName, undefined, ruleForm.cargarCurrency).map(account => (
@@ -2147,6 +2178,97 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
                         
+                        {/* Arrow buttons for Compensación - positioned between columns */}
+                        {ruleForm.modalidad === 'compensacion' && (
+                          <div style={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            zIndex: 1
+                          }}>
+                            <button
+                              type="button"
+                              className="copy-arrow-button"
+                              onClick={() => {
+                                // Copy Cargar to Abonar
+                                updateRuleForm('abonarCurrency', ruleForm.cargarCurrency);
+                                updateRuleForm('abonarBankName', ruleForm.cargarBankName);
+                                updateRuleForm('abonarSwiftCode', ruleForm.cargarSwiftCode);
+                                updateRuleForm('abonarAccountNumber', ruleForm.cargarAccountNumber);
+                              }}
+                              disabled={!ruleForm.cargarBankName || !ruleForm.cargarAccountNumber}
+                              title={t('admin.settlement.buttons.copyCargarToAbonar')}
+                              style={{
+                                background: 'var(--bg-tertiary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                padding: '10px 16px',
+                                fontSize: '18px',
+                                fontWeight: '600',
+                                cursor: ruleForm.cargarBankName && ruleForm.cargarAccountNumber ? 'pointer' : 'not-allowed',
+                                opacity: ruleForm.cargarBankName && ruleForm.cargarAccountNumber ? 1 : 0.4,
+                                transition: 'all 0.2s ease',
+                                minWidth: '44px'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (ruleForm.cargarBankName && ruleForm.cargarAccountNumber) {
+                                  e.currentTarget.style.background = 'var(--accent-blue)';
+                                  e.currentTarget.style.transform = 'scale(1.05)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'var(--bg-tertiary)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              →
+                            </button>
+                            <button
+                              type="button"
+                              className="copy-arrow-button"
+                              onClick={() => {
+                                // Copy Abonar to Cargar
+                                updateRuleForm('cargarCurrency', ruleForm.abonarCurrency);
+                                updateRuleForm('cargarBankName', ruleForm.abonarBankName);
+                                updateRuleForm('cargarSwiftCode', ruleForm.abonarSwiftCode);
+                                updateRuleForm('cargarAccountNumber', ruleForm.abonarAccountNumber);
+                              }}
+                              disabled={!ruleForm.abonarBankName || !ruleForm.abonarAccountNumber}
+                              title={t('admin.settlement.buttons.copyAbonarToCargar')}
+                              style={{
+                                background: 'var(--bg-tertiary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                padding: '10px 16px',
+                                fontSize: '18px',
+                                fontWeight: '600',
+                                cursor: ruleForm.abonarBankName && ruleForm.abonarAccountNumber ? 'pointer' : 'not-allowed',
+                                opacity: ruleForm.abonarBankName && ruleForm.abonarAccountNumber ? 1 : 0.4,
+                                transition: 'all 0.2s ease',
+                                minWidth: '44px'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (ruleForm.abonarBankName && ruleForm.abonarAccountNumber) {
+                                  e.currentTarget.style.background = 'var(--accent-blue)';
+                                  e.currentTarget.style.transform = 'scale(1.05)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'var(--bg-tertiary)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              ←
+                            </button>
+                          </div>
+                        )}
+                        
                         {/* Abonar column - right */}
                         <div className="account-column">
                           <h5 className="subsection-title">{t('admin.settlement.accountDetails.abonar')}</h5>
@@ -2155,13 +2277,20 @@ const AdminDashboard: React.FC = () => {
                             <select
                               value={ruleForm.abonarCurrency || ''}
                               onChange={(e) => updateRuleForm('abonarCurrency', e.target.value)}
+                              disabled={ruleForm.modalidad === 'compensacion' && !!ruleForm.settlementCurrency}
                             >
                               <option value="">{t('admin.settlement.placeholders.currency')}</option>
-                              <option value="USD">USD</option>
-                              <option value="EUR">EUR</option>
-                              <option value="CLP">CLP</option>
-                              <option value="GBP">GBP</option>
-                              <option value="JPY">JPY</option>
+                              {ruleForm.modalidad === 'compensacion' && ruleForm.settlementCurrency ? (
+                                <option value={ruleForm.settlementCurrency}>{ruleForm.settlementCurrency}</option>
+                              ) : (
+                                <>
+                                  <option value="USD">USD</option>
+                                  <option value="EUR">EUR</option>
+                                  <option value="CLP">CLP</option>
+                                  <option value="GBP">GBP</option>
+                                  <option value="JPY">JPY</option>
+                                </>
+                              )}
                             </select>
                           </div>
                           
@@ -2213,18 +2342,8 @@ const AdminDashboard: React.FC = () => {
                             <label>{t('admin.settlement.rules.swiftCode')} *</label>
                             <select
                               value={ruleForm.abonarSwiftCode || ''}
-                              onChange={(e) => {
-                                updateRuleForm('abonarSwiftCode', e.target.value);
-                                // Auto-populate account number if there's only one matching account
-                                const matchingAccounts = getAvailableAccounts(ruleForm.abonarBankName, undefined, ruleForm.abonarCurrency)
-                                  .filter(acc => acc.swiftCode === e.target.value);
-                                if (matchingAccounts.length === 1) {
-                                  updateRuleForm('abonarAccountNumber', matchingAccounts[0].accountNumber);
-                                } else {
-                                  updateRuleForm('abonarAccountNumber', '');
-                                }
-                              }}
-                              disabled={!ruleForm.abonarBankName || !ruleForm.abonarCurrency}
+                              disabled={true}
+                              title="SWIFT code is automatically set based on bank selection"
                             >
                               <option value="">{t('admin.settlement.placeholders.swiftCode')}</option>
                               {getAvailableAccounts(ruleForm.abonarBankName, undefined, ruleForm.abonarCurrency).map(account => (

@@ -250,7 +250,8 @@
         "accountNumber": "Account Number",
         "centralBankTradeCodeIn": "Inflows Trade Code (Optional)",
         "centralBankTradeCodeOut": "Outflows Trade Code (Optional)",
-        "currency": "Currency"
+        "currency": "Currency",
+        "settlementCurrency": "Settlement Currency"
       },
       "table": {
         "active": "Active",
@@ -302,6 +303,10 @@
       "accountDetails": {
         "cargar": "Receive",
         "abonar": "Pay"
+      },
+      "buttons": {
+        "copyCargarToAbonar": "Copy Receive → Pay",
+        "copyAbonarToCargar": "Copy Pay → Receive"
       }
     },
     "accounts": {

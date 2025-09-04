@@ -232,7 +232,8 @@
         "accountNumber": "Número da Conta",
         "centralBankTradeCodeIn": "Código Entradas (Opcional)",
         "centralBankTradeCodeOut": "Código Saídas (Opcional)",
-        "currency": "Moeda"
+        "currency": "Moeda",
+        "settlementCurrency": "Moeda de Liquidação"
       },
       "table": {
         "active": "Ativa",
@@ -284,6 +285,10 @@
       "accountDetails": {
         "cargar": "Receber",
         "abonar": "Pagar"
+      },
+      "buttons": {
+        "copyCargarToAbonar": "Copiar Receber → Pagar",
+        "copyAbonarToCargar": "Copiar Pagar → Receber"
       }
     },
     "accounts": {

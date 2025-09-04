@@ -104,6 +104,7 @@ export interface SettlementRule {
   counterparty: string;
   product: string;
   modalidad: string;
+  settlementCurrency?: string; // For compensación modality
   // Account details - Cargar section
   cargarCurrency?: string;
   cargarBankName?: string;
@@ -124,6 +125,7 @@ export interface SettlementRuleCreate {
   counterparty: string;
   product: string;
   modalidad: string;
+  settlementCurrency?: string; // For compensación modality
   priority: number;
   // Account details - Cargar section
   cargarCurrency?: string;
@@ -147,6 +149,7 @@ export interface SettlementRuleUpdate {
   counterparty?: string;
   product?: string;
   modalidad?: string;
+  settlementCurrency?: string; // For compensación modality
   // Account details - Cargar section
   cargarCurrency?: string;
   cargarBankName?: string;
