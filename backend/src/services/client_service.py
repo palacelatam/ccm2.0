@@ -373,8 +373,16 @@ class ClientService:
             
             # Build update data
             update_data = {}
-            for field, value in rule_update.dict(by_alias=True, exclude_none=True).items():
-                update_data[field] = value
+            # Use exclude_none=False to include None values, then handle them appropriately
+            rule_dict = rule_update.dict(by_alias=True, exclude_none=False)
+            for field, value in rule_dict.items():
+                if value is not None:
+                    update_data[field] = value
+                elif field == 'settlementCurrency':
+                    # Explicitly set settlementCurrency to None to clear it from Firestore
+                    # Use Firestore's DELETE_FIELD to actually remove the field
+                    from google.cloud.firestore import DELETE_FIELD
+                    update_data[field] = DELETE_FIELD
             
             # Add metadata
             update_data['lastUpdatedAt'] = datetime.now()

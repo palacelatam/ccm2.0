@@ -136,6 +136,7 @@ class SettlementRule(BaseFirestoreModel):
     counterparty: str
     product: str  # "Spot" or "Forward" 
     modalidad: str  # "entregaFisica" or "compensacion" (Physical Delivery or Net Settlement)
+    settlement_currency: Optional[str] = Field(None, alias="settlementCurrency", description="Settlement currency for compensacion mode")
     
     # Account details - Cargar section
     cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")
@@ -163,6 +164,7 @@ class SettlementRuleCreate(BaseModel):
     counterparty: str
     product: str  # "Spot" or "Forward"
     modalidad: str  # "entregaFisica" or "compensacion"
+    settlement_currency: Optional[str] = Field(None, alias="settlementCurrency", description="Settlement currency for compensacion mode")
     priority: int = 1
     
     # Account details - Cargar section
@@ -193,6 +195,7 @@ class SettlementRuleUpdate(BaseModel):
     counterparty: Optional[str] = None
     product: Optional[str] = None  # "Spot" or "Forward"
     modalidad: Optional[str] = None  # "entregaFisica" or "compensacion"
+    settlement_currency: Optional[str] = Field(None, alias="settlementCurrency", description="Settlement currency for compensacion mode")
     
     # Account details - Cargar section
     cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")

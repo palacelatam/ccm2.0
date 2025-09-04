@@ -556,7 +556,7 @@ const AdminDashboard: React.FC = () => {
         counterparty: ruleForm.counterparty || '',
         product: ruleForm.product || '',
         modalidad: ruleForm.modalidad || '',
-        settlementCurrency: ruleForm.settlementCurrency || undefined,
+        settlementCurrency: ruleForm.modalidad === 'entregaFisica' ? undefined : (ruleForm.settlementCurrency || undefined),
         priority: ruleForm.priority || 1,
         cargarCurrency: ruleForm.cargarCurrency || '',
         cargarBankName: ruleForm.cargarBankName || '',
@@ -2027,7 +2027,14 @@ const AdminDashboard: React.FC = () => {
                       <label>{t('admin.settlement.rules.modalidad')} *</label>
                       <select
                         value={ruleForm.modalidad || ''}
-                        onChange={(e) => updateRuleForm('modalidad', e.target.value)}
+                        onChange={(e) => {
+                          const selectedModalidad = e.target.value;
+                          updateRuleForm('modalidad', selectedModalidad);
+                          // Clear settlement currency if switching to physical delivery
+                          if (selectedModalidad === 'entregaFisica') {
+                            updateRuleForm('settlementCurrency', undefined);
+                          }
+                        }}
                       >
                         <option value="">{t('admin.settlement.placeholders.modalidad')}</option>
                         <option value="entregaFisica">
