@@ -431,6 +431,79 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         return false;
       }
     },
+    {
+      headerName: t('grid.columns.cartaInstruccion'),
+      field: 'settlementInstructionDocument',
+      width: 80,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const documentStatus = params.value?.status || 'empty';
+        const documentUrl = params.value?.url;
+        
+        let icon = '';
+        let tooltip = '';
+        let clickable = false;
+        let color = '#b3b3b3';
+        
+        switch(documentStatus) {
+          case 'generated':
+            icon = '📎';
+            tooltip = t('grid.tooltips.cartaInstruccion.generated');
+            clickable = true;
+            color = '#28a745';
+            break;
+          case 'generating':
+            icon = '⏳';
+            tooltip = t('grid.tooltips.cartaInstruccion.generating');
+            color = '#ffc107';
+            break;
+          case 'failed':
+            icon = '❌';
+            tooltip = t('grid.tooltips.cartaInstruccion.failed');
+            clickable = true;
+            color = '#dc3545';
+            break;
+          default:
+            return React.createElement('div', {
+              style: {
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }
+            }, '');
+        }
+        
+        const handleClick = () => {
+          if (!clickable) return;
+          
+          if (documentStatus === 'generated' && documentUrl) {
+            // Download document
+            window.open(documentUrl, '_blank');
+          } else if (documentStatus === 'failed') {
+            // TODO: Retry generation (will be implemented in Phase 3)
+            console.log('Retry settlement instruction generation for trade:', params.data?.BankTradeNumber);
+          }
+        };
+        
+        return React.createElement('div', {
+          style: {
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: clickable ? 'pointer' : 'default',
+            color: color,
+            fontSize: '16px'
+          },
+          title: tooltip,
+          onClick: handleClick
+        }, icon);
+      }
+    },
     { 
       headerName: t('grid.columns.sender'), 
       field: 'EmailSender', 

@@ -501,7 +501,15 @@
       "discrepancies": "Discrepancias",
       "matchDate": "Fecha de Coincidencia",
       "bank": "Banco",
-      "source": "Origen"
+      "source": "Origen",
+      "cartaInstruccion": "Carta de Instrucción"
+    },
+    "tooltips": {
+      "cartaInstruccion": {
+        "generated": "Carta de instrucción disponible - clic para descargar",
+        "generating": "Generando carta de instrucción",
+        "failed": "Error al generar carta de instrucción - clic para reintentar"
+      }
     },
     "status": {
       "matched": "Full Match",

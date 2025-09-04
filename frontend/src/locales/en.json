@@ -506,7 +506,15 @@
       "discrepancies": "Discrepancies",
       "matchDate": "Match Date",
       "bank": "Bank",
-      "source": "Source"
+      "source": "Source",
+      "cartaInstruccion": "Settlement Instruction"
+    },
+    "tooltips": {
+      "cartaInstruccion": {
+        "generated": "Settlement instruction document available - click to download",
+        "generating": "Settlement instruction document is being generated",
+        "failed": "Settlement instruction document generation failed - click to retry"
+      }
     },
     "status": {
       "matched": "Matched",
