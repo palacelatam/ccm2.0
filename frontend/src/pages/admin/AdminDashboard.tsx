@@ -322,10 +322,22 @@ const AdminDashboard: React.FC = () => {
   }, [user?.profile?.organization?.id]);
   
   const handleAutomationChange = (key: keyof AutomationSettings, value: any) => {
-    setAutomationSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setAutomationSettings(prev => {
+      const newSettings = {
+        ...prev,
+        [key]: value
+      };
+      
+      // If turning off autoConfirmMatched, also turn off autoCartaInstruccion
+      if (key === 'autoConfirmMatched' && !value.enabled) {
+        newSettings.autoCartaInstruccion = false;
+      }
+      
+      // If turning on autoConfirmMatched and autoCartaInstruccion was previously on, keep it on
+      // Otherwise, default behavior applies
+      
+      return newSettings;
+    });
     setHasUnsavedChanges(true);
   };
   
@@ -1599,21 +1611,29 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
               )}
-            </div>
-            
-            <div className="setting-card">
-              <div className="setting-header">
-                <h3>{t('admin.automation.autoCartaInstruccion.title')}</h3>
-                <label className="toggle-switch">
-                  <input 
-                    type="checkbox" 
-                    checked={automationSettings.autoCartaInstruccion}
-                    onChange={(e) => handleAutomationChange('autoCartaInstruccion', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
+              
+              {/* Auto Settlement Instruction nested inside Auto-confirmation */}
+              <div className="nested-setting">
+                <div className="setting-header nested">
+                  <h4>{t('admin.automation.autoCartaInstruccion.title')}</h4>
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={automationSettings.autoCartaInstruccion}
+                      disabled={!automationSettings.autoConfirmMatched.enabled}
+                      onChange={(e) => handleAutomationChange('autoCartaInstruccion', e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+                <p className="nested-description">{t('admin.automation.autoCartaInstruccion.description')}</p>
+                {automationSettings.autoCartaInstruccion && (
+                  <div className="warning-message">
+                    <span className="warning-icon">⚠️</span>
+                    <span>{t('admin.automation.autoCartaInstruccion.warningMessage')}</span>
+                  </div>
+                )}
               </div>
-              <p>{t('admin.automation.autoCartaInstruccion.description')}</p>
             </div>
             
             <div className="setting-card">

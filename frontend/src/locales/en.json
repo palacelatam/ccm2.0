@@ -210,7 +210,8 @@
       },
       "autoCartaInstruccion": {
         "title": "Auto Settlement Instruction",
-        "description": "Automatically generate Settlement Instruction documents based on templates"
+        "description": "Automatically generate Settlement Instruction documents based on templates",
+        "warningMessage": "Settlement instructions will be generated and attached to confirmation emails"
       },
       "autoConfirmDisputed": {
         "title": "Auto-confirmation for Disputed Trades",

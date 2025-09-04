@@ -210,7 +210,8 @@
       },
       "autoCartaInstruccion": {
         "title": "Auto Carta de Instrucción",
-        "description": "Genera automáticamente documentos de Carta de Instrucción basados en plantillas"
+        "description": "Genera automáticamente documentos de Carta de Instrucción basados en plantillas",
+        "warningMessage": "Las cartas de instrucción serán generadas y adjuntadas a los emails de confirmación"
       },
       "autoConfirmDisputed": {
         "title": "Auto-confirmación en Trades Disputados",
