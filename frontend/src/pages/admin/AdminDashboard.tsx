@@ -558,6 +558,7 @@ const AdminDashboard: React.FC = () => {
         modalidad: ruleForm.modalidad || '',
         settlementCurrency: ruleForm.modalidad === 'entregaFisica' ? undefined : (ruleForm.settlementCurrency || undefined),
         priority: ruleForm.priority || 1,
+        active: ruleForm.active !== undefined ? ruleForm.active : true,
         cargarCurrency: ruleForm.cargarCurrency || '',
         cargarBankName: ruleForm.cargarBankName || '',
         cargarSwiftCode: ruleForm.cargarSwiftCode || '',

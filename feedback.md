@@ -1,26 +1,3 @@
-  DEBUG: All Template Variables Used:
-    account_bank: Banco ABC
-    account_name: XYZ Corp CLP Main Account
-    account_number: 2011234568
-    action_currency_1: abonar
-    action_currency_2: cargar
-    amount_currency_1: 1,000,000.00
-    amount_currency_2: N/A
-    central_bank_trade_code: 10080
-    client_name: XYZ Corporation
-    counterparty_name: Banco ABC
-    currency_1: USD
-    currency_2: CLP
-    cutoff_time: 15:00 Santiago Time
-    direction: Compra
-    direction_original: Buy
-    price: 932.88
-    product_type: Forward
-    settlement_currency: CLP
-    settlement_type: Compensación
-    special_instructions: Standard settlement instructions apply.
-    swift_code: ABCCCL22
-    todays_date: 04/09/2025
-    trade_date: 29/09/2025
-    trade_number: 32013
-    value_date: 29/09/2025
+2025-09-04 14:28:22,399 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
+2025-09-04 14:28:22,424 - services.client_service - INFO - Updating settlement rule M1S4Ng7azRpFVOjZev3F with data: {'priority': 7, 'name': 'Compra USD/CLP Forward Comp CLP', 'direction': 'compra', 'counterparty': '', 'product': 'Forward', 'modalidad': 'entregaFisica', 'settlementCurrency': Sentinel: Value used to delete a field in a document., 'cargarCurrency': 'CLP', 'cargarBankName': 'Banco ABC', 'cargarSwiftCode': 'ABCCCL22', 'cargarAccountNumber': '2011234568', 'abonarCurrency': 'USD', 'abonarBankName': 'Banco ABC', 'abonarSwiftCode': 'ABCCCL22', 'abonarAccountNumber': '2015678901', 'centralBankTradeCode': '10080', 'lastUpdatedAt': datetime.datetime(2025, 9, 4, 14, 28, 22, 424364), 'lastUpdatedBy': <google.cloud.firestore_v1.document.DocumentReference object at 0x0000016ECEBA20D0>}
+INFO:     127.0.0.1:49926 - "PUT /api/v1/clients/xyz-corp/settlement-rules/M1S4Ng7azRpFVOjZev3F HTTP/1.1" 200 OK

@@ -316,11 +316,14 @@ class ClientService:
             # Convert to dict with metadata
             rule_dict = rule_data.dict(by_alias=True)
             rule_dict.update({
-                'active': True,
                 'createdAt': datetime.now(),
                 'lastUpdatedAt': datetime.now(),
                 'lastUpdatedBy': self.db.collection('users').document(created_by_uid)
             })
+            
+            # If active status is not provided, default to True
+            if 'active' not in rule_dict:
+                rule_dict['active'] = True
             
             # Create document
             doc_ref = rules_collection.add(rule_dict)[1]

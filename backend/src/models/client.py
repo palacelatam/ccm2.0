@@ -166,6 +166,7 @@ class SettlementRuleCreate(BaseModel):
     modalidad: str  # "entregaFisica" or "compensacion"
     settlement_currency: Optional[str] = Field(None, alias="settlementCurrency", description="Settlement currency for compensacion mode")
     priority: int = 1
+    active: bool = True
     
     # Account details - Cargar section
     cargar_currency: Optional[str] = Field(None, alias="cargarCurrency")

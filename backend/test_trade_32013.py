@@ -167,6 +167,11 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
             
             print(f"\n    Rule {i}: {rule_name}")
             print(f"      Active: {rule_active}")
+            
+            # Skip inactive rules
+            if not rule_active:
+                print(f"      → SKIPPED (inactive rule)")
+                continue
             print(f"      Counterparty: {rule_counterparty or 'ANY'}")
             print(f"      Product: {rule_product or 'ANY'}")
             print(f"      Modalidad: {rule_modalidad}")
@@ -224,6 +229,11 @@ def find_matching_settlement_rules(trade_data, settlement_rules):
             
             print(f"\n    Rule {i}: {rule_name}")
             print(f"      Active: {rule_active}")
+            
+            # Skip inactive rules
+            if not rule_active:
+                print(f"      → SKIPPED (inactive rule)")
+                continue
             print(f"      Counterparty: {rule_counterparty or 'ANY'}")
             print(f"      Product: {rule_product or 'ANY'}")
             print(f"      Modalidad: {rule_modalidad}")
@@ -489,7 +499,26 @@ async def test_specific_trade():
     else:
         print(f"    Result: None")
     
+    # Check if settlement rules were found
+    if not settlement_rules_matched:
+        print("❌ ERROR: No applicable settlement rules found for this trade!")
+        print("   Please check the settlement rules configuration for this client.")
+        print("   Trade details:")
+        print(f"     Counterparty: {trade.get('CounterpartyName', 'N/A')}")
+        print(f"     Product: {trade.get('Product', 'N/A')}")
+        print(f"     Currencies: {trade.get('Currency1', 'N/A')}/{trade.get('Currency2', 'N/A')}")
+        print(f"     Direction: {trade.get('Direction', 'N/A')}")
+        print(f"     Settlement Type: {trade.get('SettlementType', 'N/A')}")
+        return
+    
     bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
+    
+    # Check if bank accounts were found
+    if not bank_accounts_matched:
+        print("❌ ERROR: No applicable bank accounts found for the matched settlement rule!")
+        print("   The settlement rule was found but no matching bank accounts could be located.")
+        print("   Please check the bank account configuration for this client.")
+        return
     
     # Prepare settlement data from matched rules and accounts
     settlement_data = None
@@ -604,12 +633,32 @@ async def test_specific_trade():
     else:
         print(f"    Settlement Data: None")
     
-    result = await settlement_instruction_service.generate_settlement_instruction(
-        trade_data=trade_data_with_product,
-        bank_id=bank_id,
-        client_segment_id=client_segment_id,
-        settlement_data=settlement_data
-    )
+    # Generate the document with error handling
+    try:
+        result = await settlement_instruction_service.generate_settlement_instruction(
+            trade_data=trade_data_with_product,
+            bank_id=bank_id,
+            client_segment_id=client_segment_id,
+            settlement_data=settlement_data
+        )
+        
+        if not result['success']:
+            print("❌ ERROR: Failed to generate settlement instruction document!")
+            print(f"   Error details: {result.get('error', 'Unknown error')}")
+            if 'No matching template found' in result.get('error', ''):
+                print("   This means no suitable document template exists in the database for:")
+                print(f"     Bank: {bank_id}")
+                print(f"     Settlement Type: {trade_data_with_product.get('SettlementType', 'N/A')}")
+                print(f"     Product: {product}")
+                print("   Please check the settlement instruction templates configuration.")
+            print("=" * 80)
+            return
+            
+    except Exception as e:
+        print("❌ ERROR: Exception occurred during document generation!")
+        print(f"   Exception: {str(e)}")
+        print("=" * 80)
+        return
     
     if result['success']:
         print("SUCCESS: Document generated!")
