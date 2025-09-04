@@ -1906,8 +1906,8 @@ const AdminDashboard: React.FC = () => {
                           <div className="table-cell" title="Modalidad">
                             {rule.modalidad ? t(`admin.settlement.modalidad.${rule.modalidad}`) : '-'}
                           </div>
-                          <div className="table-cell" title="Pay Currency (Abonar)">{rule.abonarCurrency || '-'}</div>
-                          <div className="table-cell" title="Receive Currency (Cargar)">{rule.cargarCurrency || '-'}</div>
+                          <div className="table-cell" title="Pay Currency (Cargar)">{rule.cargarCurrency || '-'}</div>
+                          <div className="table-cell" title="Receive Currency (Abonar)">{rule.abonarCurrency || '-'}</div>
                           <div className="table-cell actions">
                             <button className="edit-button" onClick={() => handleEditRule(rule)}>✏️</button>
                             <button className="delete-button" onClick={() => handleDeleteRule(rule.id)}>🗑️</button>
