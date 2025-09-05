@@ -858,6 +858,7 @@ class ClientService:
                             'PaymentDate': trade.get('PaymentDate', ''),
                             'CounterpartyPaymentMethod': trade.get('CounterpartyPaymentMethod', ''),
                             'OurPaymentMethod': trade.get('OurPaymentMethod', ''),
+                            'settlementInstructionStoragePath': trade.get('settlementInstructionStoragePath', ''),
                         }
                         
                         # First check if this trade has a match_id stored directly in it

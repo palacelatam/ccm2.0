@@ -4,7 +4,7 @@ Client management routes
 
 from fastapi import APIRouter, Request, HTTPException, status, Path, UploadFile, File, Form
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from api.middleware.auth_middleware import get_auth_context, require_permission
@@ -1113,7 +1113,8 @@ async def generate_settlement_instruction(
     request: Request,
     client_id: str = Path(..., description="Client ID"),
     trade_number: str = Form(..., description="Client trade number"),
-    bank_trade_number: str = Form(None, description="Bank trade number from email")
+    bank_trade_number: str = Form(None, description="Bank trade number from email"),
+    email_id: str = Form(None, description="Email confirmation document ID")
 ):
     """
     Generate a settlement instruction document for a specific trade
@@ -1412,26 +1413,137 @@ async def generate_settlement_instruction(
         
         logger.info(f"Document generated successfully: {result['document_path']}")
         
-        # For Step 3 testing, return document generation results
+        # Step 4: Upload document to Cloud Storage
+        from services.storage_service import StorageService
+        
+        storage_service = StorageService()
+        
+        # Generate secure filename with all requested info
+        counterparty_clean = trade_data.get('CounterpartyName', 'Unknown').replace(' ', '').replace('ó', 'o')
+        client_name_clean = trade_data.get('client_name', client_id).replace(' ', '').replace('-', '')
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        
+        filename = f"SI_{trade_number}_{client_name_clean}_{counterparty_clean}_{timestamp}.docx"
+        
+        logger.info(f"Uploading document to Cloud Storage: {filename}")
+        
+        # Read document content for upload
+        with open(result['document_path'], 'rb') as doc_file:
+            file_content = doc_file.read()
+        
+        # Upload document to client-specific folder
+        upload_result = await storage_service.upload_settlement_document(
+            file_content=file_content,
+            filename=filename,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            bank_id=client_id,
+            segment_id='settlement-instructions',
+            uploaded_by='system'
+        )
+        
+        if not upload_result['success']:
+            logger.error(f"Cloud Storage upload failed: {upload_result.get('error')}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload document to cloud storage: {upload_result.get('error')}"
+            )
+        
+        # Generate 24-hour signed URL for secure access
+        signed_url = upload_result['signed_url']
+        public_url = upload_result['public_url']
+        
+        logger.info(f"Document uploaded successfully: {public_url}")
+        
+        # Store settlement instruction document metadata in Firestore
+        settlement_doc_data = {
+            'trade_number': trade_number,
+            'bank_trade_number': bank_trade_number,
+            'status': 'generated',
+            'filename': filename,
+            'storage_path': upload_result['storage_path'],
+            'public_url': public_url,
+            'signed_url': signed_url,
+            'document_size': upload_result.get('file_size', 0),
+            'content_type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'template_used': result['template_used'],
+            'template_id': result.get('template_id'),
+            'variables_populated': result['variables_populated'],
+            'settlement_type': trade_data.get('SettlementType'),
+            'generated_at': datetime.utcnow().isoformat() + "Z",
+            'expires_at': (datetime.utcnow() + timedelta(hours=24)).isoformat() + "Z"
+        }
+        
+        # Update the email document in Firestore with settlement instruction info
+        if email_id:
+            try:
+                # Parse email ID and trade index from the composite ID
+                if '_trade_' in email_id:
+                    actual_email_id, trade_part = email_id.split('_trade_', 1)
+                    trade_index = int(trade_part)
+                else:
+                    actual_email_id = email_id
+                    trade_index = 0
+                
+                logger.info(f"Attempting to update email document: {actual_email_id}, trade index: {trade_index} (original: {email_id})")
+                email_doc_ref = client_service.db.collection('clients').document(client_id).collection('emails').document(actual_email_id)
+                
+                # Check if document exists first
+                doc_snapshot = email_doc_ref.get()
+                if doc_snapshot.exists:
+                    # Get the current document to preserve array structure
+                    email_data = doc_snapshot.to_dict()
+                    llm_data = email_data.get('llmExtractedData', {})
+                    trades = llm_data.get('Trades', [])
+                    
+                    # Update the specific trade in the array while preserving array structure
+                    if trade_index < len(trades) and isinstance(trades, list):
+                        trades[trade_index]['settlementInstructionStoragePath'] = upload_result['storage_path']
+                        
+                        # Update the entire Trades array to preserve its structure
+                        email_doc_ref.update({
+                            'llmExtractedData.Trades': trades
+                        })
+                        logger.info(f"Settlement instruction storage path stored in Firestore for email {actual_email_id}, trade {trade_index}")
+                    else:
+                        logger.error(f"Invalid trade index {trade_index} or Trades is not an array")
+                else:
+                    logger.warning(f"Email document {actual_email_id} does not exist - settlement instruction metadata not attached to email")
+            except Exception as e:
+                logger.error(f"Failed to update email document {email_id}: {e}")
+                # Don't fail the entire request if email update fails
+        else:
+            logger.warning(f"No email_id provided - settlement instruction metadata not attached to email")
+        
+        # Clean up local temporary file
+        try:
+            import os
+            os.remove(result['document_path'])
+            logger.info(f"Cleaned up local file: {result['document_path']}")
+        except Exception as e:
+            logger.warning(f"Could not clean up local file {result['document_path']}: {e}")
+        
+        # Return final response with cloud storage URL
         response_data = {
             "trade_number": trade_number,
             "bank_trade_number": bank_trade_number,
-            "status": "document_generated",
-            "document_path": result['document_path'],
+            "status": "uploaded",
+            "filename": filename,
+            "storage_path": upload_result['storage_path'],
+            "document_url": signed_url,  # 24-hour signed URL for secure access
+            "public_url": public_url,
+            "document_size": upload_result.get('file_size', 0),
             "template_used": result['template_used'],
-            "template_id": result.get('template_id'),
             "variables_populated": result['variables_populated'],
-            "settlement_rules_found": len(settlement_rules),
-            "bank_accounts_found": len(bank_accounts),
             "settlement_type": trade_data.get('SettlementType'),
-            "message": "Settlement instruction document generated successfully (Step 3)",
-            "generated_at": datetime.utcnow().isoformat() + "Z"
+            "message": "Settlement instruction document uploaded to cloud storage successfully",
+            "generated_at": settlement_doc_data['generated_at'],
+            "expires_at": settlement_doc_data['expires_at']
         }
         
         return APIResponse(
             success=True,
             data=response_data,
-            message="Settlement instruction document generated successfully"
+            message="Settlement instruction document generated and uploaded successfully"
         )
         
     except Exception as e:
@@ -1439,4 +1551,109 @@ async def generate_settlement_instruction(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate settlement instruction: {str(e)}"
+        )
+
+
+@router.post("/{client_id}/settlement-instructions/get-url", response_model=APIResponse[Dict[str, str]])
+async def get_settlement_instruction_url(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    email_id: str = Form(..., description="Email confirmation document ID with trade index"),
+):
+    """
+    Generate a fresh signed URL for accessing a settlement instruction document
+    
+    This endpoint generates secure, short-lived signed URLs on demand when users
+    want to access settlement instruction documents.
+    """
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    try:
+        client_service = ClientService()
+        
+        # Parse email ID and trade index
+        if '_trade_' in email_id:
+            actual_email_id, trade_part = email_id.split('_trade_', 1)
+            trade_index = int(trade_part)
+        else:
+            actual_email_id = email_id
+            trade_index = 0
+        
+        logger.info(f"Generating signed URL for email {actual_email_id}, trade {trade_index}")
+        
+        # Get the email document to retrieve the storage path
+        email_doc_ref = client_service.db.collection('clients').document(client_id).collection('emails').document(actual_email_id)
+        doc_snapshot = email_doc_ref.get()
+        
+        if not doc_snapshot.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Email document not found"
+            )
+        
+        email_data = doc_snapshot.to_dict()
+        
+        # Extract storage path from nested trade data
+        try:
+            llm_data = email_data.get('llmExtractedData', {})
+            trades = llm_data.get('Trades', [])
+            
+            # Check if trades is still a list or was converted to object
+            if isinstance(trades, list):
+                if trade_index < len(trades):
+                    storage_path = trades[trade_index].get('settlementInstructionStoragePath')
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Trade index {trade_index} not found"
+                    )
+            else:
+                # Handle case where Trades was converted to object (backward compatibility)
+                trade_data = trades.get(str(trade_index), {})
+                storage_path = trade_data.get('settlementInstructionStoragePath')
+                
+            if not storage_path:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Settlement instruction document not found for this trade"
+                )
+                
+        except (KeyError, TypeError, AttributeError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Settlement instruction document not found for this trade: {e}"
+            )
+        
+        # Generate fresh signed URL (1 hour expiration)
+        from services.storage_service import StorageService
+        storage_service = StorageService()
+        
+        url_result = await storage_service.generate_document_signed_url(storage_path, expiration_minutes=60)
+        
+        if not url_result['success']:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate signed URL: {url_result.get('error')}"
+            )
+        
+        logger.info(f"Generated signed URL for settlement instruction at {storage_path}")
+        
+        return APIResponse(
+            success=True,
+            data={
+                "signed_url": url_result['signed_url'],
+                "expires_in_minutes": "60",
+                "storage_path": storage_path
+            },
+            message="Signed URL generated successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating signed URL for client {client_id}, email {email_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate signed URL: {str(e)}"
         )

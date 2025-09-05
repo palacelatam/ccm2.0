@@ -15,7 +15,8 @@
       "Bash(cp:*)",
       "Bash(awk:*)",
       "Read(c:\\Users\\bencl\\OneDrive - palace.cl\\Pictures\\Screenshots/**)",
-      "Read(c:\\Users\\bencl\\OneDrive - palace.cl\\Pictures\\Screenshots/**)"
+      "Read(c:\\Users\\bencl\\OneDrive - palace.cl\\Pictures\\Screenshots/**)",
+      "Read(//c/Users/bencl/OneDrive - palace.cl/Pictures/Screenshots/**)"
     ],
     "deny": []
   }

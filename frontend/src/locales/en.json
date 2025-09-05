@@ -475,7 +475,8 @@
       "confirmMatch": "Confirm Match",
       "disputeMatch": "Dispute Match",
       "mailback": "Mailback",
-      "createSettlementInstruction": "Create Settlement Instruction"
+      "createSettlementInstruction": "Create Settlement Instruction",
+      "downloadSettlementInstruction": "Download Settlement Instruction"
     },
     "columns": {
       "tradeId": "Trade ID",

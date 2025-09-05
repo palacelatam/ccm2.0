@@ -44,6 +44,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   const [showInlineMenu, setShowInlineMenu] = useState(false);
   const [inlineMenuPosition, setInlineMenuPosition] = useState({ x: 0, y: 0 });
   const [selectedEmailForMenu, setSelectedEmailForMenu] = useState<any | null>(null);
+  const [rightClickedColumn, setRightClickedColumn] = useState<string | null>(null);
   const [statusHistory, setStatusHistory] = useState<Map<string, string>>(new Map());
   
   // Settlement instruction dialog state
@@ -397,7 +398,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         setTimeout(() => {
           if (gridRef.current?.api) {
             gridRef.current.api.refreshCells({
-              columns: ['settlementInstructionDocument'],
+              columns: ['settlementInstructionStoragePath'],
               force: true
             });
           }
@@ -426,14 +427,30 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       const result = await clientService.generateSettlementInstruction(
         clientId, 
         clientTradeNumber, 
-        emailData.BankTradeNumber
+        emailData.BankTradeNumber,
+        emailData.id
       );
       
-      console.log('Settlement instruction generation result:', result);
       
       if (result.success) {
         showToastNotification(t('grid.messages.settlementInstructionGenerated', { tradeNumber: clientTradeNumber }), 'success');
-        // Note: Paperclip will appear after Step 4 (cloud storage upload)
+        
+        // Refresh just this specific row's data from backend
+        if (gridRef.current?.api && clientId) {
+          try {
+            // Get fresh email data from backend
+            const freshEmails = await clientService.getAllEmailConfirmations(clientId);
+            // Find the updated email data
+            const updatedEmail = freshEmails.find(email => email.id === emailId);
+            
+            if (updatedEmail) {
+              // Update just this one row
+              gridRef.current.api.applyTransaction({ update: [updatedEmail] });
+            }
+          } catch (error) {
+            console.error('Error refreshing email data:', error);
+          }
+        }
       } else {
         throw new Error(result.message || 'Failed to generate settlement instruction');
       }
@@ -454,10 +471,9 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             if (rowNode) {
               gridRef.current.api.refreshCells({
                 rowNodes: [rowNode],
-                columns: ['settlementInstructionDocument'],
+                columns: ['settlementInstructionStoragePath'],
                 force: true
               });
-              console.log('Cleared loading state and refreshed cell for email:', emailId);
             }
           }
         }, 0);
@@ -500,6 +516,39 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
     setShowSettlementDialog(true);
     setShowInlineMenu(false);
   };
+
+  const downloadSettlementInstruction = async (emailData: any) => {
+    if (!clientId || !emailData.settlementInstructionStoragePath) {
+      console.error('Missing client ID or storage path for download');
+      return;
+    }
+
+    try {
+      // Get fresh signed URL for download
+      const response = await clientService.getSettlementInstructionUrl(clientId, emailData.id);
+      
+      if (response.success && response.data?.signed_url) {
+        // Trigger download by creating a temporary link element
+        const link = document.createElement('a');
+        link.href = response.data.signed_url;
+        link.download = ''; // This suggests to browser it should download, not navigate
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.error('Failed to get download URL:', response.message);
+        setToastMessage('Failed to get download link');
+        setToastType('error');
+        setShowToast(true);
+      }
+    } catch (error) {
+      console.error('Error downloading settlement instruction:', error);
+      setToastMessage('Error downloading document');
+      setToastType('error');
+      setShowToast(true);
+    }
+  };
   
   const columnDefs: ColDef[] = useMemo(() => [
     { 
@@ -528,19 +577,19 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             color = '#FFFFFF';
             break;
           case 'Resolved':
-            color = '#00e7ff'; // Light blue for Resolved
+            color = '#00e7ff';
             break;
           case 'Tagged':
-            color = '#FFA500'; // Orange for Tagged
+            color = '#FFA500';
             break;
           case 'Matched':
-            color = '#4CAF50'; // Same as Confirmation OK
+            color = '#4CAF50';
             break;
           case 'Duplicate':
-            color = '#FFA500'; // Orange for duplicates
+            color = '#FFA500';
             break;
           default:
-            color = '#FFFFFF'; // Default fallback
+            color = '#FFFFFF';
             break;
         }
         
@@ -549,101 +598,107 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         }, status);
       },
       onCellContextMenu: (params: any) => {
-        // Prevent default context menu
         if (params.event) {
           params.event.preventDefault();
           params.event.stopPropagation();
         }
         
-        // Set the selected email data
         setSelectedEmailForMenu(params.data);
-        
-        // Set the position for the inline menu
+        setRightClickedColumn('status');
         setInlineMenuPosition({
           x: params.event.clientX,
           y: params.event.clientY
         });
-        
-        // Show the inline menu
         setShowInlineMenu(true);
         
-        // Return false to prevent AG Grid's default behavior
         return false;
       }
     },
+    /* 
+    SAVED PAPERCLIP COLUMN IMPLEMENTATION:
     {
       headerName: t('grid.columns.cartaInstruccion'),
-      field: 'settlementInstructionDocument',
+      field: 'settlementInstructionStoragePath',
       width: 80,
       sortable: false,
       filter: false,
-      cellRenderer: (params: any) => {
+      suppressContextMenu: true,
+      cellRenderer: (params: any): React.ReactElement => {
         const emailId = params.data?.id;
         const isGenerating = generatingSettlementInstructions.has(emailId);
-        const documentStatus = isGenerating ? 'generating' : (params.value?.status || 'empty');
-        const documentUrl = params.value?.url;
-        
+        const storagePath = params.value;
+        const documentStatus = isGenerating ? 'generating' : (storagePath ? 'generated' : 'empty');
         
         let icon = '';
-        let tooltip = '';
-        let clickable = false;
         let color = '#b3b3b3';
         
         switch(documentStatus) {
           case 'generated':
             icon = '📎';
-            tooltip = t('grid.tooltips.cartaInstruccion.generated');
-            clickable = true;
             color = '#28a745';
             break;
           case 'generating':
             icon = '⏳';
-            tooltip = t('grid.tooltips.cartaInstruccion.generating');
             color = '#ffc107';
             break;
-          case 'failed':
-            icon = '❌';
-            tooltip = t('grid.tooltips.cartaInstruccion.failed');
-            clickable = true;
-            color = '#dc3545';
-            break;
           default:
-            return React.createElement('div', {
-              style: {
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }
-            }, '');
+            icon = '';
+            color = '#b3b3b3';
+            break;
         }
         
-        const handleClick = () => {
-          if (!clickable) return;
-          
-          if (documentStatus === 'generated' && documentUrl) {
-            // Download document
-            window.open(documentUrl, '_blank');
-          } else if (documentStatus === 'failed') {
-            // TODO: Retry generation (will be implemented in Phase 3)
-            console.log('Retry settlement instruction generation for trade:', params.data?.BankTradeNumber);
-          }
-        };
+        return React.createElement('div', { 
+          style: { color: color, fontWeight: 'bold', textAlign: 'center' } 
+        }, icon);
+      },
+      onCellContextMenu: (params: any) => {
+        console.log('DEBUG: Paperclip column right-click handler called');
+        if (params.event) {
+          params.event.preventDefault();
+          params.event.stopPropagation();
+          params.event.stopImmediatePropagation();
+          console.log('DEBUG: Paperclip column prevented default');
+        }
         
-        return React.createElement('div', {
-          style: {
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: clickable ? 'pointer' : 'default',
-            color: color,
-            fontSize: '16px'
-          },
-          title: tooltip,
-          onClick: handleClick
+        setSelectedEmailForMenu(params.data);
+        setRightClickedColumn('settlementInstructionStoragePath');
+        
+        setInlineMenuPosition({
+          x: params.event.clientX,
+          y: params.event.clientY
+        });
+        
+        setShowInlineMenu(true);
+        
+        return false;
+      }
+    },
+    */
+    
+    {
+      headerName: t('grid.columns.cartaInstruccion'),
+      field: 'settlementInstructionStoragePath',
+      width: 80,
+      sortable: true,
+      filter: true,
+      cellRenderer: (params: any): React.ReactElement => {
+        const emailId = params.data?.id;
+        const isGenerating = generatingSettlementInstructions.has(emailId);
+        const storagePath = params.value;
+        
+        let icon = '';
+        let color = '#b3b3b3';
+        
+        if (isGenerating) {
+          icon = '⏳';
+          color = '#ffc107';
+        } else if (storagePath) {
+          icon = '✓';
+          color = '#28a745';
+        }
+        
+        return React.createElement('div', { 
+          style: { color: color, fontWeight: 'bold', textAlign: 'center', fontSize: '16px' } 
         }, icon);
       }
     },
@@ -1188,22 +1243,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
             columnDefs={columnDefs}
             onRowClicked={handleRowClick}
             getRowStyle={getRowStyle}
-            onCellContextMenu={(params: any) => {
-              // Handle right-click specifically for status column
-              if (params.column.getColId() === 'status') {
-                if (params.event) {
-                  params.event.preventDefault();
-                  params.event.stopPropagation();
-                }
-                
-                setSelectedEmailForMenu(params.data);
-                setInlineMenuPosition({
-                  x: params.event.clientX,
-                  y: params.event.clientY
-                });
-                setShowInlineMenu(true);
-              }
-            }}
+            getRowId={(params) => params.data.id}
             pagination={true}
             paginationPageSize={50}
             enableRangeSelection={true}
@@ -1231,64 +1271,102 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       />
       
       {/* Inline Menu */}
-      {showInlineMenu && selectedEmailForMenu && (
-        <InlineMenu
-            position={inlineMenuPosition}
-            onClose={() => setShowInlineMenu(false)}
-            items={(() => {
-            const baseItems: Array<InlineMenuItem | 'separator'> = [
-              {
-                label: 'Confirmation OK',
-                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Confirmation OK'),
-                disabled: selectedEmailForMenu.status === 'Confirmation OK'
-              },
-              {
-                label: 'Tagged',
-                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Tagged'),
-                disabled: selectedEmailForMenu.status === 'Tagged'
-              },
-              {
-                label: 'Resolved',
-                action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Resolved'),
-                disabled: selectedEmailForMenu.status === 'Resolved'
-              },
-              {
-                label: 'Undo',
-                action: () => handleUndoStatus(selectedEmailForMenu.id),
-                disabled: !statusHistory.has(selectedEmailForMenu.id)
-              },
-              'separator',
-              {
-                label: t('grid.contextMenu.mailback'),
-                action: () => {
-                  // If status is "Confirmation OK", show dialog to ask about settlement instruction
-                  if (selectedEmailForMenu.status === 'Confirmation OK') {
-                    showSettlementInstructionDialog(selectedEmailForMenu);
-                  } else {
-                    // For other statuses, just do normal mailback
-                    generateMailback(selectedEmailForMenu);
+      {showInlineMenu && selectedEmailForMenu && (() => {
+        
+        return (
+          <InlineMenu
+              position={inlineMenuPosition}
+              onClose={() => setShowInlineMenu(false)}
+              items={(() => {
+              // Generate different menus based on which column was right-clicked
+              if (rightClickedColumn === 'settlementInstructionStoragePath') {
+                // Paperclip column menu - only show download option if document exists
+                if (selectedEmailForMenu?.settlementInstructionStoragePath) {
+                  return [
+                    {
+                      label: 'Download Settlement Instruction',
+                      action: async () => {
+                        setShowInlineMenu(false);
+                        await downloadSettlementInstruction(selectedEmailForMenu);
+                      }
+                    }
+                  ];
+                } else {
+                  return [
+                    {
+                      label: 'No document available',
+                      action: () => {},
+                      disabled: true
+                    }
+                  ];
+                }
+              } else {
+                // Status column menu - full menu with all options
+                const baseItems: Array<InlineMenuItem | 'separator'> = [
+                  {
+                    label: 'Confirmation OK',
+                    action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Confirmation OK'),
+                    disabled: selectedEmailForMenu.status === 'Confirmation OK'
+                  },
+                  {
+                    label: 'Tagged',
+                    action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Tagged'),
+                    disabled: selectedEmailForMenu.status === 'Tagged'
+                  },
+                  {
+                    label: 'Resolved',
+                    action: () => handleStatusUpdate(selectedEmailForMenu.id, 'Resolved'),
+                    disabled: selectedEmailForMenu.status === 'Resolved'
+                  },
+                  {
+                    label: 'Undo',
+                    action: () => handleUndoStatus(selectedEmailForMenu.id),
+                    disabled: !statusHistory.has(selectedEmailForMenu.id)
+                  },
+                  'separator',
+                  {
+                    label: t('grid.contextMenu.mailback'),
+                    action: () => {
+                      // If status is "Confirmation OK", show dialog to ask about settlement instruction
+                      if (selectedEmailForMenu.status === 'Confirmation OK') {
+                        showSettlementInstructionDialog(selectedEmailForMenu);
+                      } else {
+                        // For other statuses, just do normal mailback
+                        generateMailback(selectedEmailForMenu);
+                      }
+                    }
                   }
+                ];
+
+                // Add "Create Settlement Instruction" if conditions are met
+                if (selectedEmailForMenu.status === 'Confirmation OK' && 
+                    !selectedEmailForMenu.settlementInstructionStoragePath) {
+                  baseItems.push({
+                    label: t('grid.contextMenu.createSettlementInstruction'),
+                    action: async () => {
+                      setShowInlineMenu(false);
+                      await generateSettlementInstruction(selectedEmailForMenu);
+                    }
+                  });
                 }
+
+                // Add "Download Settlement Instruction" if document exists
+                if (selectedEmailForMenu.settlementInstructionStoragePath) {
+                  baseItems.push({
+                    label: t('grid.contextMenu.downloadSettlementInstruction'),
+                    action: async () => {
+                      setShowInlineMenu(false);
+                      await downloadSettlementInstruction(selectedEmailForMenu);
+                    }
+                  });
+                }
+
+                return baseItems;
               }
-            ];
-
-            // Add "Create Settlement Instruction" if conditions are met
-            if (selectedEmailForMenu.status === 'Confirmation OK' && 
-                (!selectedEmailForMenu.settlementInstructionDocument || 
-                 selectedEmailForMenu.settlementInstructionDocument.status === 'empty')) {
-              baseItems.push({
-                label: t('grid.contextMenu.createSettlementInstruction'),
-                action: async () => {
-                  setShowInlineMenu(false);
-                  await generateSettlementInstruction(selectedEmailForMenu);
-                }
-              });
-            }
-
-            return baseItems;
-          })()}
-        />
-      )}
+            })()}
+          />
+        );
+      })()}
       
       {/* Settlement Instruction Dialog */}
       {showSettlementDialog && settlementDialogTrade && (

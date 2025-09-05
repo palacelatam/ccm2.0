@@ -452,7 +452,8 @@
       "delete": "Deletar",
       "duplicate": "Duplicar",
       "mailback": "Mailback",
-      "createSettlementInstruction": "Criar Carta de Instrução"
+      "createSettlementInstruction": "Criar Carta de Instrução",
+      "downloadSettlementInstruction": "Baixar Carta de Instrução"
     },
     "columns": {
       "tradeId": "ID do Trade",

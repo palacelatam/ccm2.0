@@ -361,7 +361,8 @@ class ClientService {
   async generateSettlementInstruction(
     clientId: string, 
     tradeNumber: string, 
-    bankTradeNumber?: string
+    bankTradeNumber?: string,
+    emailId?: string
   ): Promise<APIResponse<any>> {
     try {
       const token = await this.getAuthToken();
@@ -371,6 +372,9 @@ class ClientService {
       formData.append('trade_number', tradeNumber);
       if (bankTradeNumber) {
         formData.append('bank_trade_number', bankTradeNumber);
+      }
+      if (emailId) {
+        formData.append('email_id', emailId);
       }
       
       const response = await fetch(`${this.baseURL}/${clientId}/settlement-instructions/generate`, {
@@ -395,6 +399,41 @@ class ClientService {
         success: false,
         data: null,
         message: error instanceof Error ? error.message : 'Failed to generate settlement instruction'
+      };
+    }
+  }
+
+  /**
+   * Get a fresh signed URL for accessing a settlement instruction document
+   */
+  async getSettlementInstructionUrl(clientId: string, emailId: string): Promise<APIResponse<any>> {
+    try {
+      const token = await this.getAuthToken();
+      
+      const formData = new FormData();
+      formData.append('email_id', emailId);
+      
+      const response = await fetch(`${this.baseURL}/${clientId}/settlement-instructions/get-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error getting settlement instruction URL:', error);
+      return {
+        success: false,
+        data: null,
+        message: error instanceof Error ? error.message : 'Failed to get settlement instruction URL'
       };
     }
   }
