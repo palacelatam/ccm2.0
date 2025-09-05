@@ -4,6 +4,7 @@ Client management routes
 
 from fastapi import APIRouter, Request, HTTPException, status, Path, UploadFile, File, Form
 from typing import List, Dict, Any
+from datetime import datetime
 import logging
 
 from api.middleware.auth_middleware import get_auth_context, require_permission
@@ -1104,4 +1105,338 @@ async def process_matches(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process matches: {str(e)}"
+        )
+
+
+@router.post("/{client_id}/settlement-instructions/generate", response_model=APIResponse[Dict[str, Any]])
+async def generate_settlement_instruction(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    trade_number: str = Form(..., description="Client trade number"),
+    bank_trade_number: str = Form(None, description="Bank trade number from email")
+):
+    """
+    Generate a settlement instruction document for a specific trade
+    
+    This endpoint is called manually from the UI when a user wants to generate
+    a settlement instruction document on-demand.
+    """
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+    
+    try:
+        # Step 2: Fetch and validate trade data
+        logger.info(f"Settlement instruction generation requested for client {client_id}, trade {trade_number}")
+        
+        client_service = ClientService()
+        
+        # Verify client exists
+        if not await client_service.client_exists(client_id):
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Fetch the trade from Firestore
+        trades_ref = client_service.db.collection('clients').document(client_id).collection('trades')
+        trades_query = trades_ref.where('TradeNumber', '==', trade_number).limit(1)
+        trades = trades_query.get()
+        
+        if not trades:
+            logger.error(f"Trade {trade_number} not found for client {client_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Trade {trade_number} not found"
+            )
+        
+        trade_doc = trades[0]
+        trade_data = trade_doc.to_dict()
+        trade_data['id'] = trade_doc.id
+        trade_data['client_id'] = client_id
+        
+        # Get client name for the trade data
+        client_doc = client_service.db.collection('clients').document(client_id).get()
+        if client_doc.exists:
+            client_info = client_doc.to_dict()
+            trade_data['client_name'] = client_info.get('name', client_id)
+        
+        logger.info(f"Trade found: {trade_data.get('TradeNumber')} - {trade_data.get('CounterpartyName')}")
+        logger.info(f"Trade details: Product={trade_data.get('ProductType')}, Direction={trade_data.get('Direction')}, "
+                   f"Currencies={trade_data.get('Currency1')}/{trade_data.get('Currency2')}")
+        
+        # Step 3: Fetch settlement rules and bank accounts, then generate document
+        logger.info("Fetching settlement rules and bank accounts...")
+        
+        # Get settlement rules (reusing logic from test_trade.py)
+        settlement_rules_ref = client_service.db.collection('clients').document(client_id).collection('settlementRules')
+        settlement_rules_docs = settlement_rules_ref.order_by('priority').stream()
+        settlement_rules = [doc.to_dict() for doc in settlement_rules_docs]
+        
+        # Get bank accounts
+        bank_accounts_ref = client_service.db.collection('clients').document(client_id).collection('bankAccounts')
+        bank_accounts_docs = bank_accounts_ref.stream()
+        bank_accounts = [doc.to_dict() for doc in bank_accounts_docs]
+        
+        logger.info(f"Found {len(settlement_rules)} settlement rules and {len(bank_accounts)} bank accounts")
+        
+        # Find matching settlement rules (logic from test_trade.py)
+        def find_matching_settlement_rules(trade_data, settlement_rules):
+            if not settlement_rules:
+                return None
+                
+            trade_counterparty = trade_data.get('CounterpartyName', '').lower()
+            trade_currency1 = trade_data.get('Currency1', '')
+            trade_currency2 = trade_data.get('Currency2', '')
+            trade_product = trade_data.get('ProductType', '')
+            trade_direction = trade_data.get('Direction', '').upper()
+            settlement_type = trade_data.get('SettlementType', '')
+            settlement_currency = trade_data.get('SettlementCurrency', '')
+            
+            logger.info(f"Matching settlement rules - Type: {settlement_type}, Currency: {settlement_currency}")
+            
+            if settlement_type == "Compensación":
+                for rule in settlement_rules:
+                    rule_counterparty = rule.get('counterparty', '').lower()
+                    rule_product = rule.get('product', '')
+                    rule_modalidad = rule.get('modalidad', '')
+                    rule_settlement_currency = rule.get('settlementCurrency', '')
+                    rule_active = rule.get('active', True)
+                    
+                    if not rule_active:
+                        continue
+                        
+                    counterparty_match = not rule_counterparty or rule_counterparty in trade_counterparty
+                    product_match = not rule_product or rule_product.lower() in trade_product.lower()
+                    modalidad_match = rule_modalidad == 'compensacion'
+                    currency_match = rule_settlement_currency == settlement_currency
+                    
+                    if counterparty_match and product_match and modalidad_match and currency_match:
+                        logger.info(f"Matched rule: {rule.get('name')} for Compensación")
+                        return rule
+                        
+            elif settlement_type == "Entrega Física":
+                if trade_direction == 'BUY':
+                    pay_currency = trade_currency2
+                    receive_currency = trade_currency1
+                else:
+                    pay_currency = trade_currency1
+                    receive_currency = trade_currency2
+                
+                for rule in settlement_rules:
+                    rule_counterparty = rule.get('counterparty', '').lower()
+                    rule_product = rule.get('product', '')
+                    rule_modalidad = rule.get('modalidad', '')
+                    rule_cargar_currency = rule.get('cargarCurrency', '')
+                    rule_abonar_currency = rule.get('abonarCurrency', '')
+                    rule_active = rule.get('active', True)
+                    
+                    if not rule_active:
+                        continue
+                        
+                    counterparty_match = not rule_counterparty or rule_counterparty in trade_counterparty
+                    product_match = not rule_product or rule_product.lower() in trade_product.lower()
+                    modalidad_match = rule_modalidad == 'entregaFisica'
+                    cargar_match = rule_cargar_currency == pay_currency
+                    abonar_match = rule_abonar_currency == receive_currency
+                    
+                    if (counterparty_match and product_match and modalidad_match and 
+                        cargar_match and abonar_match):
+                        logger.info(f"Matched rule: {rule.get('name')} for Entrega Física")
+                        return {
+                            'matched_rule': rule,
+                            'pay_currency': pay_currency,
+                            'receive_currency': receive_currency
+                        }
+            
+            return None
+        
+        # Find matching bank accounts (logic from test_trade.py) 
+        def find_matching_bank_accounts(settlement_rules_matched, bank_accounts):
+            if not settlement_rules_matched:
+                return None
+                
+            if isinstance(settlement_rules_matched, dict) and 'matched_rule' in settlement_rules_matched:
+                # Entrega Física case
+                rule = settlement_rules_matched['matched_rule']
+                cargar_bank = rule.get('cargarBankName', '')
+                cargar_account_number = rule.get('cargarAccountNumber', '')
+                abonar_bank = rule.get('abonarBankName', '')
+                abonar_account_number = rule.get('abonarAccountNumber', '')
+                
+                cargar_account = None
+                abonar_account = None
+                
+                for account in bank_accounts:
+                    if (account.get('bankName') == cargar_bank and 
+                        account.get('accountNumber') == cargar_account_number):
+                        cargar_account = account
+                    if (account.get('bankName') == abonar_bank and 
+                        account.get('accountNumber') == abonar_account_number):
+                        abonar_account = account
+                
+                if cargar_account and abonar_account:
+                    return {
+                        'cargar': cargar_account,
+                        'abonar': abonar_account
+                    }
+                return None
+            else:
+                # Compensación case - get bank account details directly from the settlement rule
+                rule = settlement_rules_matched
+                
+                # Get bank account details directly from settlement rule using correct field names
+                # For Compensación, use abonar fields as the primary account
+                rule_bank_name = rule.get('abonarBankName', '')
+                rule_account_number = rule.get('abonarAccountNumber', '')
+                rule_swift_code = rule.get('abonarSwiftCode', '')
+                rule_settlement_currency = rule.get('settlementCurrency', '')
+                rule_account_name = f"{rule_bank_name} - {rule_settlement_currency}"
+                
+                logger.info(f"Using bank account details directly from settlement rule: {rule_account_name}")
+                logger.info(f"Bank: {rule_bank_name}, Account: {rule_account_number}, Currency: {rule_settlement_currency}")
+                
+                return {
+                    'accountName': rule_account_name,
+                    'accountNumber': rule_account_number,
+                    'bankName': rule_bank_name,
+                    'swiftCode': rule_swift_code,
+                    'accountCurrency': rule_settlement_currency
+                }
+        
+        # Find matching settlement rules and bank accounts
+        settlement_rules_matched = find_matching_settlement_rules(trade_data, settlement_rules)
+        if not settlement_rules_matched:
+            logger.error(f"No matching settlement rules found for trade {trade_number}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No matching settlement rules found for this trade. Please check settlement rules configuration."
+            )
+        
+        bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
+        if not bank_accounts_matched:
+            logger.error(f"No matching bank accounts found for trade {trade_number}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No matching bank accounts found for the settlement rule. Please check bank account configuration."
+            )
+        
+        # Prepare settlement data (reusing logic from test_trade.py)
+        settlement_data = None
+        if isinstance(bank_accounts_matched, dict) and 'cargar' in bank_accounts_matched:
+            # Physical delivery - two accounts
+            cargar_account = bank_accounts_matched.get('cargar')
+            abonar_account = bank_accounts_matched.get('abonar')
+            
+            settlement_data = {
+                'cargar_account_name': cargar_account.get('accountName', 'N/A'),
+                'cargar_account_number': cargar_account.get('accountNumber', 'N/A'),
+                'cargar_bank_name': cargar_account.get('bankName', 'N/A'),
+                'cargar_swift_code': cargar_account.get('swiftCode', 'N/A'),
+                'cargar_currency': cargar_account.get('accountCurrency', 'N/A'),
+                'abonar_account_name': abonar_account.get('accountName', 'N/A'),
+                'abonar_account_number': abonar_account.get('accountNumber', 'N/A'),
+                'abonar_bank_name': abonar_account.get('bankName', 'N/A'),
+                'abonar_swift_code': abonar_account.get('swiftCode', 'N/A'),
+                'abonar_currency': abonar_account.get('accountCurrency', 'N/A'),
+                'cutoff_time': '15:00 Santiago Time',
+                'special_instructions': 'Physical delivery settlement - two-way transfer',
+                'central_bank_trade_code': settlement_rules_matched.get('matched_rule', {}).get('centralBankTradeCode', 'N/A'),
+                # For backward compatibility
+                'account_name': abonar_account.get('accountName', 'N/A'),
+                'account_number': abonar_account.get('accountNumber', 'N/A'),
+                'bank_name': abonar_account.get('bankName', 'N/A'),
+                'swift_code': abonar_account.get('swiftCode', 'N/A')
+            }
+            logger.info("Settlement data prepared for Physical Delivery (two accounts)")
+        else:
+            # Compensación - single account (populate both basic and abonar/cargar fields)
+            settlement_data = {
+                # Basic fields
+                'account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                'account_number': bank_accounts_matched.get('accountNumber', 'N/A'),
+                'bank_name': bank_accounts_matched.get('bankName', 'N/A'),
+                'swift_code': bank_accounts_matched.get('swiftCode', 'N/A'),
+                
+                # Abonar fields (from settlement rule)
+                'abonar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                'abonar_account_number': settlement_rules_matched.get('abonarAccountNumber', 'N/A'),
+                'abonar_bank_name': settlement_rules_matched.get('abonarBankName', 'N/A'),
+                'abonar_swift_code': settlement_rules_matched.get('abonarSwiftCode', 'N/A'),
+                'abonar_currency': settlement_rules_matched.get('abonarCurrency', 'N/A'),
+                
+                # Cargar fields (from settlement rule - same for Compensación)
+                'cargar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                'cargar_account_number': settlement_rules_matched.get('cargarAccountNumber', 'N/A'),
+                'cargar_bank_name': settlement_rules_matched.get('cargarBankName', 'N/A'),
+                'cargar_swift_code': settlement_rules_matched.get('cargarSwiftCode', 'N/A'),
+                'cargar_currency': settlement_rules_matched.get('cargarCurrency', 'N/A'),
+                
+                # Other fields
+                'cutoff_time': '15:00 Santiago Time',
+                'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.'),
+                'central_bank_trade_code': settlement_rules_matched.get('centralBankTradeCode', 'N/A')
+            }
+            logger.info("Settlement data prepared for Compensación with abonar/cargar fields populated")
+        
+        # Generate settlement instruction document using existing service
+        from services.settlement_instruction_service import settlement_instruction_service
+        
+        # Map counterparty to bank ID (reusing logic from test_trade.py)
+        counterparty = trade_data.get('CounterpartyName', '')
+        if 'banco abc' in counterparty.lower():
+            bank_id = "banco-abc"
+        else:
+            bank_id = counterparty.lower().replace(' ', '-').replace('ó', 'o')
+        
+        # Get client segment ID if available
+        client_segment_id = trade_data.get('client_segment_id')
+        
+        # Ensure trade has Product field for template matching
+        product = trade_data.get('ProductType', trade_data.get('Product', 'N/A'))
+        trade_data_with_product = trade_data.copy()
+        trade_data_with_product['Product'] = product
+        
+        logger.info(f"Generating document with bank_id={bank_id}, segment_id={client_segment_id}")
+        
+        # Generate the document
+        result = await settlement_instruction_service.generate_settlement_instruction(
+            trade_data=trade_data_with_product,
+            bank_id=bank_id,
+            client_segment_id=client_segment_id,
+            settlement_data=settlement_data
+        )
+        
+        if not result['success']:
+            logger.error(f"Document generation failed: {result.get('error')}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to generate settlement instruction document: {result.get('error')}"
+            )
+        
+        logger.info(f"Document generated successfully: {result['document_path']}")
+        
+        # For Step 3 testing, return document generation results
+        response_data = {
+            "trade_number": trade_number,
+            "bank_trade_number": bank_trade_number,
+            "status": "document_generated",
+            "document_path": result['document_path'],
+            "template_used": result['template_used'],
+            "template_id": result.get('template_id'),
+            "variables_populated": result['variables_populated'],
+            "settlement_rules_found": len(settlement_rules),
+            "bank_accounts_found": len(bank_accounts),
+            "settlement_type": trade_data.get('SettlementType'),
+            "message": "Settlement instruction document generated successfully (Step 3)",
+            "generated_at": datetime.utcnow().isoformat() + "Z"
+        }
+        
+        return APIResponse(
+            success=True,
+            data=response_data,
+            message="Settlement instruction document generated successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating settlement instruction for client {client_id}, trade {trade_number}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate settlement instruction: {str(e)}"
         )

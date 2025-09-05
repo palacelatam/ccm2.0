@@ -49,6 +49,9 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   // Settlement instruction dialog state
   const [showSettlementDialog, setShowSettlementDialog] = useState(false);
   const [settlementDialogTrade, setSettlementDialogTrade] = useState<any | null>(null);
+  
+  // Settlement instruction loading state
+  const [generatingSettlementInstructions, setGeneratingSettlementInstructions] = useState<Set<string>>(new Set());
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
@@ -312,16 +315,17 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
     // Get discrepancy information from matched trade data using matchId
     let hasActualDiscrepancies = false;
     let discrepancyFields = [];
+    let matchedTradeData: any = null;
     
     if (emailData.matchId && clientId) {
       try {
         // Fetch the matched trades to get the discrepancy information
         const matchedTrades = await clientService.getMatchedTrades(clientId);
-        const matchedTrade = matchedTrades.find(trade => trade.matchId === emailData.matchId || trade.match_id === emailData.matchId);
+        matchedTradeData = matchedTrades.find(trade => trade.matchId === emailData.matchId || trade.match_id === emailData.matchId);
         
-        if (matchedTrade && matchedTrade.differingFields && matchedTrade.differingFields.length > 0) {
+        if (matchedTradeData && matchedTradeData.differingFields && matchedTradeData.differingFields.length > 0) {
           hasActualDiscrepancies = true;
-          discrepancyFields = matchedTrade.differingFields;
+          discrepancyFields = matchedTradeData.differingFields;
         }
       } catch (error) {
         console.error('Error fetching matched trade data for mailback:', error);
@@ -342,7 +346,17 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       // Add each discrepancy
       discrepancyFields.forEach((field: string) => {
         const emailValue = emailData[field] || 'N/A';
-        const clientValue = emailData[`client_${field}`] || 'N/A'; // Assuming client values are prefixed
+        const clientValue = matchedTradeData ? (matchedTradeData[field] || 'N/A') : 'N/A';
+        
+        // Debug logging
+        console.log('DEBUG Mailback:', {
+          field,
+          emailValue,
+          clientValue,
+          matchedTradeDataKeys: matchedTradeData ? Object.keys(matchedTradeData) : 'null',
+          emailDataKeys: Object.keys(emailData)
+        });
+        
         body += `${field}:\n`;
         body += t('mailback.yourValue') + `: ${emailValue}\n`;
         body += t('mailback.ourValue') + `: ${clientValue}\n\n`;
@@ -367,7 +381,31 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   // Generate settlement instruction document
   const generateSettlementInstruction = async (emailData: any) => {
+    const emailId = emailData.id;
+    
     try {
+      if (!clientId) {
+        throw new Error('Client ID not available');
+      }
+      
+      // Set loading state
+      setGeneratingSettlementInstructions(prev => {
+        const newSet = new Set([...prev, emailId]);
+        
+        // Force AG Grid to refresh just this specific cell
+        // Use a small delay to ensure React state has updated
+        setTimeout(() => {
+          if (gridRef.current?.api) {
+            gridRef.current.api.refreshCells({
+              columns: ['settlementInstructionDocument'],
+              force: true
+            });
+          }
+        }, 10); // Small delay to ensure state is updated
+        
+        return newSet;
+      });
+      
       // Get client trade number from matched trade data
       let clientTradeNumber = emailData.BankTradeNumber; // Fallback
       
@@ -384,18 +422,48 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
         }
       }
       
-      // TODO: Call backend service to generate settlement instruction
-      // This will be implemented in the backend phase
-      console.log('Generating settlement instruction for client trade:', clientTradeNumber);
+      // Call backend service to generate settlement instruction
+      const result = await clientService.generateSettlementInstruction(
+        clientId, 
+        clientTradeNumber, 
+        emailData.BankTradeNumber
+      );
       
-      showToastNotification(t('grid.messages.settlementInstructionGenerated', { tradeNumber: clientTradeNumber }), 'success');
+      console.log('Settlement instruction generation result:', result);
       
-      // Refresh grid to show updated status
-      await loadEmails(true);
+      if (result.success) {
+        showToastNotification(t('grid.messages.settlementInstructionGenerated', { tradeNumber: clientTradeNumber }), 'success');
+        // Note: Paperclip will appear after Step 4 (cloud storage upload)
+      } else {
+        throw new Error(result.message || 'Failed to generate settlement instruction');
+      }
       
     } catch (error) {
       console.error('Error generating settlement instruction:', error);
       showToastNotification(t('grid.messages.settlementInstructionFailed'), 'error');
+    } finally {
+      // Clear loading state
+      setGeneratingSettlementInstructions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(emailId);
+        
+        // Force AG Grid to refresh just this specific cell
+        setTimeout(() => {
+          if (gridRef.current?.api) {
+            const rowNode = gridRef.current.api.getRowNode(emailId);
+            if (rowNode) {
+              gridRef.current.api.refreshCells({
+                rowNodes: [rowNode],
+                columns: ['settlementInstructionDocument'],
+                force: true
+              });
+              console.log('Cleared loading state and refreshed cell for email:', emailId);
+            }
+          }
+        }, 0);
+        
+        return newSet;
+      });
     }
   };
 
@@ -510,8 +578,11 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
-        const documentStatus = params.value?.status || 'empty';
+        const emailId = params.data?.id;
+        const isGenerating = generatingSettlementInstructions.has(emailId);
+        const documentStatus = isGenerating ? 'generating' : (params.value?.status || 'empty');
         const documentUrl = params.value?.url;
+        
         
         let icon = '';
         let tooltip = '';
@@ -974,7 +1045,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       field: 'OurPaymentMethod', 
       width: 160,
     }
-  ], [t]);
+  ], [t, generatingSettlementInstructions]);
 
   // Handle row click for highlighting
   const handleRowClick = useCallback((event: any) => {

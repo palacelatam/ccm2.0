@@ -354,6 +354,50 @@ class ClientService {
         return 'status-default';
     }
   }
+
+  /**
+   * Generate settlement instruction document for a trade
+   */
+  async generateSettlementInstruction(
+    clientId: string, 
+    tradeNumber: string, 
+    bankTradeNumber?: string
+  ): Promise<APIResponse<any>> {
+    try {
+      const token = await this.getAuthToken();
+      
+      // Create FormData for the POST request
+      const formData = new FormData();
+      formData.append('trade_number', tradeNumber);
+      if (bankTradeNumber) {
+        formData.append('bank_trade_number', bankTradeNumber);
+      }
+      
+      const response = await fetch(`${this.baseURL}/${clientId}/settlement-instructions/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - browser will set it with boundary
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error generating settlement instruction:', error);
+      return {
+        success: false,
+        data: null,
+        message: error instanceof Error ? error.message : 'Failed to generate settlement instruction'
+      };
+    }
+  }
 }
 
 // Export singleton instance
