@@ -1,22 +1,31 @@
-DEBUG: Paperclip column right-click handler called
-ConfirmationsGrid.tsx:686 DEBUG: Paperclip column prevented default
-ConfirmationsGrid.tsx:1276 DEBUG: Rendering InlineMenu at position: {x: 1507, y: 261} for email: ysVNbryDe3oFRlEHpJg7_trade_0
-ConfirmationsGrid.tsx:1277 DEBUG: showInlineMenu state: true
-ConfirmationsGrid.tsx:1278 DEBUG: selectedEmailForMenu exists: true
-ConfirmationsGrid.tsx:1303 DEBUG: Generating menu items for column: settlementInstructionStoragePath
-ConfirmationsGrid.tsx:1304 DEBUG: Selected email: ysVNbryDe3oFRlEHpJg7_trade_0
-ConfirmationsGrid.tsx:1305 DEBUG: Email has settlement instruction: true
-ConfirmationsGrid.tsx:1309 DEBUG: Generating paperclip menu
-ConfirmationsGrid.tsx:1276 DEBUG: Rendering InlineMenu at position: {x: 1507, y: 261} for email: ysVNbryDe3oFRlEHpJg7_trade_0
-ConfirmationsGrid.tsx:1277 DEBUG: showInlineMenu state: true
-ConfirmationsGrid.tsx:1278 DEBUG: selectedEmailForMenu exists: true
-ConfirmationsGrid.tsx:1303 DEBUG: Generating menu items for column: settlementInstructionStoragePath
-ConfirmationsGrid.tsx:1304 DEBUG: Selected email: ysVNbryDe3oFRlEHpJg7_trade_0
-ConfirmationsGrid.tsx:1305 DEBUG: Email has settlement instruction: true
-ConfirmationsGrid.tsx:1309 DEBUG: Generating paperclip menu
-ConfirmationsGrid.tsx:1283 DEBUG: InlineMenu element found in DOM: true
-ConfirmationsGrid.tsx:1287 DEBUG: InlineMenu position: DOMRect {x: 1506.984375, y: 260.2197265625, width: 247.875, height: 49.3359375, top: 260.2197265625, …}
-ConfirmationsGrid.tsx:1288 DEBUG: InlineMenu styles: {display: 'block', visibility: 'visible', opacity: '0.843946', zIndex: '9999', position: 'fixed'}
-ConfirmationsGrid.tsx:1283 DEBUG: InlineMenu element found in DOM: true
-ConfirmationsGrid.tsx:1287 DEBUG: InlineMenu position: DOMRect {x: 1506.984375, y: 260.2197265625, width: 247.875, height: 49.3359375, top: 260.2197265625, …}
-ConfirmationsGrid.tsx:1288 DEBUG: InlineMenu styles: {display: 'block', visibility: 'visible', opacity: '0.843946', zIndex: '9999', position: 'fixed'}
+{
+insertId: "pu08t2d3phz"
+jsonPayload: {
+@type: "type.googleapis.com/google.cloud.tasks.logging.v1.TaskActivityLog"
+attemptResponseLog: {
+attemptDuration: "0.001250s"
+dispatchCount: "1"
+maxAttempts: 0
+responseCount: "0"
+retryTime: "2025-09-05T20:39:23.111491Z"
+scheduleTime: "2025-09-05T20:38:23.096373Z"
+status: "UNKNOWN"
+targetAddress: "POST http://localhost:8000/api/internal/tasks/email"
+targetType: "HTTP"
+}
+task: "projects/ccm-dev-pool/locations/us-east4/queues/email-tasks/tasks/061918363491882526"
+}
+labels: {
+}
+logName: "projects/ccm-dev-pool/logs/cloudtasks.googleapis.com%2Ftask_operations_log"
+payload: "jsonPayload"
+receiveLocation: "us-east4"
+receiveTimestamp: "2025-09-05T20:38:23.901407306Z"
+resource: {
+labels: {4}
+type: "cloud_tasks_queue"
+}
+severity: "ERROR"
+timestamp: "2025-09-05T20:38:23.111755910Z"
+traceSampled: false
+}
