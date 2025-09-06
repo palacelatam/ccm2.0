@@ -682,7 +682,8 @@ class GmailService:
         subject: str, 
         body: str,
         cc_email: Optional[str] = None,
-        reply_to: Optional[str] = None
+        reply_to: Optional[str] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> bool:
         """
         Send an email using Gmail API
@@ -693,6 +694,7 @@ class GmailService:
             body: Email body (plain text)
             cc_email: Optional CC email address
             reply_to: Optional reply-to email address
+            attachments: Optional list of attachment dicts with filename, storage_path, signed_url
             
         Returns:
             bool: True if email sent successfully, False otherwise
@@ -707,7 +709,8 @@ class GmailService:
                 subject=subject,
                 body=body,
                 cc_email=cc_email,
-                reply_to=reply_to
+                reply_to=reply_to,
+                attachments=attachments
             )
             
             # Send the email
@@ -735,7 +738,8 @@ class GmailService:
         subject: str,
         body: str,
         cc_email: Optional[str] = None,
-        reply_to: Optional[str] = None
+        reply_to: Optional[str] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, str]:
         """Create email message in Gmail API format"""
         import email.mime.text
@@ -757,6 +761,43 @@ class GmailService:
         
         # Add body
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
+        # Add attachments if present
+        if attachments:
+            import requests
+            from email.mime.application import MIMEApplication
+            
+            for attachment in attachments:
+                try:
+                    filename = attachment.get('filename', 'attachment.docx')
+                    signed_url = attachment.get('signed_url')
+                    
+                    if signed_url:
+                        logger.info(f"📎 Downloading attachment {filename} from signed URL")
+                        
+                        # Download file content from signed URL
+                        response = requests.get(signed_url, timeout=30)
+                        response.raise_for_status()
+                        
+                        # Create attachment
+                        attachment_part = MIMEApplication(
+                            response.content,
+                            _subtype='vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            name=filename
+                        )
+                        attachment_part.add_header(
+                            'Content-Disposition', 
+                            f'attachment; filename="{filename}"'
+                        )
+                        
+                        msg.attach(attachment_part)
+                        logger.info(f"✅ Attached {filename} ({len(response.content)} bytes)")
+                    else:
+                        logger.warning(f"❌ No signed URL found for attachment {filename}")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Failed to attach {filename}: {e}")
+                    continue  # Continue with other attachments
         
         # Convert to raw format for Gmail API
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')

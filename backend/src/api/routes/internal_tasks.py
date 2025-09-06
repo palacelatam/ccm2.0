@@ -60,13 +60,14 @@ async def execute_email_task(
         if not all(key in task_data for key in ['to_email', 'subject', 'body']):
             raise ValueError("Missing required email fields: to_email, subject, body")
         
-        # Execute email sending
+        # Execute email sending  
         success = await gmail_service.send_email(
             to_email=task_data['to_email'],
             subject=task_data['subject'],
             body=task_data['body'],
             cc_email=task_data.get('cc_email'),
-            reply_to=task_data.get('reply_to', 'noreply@servicios.palace.cl')
+            reply_to=task_data.get('reply_to', 'noreply@servicios.palace.cl'),
+            attachments=task_data.get('attachments')  # Pass attachments if present
         )
         
         execution_time = int((time.time() - start_time) * 1000)

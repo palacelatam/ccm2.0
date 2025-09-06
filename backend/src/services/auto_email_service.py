@@ -75,6 +75,297 @@ class AutoEmailService:
                 'scheduled_at': email_data.get('scheduled_at', '')
             })
             
+            # Check if auto-settlement instruction is enabled for confirmation emails
+            if email_type == "confirmation" and email_data.get('comparison_status') == 'Confirmation OK':
+                logger.info(f"🏦 Checking auto-settlement settings for client {client_id}")
+                
+                # Get client settings to check if auto-settlement is enabled
+                from config.firebase_config import get_cmek_firestore_client
+                db = get_cmek_firestore_client()
+                
+                # Get client settings from correct Firestore path
+                client_ref = db.collection('clients').document(client_id)
+                config_ref = client_ref.collection('settings').document('configuration')
+                config_doc = config_ref.get()
+
+                logger.info(f"BC2: Auto-settlement settings for client {client_id}: {config_doc.to_dict()}")
+                
+                if config_doc.exists:
+                    config_data = config_doc.to_dict()
+                    automation_settings = config_data.get('automation', {})
+                    auto_settlement_enabled = automation_settings.get('autoCartaInstruccion', False)
+                    
+                    logger.info(f"🏦 Auto-settlement enabled BC: {auto_settlement_enabled}")
+                    
+                    if auto_settlement_enabled:
+                        logger.info(f"🏦 Auto-settlement enabled for client {client_id} - generating settlement instruction")
+                        
+                        try:
+                            # Import settlement service (avoid circular imports)
+                            from services.settlement_instruction_service import SettlementInstructionService
+                            
+                            settlement_service = SettlementInstructionService()
+                            
+                            # DEBUG: Log email_data to understand actual field names
+                            logger.info(f"📄 DEBUG: email_data keys: {list(email_data.keys())}")
+                            
+                            # Get the actual trade data from nested objects
+                            email_trade_data = email_data.get('email_trade_data', {})
+                            client_trade_data = email_data.get('client_trade_data', {})
+                            
+                            logger.info(f"📄 DEBUG: email_trade_data: {email_trade_data}")
+                            logger.info(f"📄 DEBUG: client_trade_data: {client_trade_data}")
+                            
+                            # Use client_trade_data (from client's database) as the trade data
+                            # This includes the TradeNumber, id, and all database context
+                            trade_data = client_trade_data.copy()
+                            
+                            # Ensure we have BankTradeNumber from email data
+                            trade_data['BankTradeNumber'] = email_trade_data.get('BankTradeNumber', trade_data.get('BankTradeNumber', ''))
+                            
+                            # Map counterparty to bank ID (same logic as Phase 3)
+                            counterparty = trade_data.get('CounterpartyName', '')
+                            if 'banco abc' in counterparty.lower():
+                                bank_id = "banco-abc"
+                            else:
+                                bank_id = counterparty.lower().replace(' ', '-').replace('ó', 'o')
+                            
+                            # Ensure trade has Product field for template matching
+                            product = trade_data.get('ProductType', trade_data.get('Product', 'N/A'))
+                            trade_data_with_product = trade_data.copy()
+                            trade_data_with_product['Product'] = product
+                            
+                            # Get client name for the trade data (exact same as manual)
+                            client_doc = db.collection('clients').document(client_id).get()
+                            if client_doc.exists:
+                                client_info = client_doc.to_dict()
+                                trade_data_with_product['client_name'] = client_info.get('name', client_id)
+                            else:
+                                trade_data_with_product['client_name'] = client_id
+                            
+                            logger.info(f"📄 Generating settlement instruction with bank_id: {bank_id}")
+                            
+                            # Get settlement rules and bank accounts (Phase III logic)
+                            try:
+                                # Import here to avoid circular imports
+                                from config.firebase_config import get_cmek_firestore_client
+                                db = get_cmek_firestore_client()
+                                
+                                # Fetch settlement rules and bank accounts (exact same as manual)
+                                settlement_rules_ref = db.collection('clients').document(client_id).collection('settlementRules')
+                                settlement_rules_docs = settlement_rules_ref.order_by('priority').stream()
+                                settlement_rules = [doc.to_dict() for doc in settlement_rules_docs]
+                                
+                                bank_accounts_ref = db.collection('clients').document(client_id).collection('bankAccounts')
+                                bank_accounts_docs = bank_accounts_ref.stream()
+                                bank_accounts = [doc.to_dict() for doc in bank_accounts_docs]
+                                
+                                logger.info(f"📋 Found {len(settlement_rules)} settlement rules and {len(bank_accounts)} bank accounts")
+                                
+                                # Find matching settlement rules (copied from Phase III)
+                                def find_matching_settlement_rules(trade_data, settlement_rules):
+                                    if not settlement_rules:
+                                        return None
+                                    
+                                    # Get trade details for matching
+                                    counterparty = trade_data.get('BankCounterparty', trade_data.get('Counterparty', ''))
+                                    product = trade_data.get('Product', trade_data.get('ProductType', ''))
+                                    pay_currency = trade_data.get('PayCurrency', '')
+                                    receive_currency = trade_data.get('ReceiveCurrency', '')
+                                    
+                                    logger.info(f"🔍 Matching against counterparty: {counterparty}, product: {product}, currencies: {pay_currency}/{receive_currency}")
+                                    
+                                    # Find matching rules (highest priority first)
+                                    matching_rules = []
+                                    for rule in settlement_rules:
+                                        matches = True
+                                        
+                                        # Check counterparty (optional)
+                                        rule_counterparty = rule.get('counterparty', '')
+                                        if rule_counterparty and counterparty.lower() not in rule_counterparty.lower():
+                                            matches = False
+                                            continue
+                                        
+                                        # Check product (optional)
+                                        rule_product = rule.get('product', '')
+                                        if rule_product and product.lower() not in rule_product.lower():
+                                            matches = False
+                                            continue
+                                        
+                                        if matches:
+                                            matching_rules.append(rule)
+                                    
+                                    if not matching_rules:
+                                        return None
+                                    
+                                    # Sort by priority and return the highest priority rule
+                                    matching_rules.sort(key=lambda r: r.get('priority', 999))
+                                    best_rule = matching_rules[0]
+                                    logger.info(f"✅ Matched settlement rule: {best_rule.get('name', 'unnamed')}")
+                                    return best_rule
+                                
+                                # Find matching bank accounts (copied from Phase III)
+                                def find_matching_bank_accounts(settlement_rules_matched, bank_accounts):
+                                    if not settlement_rules_matched:
+                                        return None
+                                    
+                                    # For Compensación case - get bank account details directly from the settlement rule
+                                    rule = settlement_rules_matched
+                                    
+                                    # Get bank account details directly from settlement rule
+                                    rule_bank_name = rule.get('abonarBankName', '')
+                                    rule_account_number = rule.get('abonarAccountNumber', '')
+                                    rule_swift_code = rule.get('abonarSwiftCode', '')
+                                    rule_account_name = rule.get('abonarAccountName', '')
+                                    rule_settlement_currency = rule.get('abonarCurrency', '')
+                                    
+                                    return {
+                                        'accountName': rule_account_name,
+                                        'accountNumber': rule_account_number,
+                                        'bankName': rule_bank_name,
+                                        'swiftCode': rule_swift_code,
+                                        'accountCurrency': rule_settlement_currency
+                                    }
+                                
+                                # Find matching settlement rules and bank accounts
+                                settlement_rules_matched = find_matching_settlement_rules(trade_data_with_product, settlement_rules)
+                                if not settlement_rules_matched:
+                                    logger.error(f"❌ No matching settlement rules found for auto settlement")
+                                    raise Exception("No matching settlement rules found for auto settlement")
+                                
+                                bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
+                                if not bank_accounts_matched:
+                                    logger.error(f"❌ No matching bank accounts found for auto settlement")
+                                    raise Exception("No matching bank accounts found for auto settlement")
+                                
+                                # Prepare settlement data (copied from Phase III)
+                                settlement_data = {
+                                    # Basic fields
+                                    'account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                                    'account_number': bank_accounts_matched.get('accountNumber', 'N/A'),
+                                    'bank_name': bank_accounts_matched.get('bankName', 'N/A'),
+                                    'swift_code': bank_accounts_matched.get('swiftCode', 'N/A'),
+                                    
+                                    # Abonar fields (from settlement rule)
+                                    'abonar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                                    'abonar_account_number': settlement_rules_matched.get('abonarAccountNumber', 'N/A'),
+                                    'abonar_bank_name': settlement_rules_matched.get('abonarBankName', 'N/A'),
+                                    'abonar_swift_code': settlement_rules_matched.get('abonarSwiftCode', 'N/A'),
+                                    'abonar_currency': settlement_rules_matched.get('abonarCurrency', 'N/A'),
+                                    
+                                    # Cargar fields (from settlement rule - same for Compensación)
+                                    'cargar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
+                                    'cargar_account_number': settlement_rules_matched.get('cargarAccountNumber', 'N/A'),
+                                    'cargar_bank_name': settlement_rules_matched.get('cargarBankName', 'N/A'),
+                                    'cargar_swift_code': settlement_rules_matched.get('cargarSwiftCode', 'N/A'),
+                                    'cargar_currency': settlement_rules_matched.get('cargarCurrency', 'N/A'),
+                                    
+                                    # Other fields
+                                    'cutoff_time': '15:00 Santiago Time',
+                                    'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.'),
+                                    'central_bank_trade_code': settlement_rules_matched.get('centralBankTradeCode', 'N/A')
+                                }
+                                
+                                logger.info(f"💰 Settlement data prepared: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
+                                
+                            except Exception as e:
+                                logger.error(f"❌ Error preparing settlement data: {str(e)}")
+                                logger.info(f"📧 Continuing with confirmation email without settlement attachment")
+                                settlement_data = None  # Skip auto settlement for this trade
+                            
+                            # Generate settlement instruction document only if we have settlement data
+                            if settlement_data:
+                                # Generate document using settlement service
+                                doc_result = await settlement_service.generate_settlement_instruction(
+                                    trade_data=trade_data_with_product,
+                                    bank_id=bank_id,
+                                    client_segment_id=client_id,
+                                    settlement_data=settlement_data
+                                )
+                                
+                                # If document generated successfully, upload to cloud storage (same as manual)
+                                if doc_result.get('success') and doc_result.get('document_path'):
+                                    from services.storage_service import StorageService
+                                    from datetime import datetime
+                                    
+                                    storage_service = StorageService()
+                                    
+                                    # Generate filename (same as manual)
+                                    trade_number = trade_data_with_product.get('BankTradeNumber', 'unknown')
+                                    counterparty_clean = trade_data_with_product.get('CounterpartyName', 'Unknown').replace(' ', '').replace('ó', 'o')
+                                    client_name_clean = trade_data_with_product.get('client_name', client_id).replace(' ', '').replace('-', '')
+                                    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                                    
+                                    filename = f"SI_{trade_number}_{client_name_clean}_{counterparty_clean}_{timestamp}.docx"
+                                    
+                                    # Read and upload document (same as manual)
+                                    with open(doc_result['document_path'], 'rb') as doc_file:
+                                        file_content = doc_file.read()
+                                    
+                                    upload_result = await storage_service.upload_settlement_document(
+                                        file_content=file_content,
+                                        filename=filename,
+                                        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                        bank_id=client_id,
+                                        segment_id='settlement-instructions',
+                                        uploaded_by='system'
+                                    )
+                                    
+                                    if upload_result['success']:
+                                        # Update doc_result with cloud storage info
+                                        doc_result['storage_path'] = upload_result['public_url']
+                                        doc_result['signed_url'] = upload_result['signed_url']
+                                        logger.info(f"✅ Document uploaded to cloud storage: {upload_result['public_url']}")
+                                    else:
+                                        logger.error(f"❌ Cloud storage upload failed: {upload_result.get('error')}")
+                            else:
+                                doc_result = {'success': False, 'error': 'No settlement data available'}
+                            
+                            if doc_result.get('success'):
+                                # Add attachment info to email content
+                                trade_number = trade_data.get('BankTradeNumber', 'unknown')
+                                
+                                attachment_info = {
+                                    'filename': f"settlement_instruction_{trade_number}.docx",
+                                    'storage_path': doc_result.get('storage_path'),
+                                    'signed_url': doc_result.get('signed_url')
+                                }
+                                
+                                email_content['attachments'] = [attachment_info]
+                                
+                                # DEBUG: Log attachment details
+                                logger.info(f"🔍 DEBUG: doc_result keys: {list(doc_result.keys())}")
+                                logger.info(f"🔍 DEBUG: doc_result.success: {doc_result.get('success')}")
+                                logger.info(f"🔍 DEBUG: doc_result.storage_path: {doc_result.get('storage_path')}")
+                                logger.info(f"🔍 DEBUG: doc_result.signed_url: {doc_result.get('signed_url')}")
+                                logger.info(f"🔍 DEBUG: attachment_info: {attachment_info}")
+                                logger.info(f"🔍 DEBUG: email_content.attachments: {email_content.get('attachments')}")
+                                
+                                logger.info(f"✅ Settlement instruction generated and will be attached for trade {trade_number}")
+                                logger.info(f"   📎 File: settlement_instruction_{trade_number}.docx")
+                                logger.info(f"   🔗 Storage: {doc_result.get('storage_path')}")
+                            else:
+                                # Log error but continue with email without attachment
+                                error_msg = doc_result.get('error', 'Unknown error')
+                                logger.error(f"❌ Failed to generate settlement instruction: {error_msg}")
+                                logger.info(f"📧 Continuing with confirmation email without attachment")
+                        
+                        except Exception as e:
+                            logger.error(f"❌ Settlement instruction generation error: {e}")
+                            logger.info(f"📧 Continuing with confirmation email without attachment")
+                else:
+                    logger.info(f"🏦 No configuration settings found for client {client_id}")
+            else:
+                logger.info(f"🏦 Auto-settlement check skipped: email_type={email_type}, status={email_data.get('comparison_status')}")
+            
+            # DEBUG: Log final email content before creating task
+            logger.info(f"🔍 DEBUG: Final email_content before task creation:")
+            logger.info(f"🔍 DEBUG: email_content keys: {list(email_content.keys())}")
+            if 'attachments' in email_content:
+                logger.info(f"🔍 DEBUG: attachments in email_content: {email_content['attachments']}")
+            else:
+                logger.info(f"🔍 DEBUG: NO attachments in email_content")
+            
             # Create the email task using task queue service
             # Both confirmation and dispute emails should use the email queue
             task_name = await task_queue_service.create_email_task(
