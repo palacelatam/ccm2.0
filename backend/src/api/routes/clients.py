@@ -1515,6 +1515,9 @@ async def generate_settlement_instruction(
             message="Settlement instruction document generated and uploaded successfully"
         )
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our 400 error) without modification
+        raise
     except Exception as e:
         logger.error(f"Error generating settlement instruction for client {client_id}, trade {trade_number}: {e}")
         raise HTTPException(

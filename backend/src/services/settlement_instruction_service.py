@@ -1021,6 +1021,55 @@ class SettlementInstructionService:
             logger.error(f"❌ Failed to update email with settlement path: {e}")
             return False
 
+    async def update_email_with_settlement_error(self, client_id: str, email_id: str, error_message: str, trade_index: int = 0) -> bool:
+        """
+        Update email document in Firestore with settlement instruction error information.
+        SHARED function used by both manual and automatic flows.
+        
+        Args:
+            client_id: Client ID
+            email_id: Email document ID
+            error_message: Error message to store
+            trade_index: Index of the trade in the Trades array (default 0)
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            db = get_cmek_firestore_client()
+            
+            # Update the email document with the settlement instruction error
+            email_doc_ref = db.collection('clients').document(client_id).collection('emails').document(email_id)
+            email_doc = email_doc_ref.get()
+            
+            if email_doc.exists:
+                email_data = email_doc.to_dict()
+                llm_data = email_data.get('llmExtractedData', {})
+                trades = llm_data.get('Trades', [])
+                
+                # Update the specific trade in the array while preserving array structure
+                if trade_index < len(trades) and isinstance(trades, list):
+                    trades[trade_index]['settlementInstructionError'] = error_message
+                    # Remove any existing storage path since generation failed
+                    trades[trade_index].pop('settlementInstructionStoragePath', None)
+                    
+                    # Update the entire Trades array to preserve its structure
+                    email_doc_ref.update({
+                        'llmExtractedData.Trades': trades
+                    })
+                    logger.info(f"✅ Settlement instruction error stored in Firestore for email {email_id}, trade {trade_index}: {error_message}")
+                    return True
+                else:
+                    logger.error(f"❌ Invalid trade index {trade_index} or Trades is not an array")
+                    return False
+            else:
+                logger.warning(f"⚠️ Email document {email_id} does not exist - settlement instruction error not stored")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update email with settlement error: {e}")
+            return False
+
 
 # Global instance
 settlement_instruction_service = SettlementInstructionService()

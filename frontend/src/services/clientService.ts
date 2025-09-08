@@ -389,7 +389,9 @@ class ClientService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        // Extract user-friendly error message from API response (FastAPI uses 'detail' field)
+        const errorMessage = data.detail || data.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       return data;

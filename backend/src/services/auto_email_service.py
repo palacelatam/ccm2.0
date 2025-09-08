@@ -167,6 +167,17 @@ class AutoEmailService:
                                 
                                 if not settlement_data:
                                     logger.error(f"❌ No matching settlement rules found for auto settlement")
+                                    
+                                    # Update email document with error information so frontend can show error state
+                                    email_doc_id = email_data.get('email_id', '')
+                                    if email_doc_id:
+                                        await settlement_service.update_email_with_settlement_error(
+                                            client_id=client_id,
+                                            email_id=email_doc_id,
+                                            error_message="No matching settlement rules found for this trade",
+                                            trade_index=0  # Auto generation typically processes first trade
+                                        )
+                                    
                                     raise Exception("No matching settlement rules found for auto settlement")
                                 
                                 logger.info(f"💰 Settlement data prepared: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
@@ -174,6 +185,17 @@ class AutoEmailService:
                             except Exception as e:
                                 logger.error(f"❌ Error preparing settlement data: {str(e)}")
                                 logger.info(f"📧 Continuing with confirmation email without settlement attachment")
+                                
+                                # Update email document with error information so frontend can show error state
+                                email_doc_id = email_data.get('email_id', '')
+                                if email_doc_id:
+                                    await settlement_service.update_email_with_settlement_error(
+                                        client_id=client_id,
+                                        email_id=email_doc_id,
+                                        error_message=str(e),
+                                        trade_index=0  # Auto generation typically processes first trade
+                                    )
+                                
                                 settlement_data = None  # Skip auto settlement for this trade
                             
                             # Generate settlement instruction document only if we have settlement data
@@ -266,10 +288,30 @@ class AutoEmailService:
                                 error_msg = doc_result.get('error', 'Unknown error')
                                 logger.error(f"❌ Failed to generate settlement instruction: {error_msg}")
                                 logger.info(f"📧 Continuing with confirmation email without attachment")
+                                
+                                # Update email document with error information so frontend can show error state
+                                email_doc_id = email_data.get('email_id', '')
+                                if email_doc_id:
+                                    await settlement_service.update_email_with_settlement_error(
+                                        client_id=client_id,
+                                        email_id=email_doc_id,
+                                        error_message=error_msg,
+                                        trade_index=0  # Auto generation typically processes first trade
+                                    )
                         
                         except Exception as e:
                             logger.error(f"❌ Settlement instruction generation error: {e}")
                             logger.info(f"📧 Continuing with confirmation email without attachment")
+                            
+                            # Update email document with error information so frontend can show error state
+                            email_doc_id = email_data.get('email_id', '')
+                            if email_doc_id:
+                                await settlement_service.update_email_with_settlement_error(
+                                    client_id=client_id,
+                                    email_id=email_doc_id,
+                                    error_message=str(e),
+                                    trade_index=0  # Auto generation typically processes first trade
+                                )
                 else:
                     logger.info(f"🏦 No configuration settings found for client {client_id}")
             else:

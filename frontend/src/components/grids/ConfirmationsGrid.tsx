@@ -59,6 +59,9 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
   
   // Settlement instruction loading state
   const [generatingSettlementInstructions, setGeneratingSettlementInstructions] = useState<Set<string>>(new Set());
+  
+  // Settlement instruction error state
+  const [settlementInstructionErrors, setSettlementInstructionErrors] = useState<Set<string>>(new Set());
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
@@ -452,6 +455,13 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
       
       
       if (result.success) {
+        // Clear any previous error for this email
+        setSettlementInstructionErrors(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(emailId);
+          return newSet;
+        });
+        
         showToastNotification(t('grid.messages.settlementInstructionGenerated', { tradeNumber: clientTradeNumber }), 'success');
         
         // Refresh just this specific row's data from backend
@@ -471,12 +481,32 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
           }
         }
       } else {
-        throw new Error(result.message || 'Failed to generate settlement instruction');
+        // Mark this email as having an error
+        setSettlementInstructionErrors(prev => {
+          const newSet = new Set(prev);
+          newSet.add(emailId);
+          return newSet;
+        });
+        
+        // Show specific error message for no matching rules
+        const errorMessage = result.message || 'Failed to generate settlement instruction';
+        showToastNotification(errorMessage, 'error');
+        throw new Error(errorMessage);
       }
       
     } catch (error) {
       console.error('Error generating settlement instruction:', error);
-      showToastNotification(t('grid.messages.settlementInstructionFailed'), 'error');
+      
+      // Mark this email as having an error
+      setSettlementInstructionErrors(prev => {
+        const newSet = new Set(prev);
+        newSet.add(emailId);
+        return newSet;
+      });
+      
+      // Show error message
+      const errorMessage = error instanceof Error ? error.message : t('grid.messages.settlementInstructionFailed');
+      showToastNotification(errorMessage, 'error');
     } finally {
       // Clear loading state
       setGeneratingSettlementInstructions(prev => {
@@ -703,7 +733,13 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
       cellRenderer: (params: any): React.ReactElement => {
         const emailId = params.data?.id;
         const isGenerating = generatingSettlementInstructions.has(emailId);
+        const hasError = settlementInstructionErrors.has(emailId);
         const storagePath = params.value;
+        
+        // Check for settlement instruction error in email data (from auto-settlement failures)
+        const emailData = params.data;
+        const tradeData = emailData?.llmExtractedData?.Trades?.[0]; // Typically first trade
+        const hasAutoError = tradeData?.settlementInstructionError;
         
         let icon = '';
         let color = '#b3b3b3';
@@ -711,6 +747,9 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
         if (isGenerating) {
           icon = '⏳';
           color = '#ffc107';
+        } else if (hasError || hasAutoError) {
+          icon = '✗';
+          color = '#dc3545';
         } else if (storagePath) {
           icon = '✓';
           color = '#28a745';
@@ -1429,13 +1468,33 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
                   }
                 ];
 
-                // Add "Create Settlement Instruction" if conditions are met
+                // Add "Create Settlement Instruction" or "Retry" if conditions are met
+                const emailId = selectedEmailForMenu.id;
+                const hasError = settlementInstructionErrors.has(emailId);
+                const tradeData = selectedEmailForMenu?.llmExtractedData?.Trades?.[0]; // Typically first trade
+                const hasAutoError = tradeData?.settlementInstructionError;
+                const anyError = hasError || hasAutoError;
+                
                 if (selectedEmailForMenu.status === 'Confirmation OK' && 
                     !selectedEmailForMenu.settlementInstructionStoragePath) {
                   baseItems.push({
-                    label: t('grid.contextMenu.createSettlementInstruction'),
+                    label: anyError ? 'Retry Settlement Instruction' : t('grid.contextMenu.createSettlementInstruction'),
                     action: async () => {
                       setShowInlineMenu(false);
+                      
+                      // Show error message if there's an auto-settlement error
+                      if (hasAutoError) {
+                        showToastNotification(hasAutoError, 'error');
+                      }
+                      
+                      // Clear error state before retrying
+                      if (hasError) {
+                        setSettlementInstructionErrors(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(emailId);
+                          return newSet;
+                        });
+                      }
                       await generateSettlementInstruction(selectedEmailForMenu);
                     }
                   });
