@@ -277,8 +277,11 @@ const AdminDashboard: React.FC = () => {
         
         // Load settlement rules
         const rulesResponse = await clientService.getSettlementRules(user.profile.organization.id);
+        console.log('[DEBUG] Raw rules from backend:', rulesResponse.data);
         if (rulesResponse.success && rulesResponse.data) {
           const rules = rulesResponse.data.map((rule, index) => {
+            console.log(`[DEBUG] Processing rule ${index}:`, rule);
+            console.log(`[DEBUG] Rule settlementCurrency: "${rule.settlementCurrency}", modalidad: "${rule.modalidad}"`);
             // If backend doesn't provide ID, generate a consistent one based on rule data
             let finalId = rule.id;
             if (!finalId || finalId === 'undefined' || finalId.trim() === '') {
@@ -286,7 +289,7 @@ const AdminDashboard: React.FC = () => {
               finalId = `rule-${rule.priority}-${rule.name.replace(/\s+/g, '-').toLowerCase()}`;
             }
             
-            return {
+            const transformedRule = {
               id: finalId,
               active: rule.active,
               priority: rule.priority,
@@ -295,6 +298,7 @@ const AdminDashboard: React.FC = () => {
               counterparty: rule.counterparty,
               product: rule.product,
               modalidad: rule.modalidad || '',
+              settlementCurrency: rule.settlementCurrency || '', // Add missing settlementCurrency field
               cargarCurrency: rule.cargarCurrency || '',
               cargarBankName: rule.cargarBankName || '',
               cargarSwiftCode: rule.cargarSwiftCode || '',
@@ -305,6 +309,15 @@ const AdminDashboard: React.FC = () => {
               abonarAccountNumber: rule.abonarAccountNumber || '',
               centralBankTradeCode: rule.centralBankTradeCode || ''
             };
+            console.log(`[DEBUG] Transformed rule ${index}:`, transformedRule);
+            console.log(`[DEBUG] Transformed settlementCurrency: "${transformedRule.settlementCurrency}", modalidad: "${transformedRule.modalidad}"`);
+            return transformedRule;
+          });
+          console.log('[DEBUG] Final rules set in state:', rules);
+          rules.forEach((rule, i) => {
+            if (rule.modalidad === 'compensacion') {
+              console.log(`[DEBUG] Compensacion rule ${i} settlementCurrency: "${rule.settlementCurrency}"`);
+            }
           });
           setSettlementRules(rules);
           setOriginalSettlementRules([...rules]);
@@ -974,9 +987,20 @@ const AdminDashboard: React.FC = () => {
       
       // Save settlement rule priorities - update ALL rules to ensure correct priorities
       if (settlementRules.length > 0 && user?.profile?.organization?.id) {
+        console.log('[DEBUG] Save Configuration - settlementRules state:', settlementRules);
+        settlementRules.forEach((rule, i) => {
+          if (rule.modalidad === 'compensacion') {
+            console.log(`[DEBUG] Save Config - Compensacion rule ${i} (${rule.name}) settlementCurrency: "${rule.settlementCurrency}"`);
+          }
+        });
+        
         const updatePromises = settlementRules
           .filter(rule => !rule.id.startsWith('temp-rule-')) // Only update rules with real or generated IDs
           .map(rule => {
+            console.log(`[DEBUG] Save Config - Updating rule ${rule.id} with priority: ${rule.priority}`);
+            if (rule.modalidad === 'compensacion') {
+              console.log(`[DEBUG] Save Config - Compensacion rule ${rule.name} has settlementCurrency: "${rule.settlementCurrency}"`);
+            }
             // If using a generated ID, we need to find the rule by its properties instead
             if (rule.id.startsWith('rule-') && rule.id.includes('-')) {
               // This is a generated ID, try to update by matching properties

@@ -1316,12 +1316,58 @@ async def generate_settlement_instruction(
         # Settlement data already includes all account information from the rule
         logger.info(f"Settlement data prepared with account: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
         
-        # Map counterparty to bank ID (reusing logic from test_trade.py)
+        # Map counterparty to bank ID using client-specific mappings
+        async def resolve_bank_id_for_client(client_id: str, counterparty_name: str) -> str:
+            """
+            Resolve counterparty name to bank ID using client-specific mappings.
+            Falls back to reasonable defaults if no mapping exists.
+            """
+            if not counterparty_name:
+                return "unknown-bank"
+            
+            try:
+                # Check client's counterparty mappings
+                mappings_ref = client_service.db.collection('clients').document(client_id).collection('counterpartyMappings')
+                mappings_query = mappings_ref.where('counterpartyName', '==', counterparty_name).limit(1)
+                mappings = list(mappings_query.stream())
+                
+                if mappings:
+                    mapping_data = mappings[0].to_dict()
+                    bank_id = mapping_data.get('bankId')
+                    if bank_id:
+                        logger.info(f"Resolved counterparty '{counterparty_name}' to bank '{bank_id}' via client mapping")
+                        return bank_id
+                
+                # Fallback: case-insensitive partial matching with common variations
+                name_lower = counterparty_name.lower().strip()
+                
+                # Try partial matching for known variations
+                fallback_mappings = {
+                    'bci': 'banco-bci',
+                    'banco abc': 'banco-abc', 
+                    'abc': 'banco-abc',
+                    'itau': 'banco-itau',
+                    'itaú': 'banco-itau',
+                    'santander': 'banco-santander'
+                }
+                
+                for key, bank_id in fallback_mappings.items():
+                    if key in name_lower:
+                        logger.warning(f"Using fallback mapping: counterparty '{counterparty_name}' -> bank '{bank_id}'")
+                        return bank_id
+                
+                # Last resort: create bank ID from counterparty name
+                logger.warning(f"No mapping found for counterparty '{counterparty_name}', creating bank ID")
+                cleaned = name_lower.replace('ó', 'o').replace(' ', '-')
+                return f"banco-{cleaned}" if not cleaned.startswith('banco-') else cleaned
+                
+            except Exception as e:
+                logger.error(f"Error resolving bank ID for counterparty '{counterparty_name}': {e}")
+                return "unknown-bank"
+        
         counterparty = trade_data.get('CounterpartyName', '')
-        if 'banco abc' in counterparty.lower():
-            bank_id = "banco-abc"
-        else:
-            bank_id = counterparty.lower().replace(' ', '-').replace('ó', 'o')
+        bank_id = await resolve_bank_id_for_client(client_id, counterparty)
+        logger.info(f"Resolved counterparty '{counterparty}' to bank_id '{bank_id}' for client '{client_id}'")
         
         # Get client segment ID if available
         client_segment_id = trade_data.get('client_segment_id')

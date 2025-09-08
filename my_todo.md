@@ -15,5 +15,5 @@
 15) Check the decorators are in place on all API calls (I don't think so).
 16) Automated upload of mandates into settlement rules
 17) Determine full workflow between states. Prob Confirmation OK isn't final step, should be Completed or something similar. Also, Resolved shouldn't exist. Difference -> Tagged -> Confirmation OK -> Completed.
-18) In searching for settlement instruction templates it seems to use the bank name, make it lower case and put hyphens between and use this as the bank-id. This seems incredibly fragile.
+18) In searching for settlement instruction templates it seems to use the bank name, make it lower case and put hyphens between and use this as the bank-id. This seems incredibly fragile. COMING ACROSS IT NOW - BCI!!
 19) What happens if an email comes in and the client trade data hasn't yet been uploaded?

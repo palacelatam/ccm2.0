@@ -338,6 +338,13 @@ class ClientService:
     async def update_settlement_rule(self, client_id: str, rule_id: str, rule_update: SettlementRuleUpdate, updated_by_uid: str) -> Optional[SettlementRule]:
         """Update settlement rule"""
         try:
+            print(f"[DEBUG BACKEND] Updating rule {rule_id} for client {client_id}")
+            print(f"[DEBUG BACKEND] Rule update data: {rule_update}")
+            print(f"[DEBUG BACKEND] Rule update dict: {rule_update.dict()}")
+            if hasattr(rule_update, 'settlementCurrency'):
+                print(f"[DEBUG BACKEND] settlementCurrency in update: {rule_update.settlementCurrency}")
+            if hasattr(rule_update, 'modalidad'):
+                print(f"[DEBUG BACKEND] modalidad in update: {rule_update.modalidad}")
             # First, try to find the document by the provided ID
             rule_ref = self.db.collection('clients').document(client_id).collection('settlementRules').document(rule_id)
             
@@ -378,19 +385,36 @@ class ClientService:
             update_data = {}
             # Use exclude_none=False to include None values, then handle them appropriately
             rule_dict = rule_update.dict(by_alias=True, exclude_none=False)
+            print(f"[DEBUG BACKEND] Rule dict for processing: {rule_dict}")
+            
+            # Check if this is a priority-only update (from bulk Save Configuration)
+            # If only priority has a non-None value, this is a bulk update
+            non_none_fields = [field for field, value in rule_dict.items() if value is not None]
+            is_priority_only_update = non_none_fields == ['priority']
+            print(f"[DEBUG BACKEND] Non-None fields: {non_none_fields}, Priority-only update: {is_priority_only_update}")
+            
             for field, value in rule_dict.items():
+                print(f"[DEBUG BACKEND] Processing field '{field}' with value: {repr(value)}")
                 if value is not None:
                     update_data[field] = value
-                elif field == 'settlementCurrency':
-                    # Explicitly set settlementCurrency to None to clear it from Firestore
-                    # Use Firestore's DELETE_FIELD to actually remove the field
+                    print(f"[DEBUG BACKEND] Added field '{field}' to update_data")
+                elif field == 'settlementCurrency' and not is_priority_only_update:
+                    # Only delete settlementCurrency if this is a full rule update (not priority-only)
+                    # This preserves the field during bulk Save Configuration updates
+                    print(f"[DEBUG BACKEND] WARNING: About to DELETE settlementCurrency field (full rule update)!")
                     from google.cloud.firestore import DELETE_FIELD
                     update_data[field] = DELETE_FIELD
+                else:
+                    if field == 'settlementCurrency' and is_priority_only_update:
+                        print(f"[DEBUG BACKEND] Preserving settlementCurrency during priority-only update")
+                    else:
+                        print(f"[DEBUG BACKEND] Skipping None field '{field}'")
             
             # Add metadata
             update_data['lastUpdatedAt'] = datetime.now()
             update_data['lastUpdatedBy'] = self.db.collection('users').document(updated_by_uid)
             
+            print(f"[DEBUG BACKEND] Final update_data: {update_data}")
             logger.info(f"Updating settlement rule {rule_ref.id} with data: {update_data}")
             
             # Update document
