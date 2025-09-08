@@ -123,17 +123,17 @@ class AutoEmailService:
                             # Ensure we have BankTradeNumber from email data
                             trade_data['BankTradeNumber'] = email_trade_data.get('BankTradeNumber', trade_data.get('BankTradeNumber', ''))
                             
-                            # Map counterparty to bank ID (same logic as Phase 3)
-                            counterparty = trade_data.get('CounterpartyName', '')
-                            if 'banco abc' in counterparty.lower():
-                                bank_id = "banco-abc"
-                            else:
-                                bank_id = counterparty.lower().replace(' ', '-').replace('ó', 'o')
+                            # Resolve counterparty to bank ID ONCE using the same system as settlement rules
+                            from services.settlement_instruction_service import SettlementInstructionService
+                            settlement_service = SettlementInstructionService()
+                            counterparty_name = trade_data.get('CounterpartyName', '')
+                            bank_id = await settlement_service._resolve_counterparty_to_bank_id(client_id, counterparty_name)
                             
                             # Ensure trade has Product field for template matching
                             product = trade_data.get('ProductType', trade_data.get('Product', 'N/A'))
                             trade_data_with_product = trade_data.copy()
                             trade_data_with_product['Product'] = product
+                            trade_data_with_product['client_id'] = client_id  # Add client_id for counterparty resolution
                             
                             # Get client name for the trade data (exact same as manual)
                             client_doc = db.collection('clients').document(client_id).get()

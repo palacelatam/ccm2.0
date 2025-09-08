@@ -12,6 +12,7 @@ import tempfile
 import uuid
 from services.storage_service import StorageService
 from config.firebase_config import get_cmek_firestore_client
+from utils.bank_utils import get_bank_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,53 @@ class SettlementInstructionService:
         self.storage_service = StorageService()
         
         logger.info(f"Settlement Instruction Service initialized with templates dir: {self.templates_dir}")
+    
+    async def _resolve_counterparty_to_bank_id(self, client_id: str, counterparty_name: str) -> str:
+        """
+        Resolve counterparty name to bank ID using client-specific mappings.
+        
+        Args:
+            client_id: Client ID for mapping lookup
+            counterparty_name: Original counterparty name from trade
+            
+        Returns:
+            Resolved bank ID or original counterparty name if no mapping found
+        """
+        if not counterparty_name or not client_id:
+            return counterparty_name or ""
+        
+        try:
+            # Check client's counterparty mappings (case-insensitive)
+            mappings_ref = self.db.collection('clients').document(client_id).collection('counterpartyMappings')
+            
+            # First try exact case match
+            mappings_query = mappings_ref.where('counterpartyName', '==', counterparty_name).limit(1)
+            mappings = list(mappings_query.stream())
+            
+            # If no exact match, try case-insensitive search by getting all mappings
+            if not mappings:
+                all_mappings = list(mappings_ref.stream())
+                for mapping_doc in all_mappings:
+                    mapping_data = mapping_doc.to_dict()
+                    stored_name = mapping_data.get('counterpartyName', '')
+                    if stored_name.lower() == counterparty_name.lower():
+                        mappings = [mapping_doc]
+                        break
+            
+            if mappings:
+                mapping_data = mappings[0].to_dict()
+                bank_id = mapping_data.get('bankId')
+                if bank_id:
+                    logger.info(f"✅ Resolved counterparty '{counterparty_name}' → '{bank_id}' via client mapping")
+                    return bank_id
+            
+            # Fallback: return original counterparty name
+            logger.info(f"⚠️ No mapping found for counterparty '{counterparty_name}', using as-is")
+            return counterparty_name
+            
+        except Exception as e:
+            logger.error(f"❌ Error resolving counterparty '{counterparty_name}': {e}")
+            return counterparty_name
     
     def create_standard_template(self) -> str:
         """
@@ -454,21 +502,21 @@ class SettlementInstructionService:
                     # Cargar account (pay/outflow)
                     'cargar_account_name': str(settlement_data.get('cargar_account_name', 'N/A')),
                     'cargar_account_number': str(settlement_data.get('cargar_account_number', 'N/A')),
-                    'cargar_bank_name': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                    'cargar_bank_name': get_bank_display_name(str(settlement_data.get('cargar_bank_name', 'N/A'))),
                     'cargar_swift_code': str(settlement_data.get('cargar_swift_code', 'N/A')),
                     'cargar_currency': str(settlement_data.get('cargar_currency', 'N/A')),
                     
                     # Abonar account (receive/inflow)
                     'abonar_account_name': str(settlement_data.get('abonar_account_name', 'N/A')),
                     'abonar_account_number': str(settlement_data.get('abonar_account_number', 'N/A')),
-                    'abonar_bank_name': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                    'abonar_bank_name': get_bank_display_name(str(settlement_data.get('abonar_bank_name', 'N/A'))),
                     'abonar_swift_code': str(settlement_data.get('abonar_swift_code', 'N/A')),
                     'abonar_currency': str(settlement_data.get('abonar_currency', 'N/A')),
                     
                     # Generic fields for basic templates (use abonar account as primary)
                     'account_name': str(settlement_data.get('abonar_account_name', 'N/A')),
                     'account_number': str(settlement_data.get('abonar_account_number', 'N/A')),
-                    'bank_name': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                    'bank_name': get_bank_display_name(str(settlement_data.get('abonar_bank_name', 'N/A'))),
                     'swift_code': str(settlement_data.get('abonar_swift_code', 'N/A')),
                 })
                 
@@ -483,11 +531,11 @@ class SettlementInstructionService:
                     # Cargar account holds currency_1
                     variables.update({
                         'account_number_currency_1': str(settlement_data.get('cargar_account_number', 'N/A')),
-                        'account_bank_currency_1': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                        'account_bank_currency_1': get_bank_display_name(str(settlement_data.get('cargar_bank_name', 'N/A'))),
                         'account_name_currency_1': str(settlement_data.get('cargar_account_name', 'N/A')),
                         'swift_code_currency_1': str(settlement_data.get('cargar_swift_code', 'N/A')),
                         'account_number_currency_2': str(settlement_data.get('abonar_account_number', 'N/A')),
-                        'account_bank_currency_2': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                        'account_bank_currency_2': get_bank_display_name(str(settlement_data.get('abonar_bank_name', 'N/A'))),
                         'account_name_currency_2': str(settlement_data.get('abonar_account_name', 'N/A')),
                         'swift_code_currency_2': str(settlement_data.get('abonar_swift_code', 'N/A')),
                     })
@@ -495,11 +543,11 @@ class SettlementInstructionService:
                     # Abonar account holds currency_1
                     variables.update({
                         'account_number_currency_1': str(settlement_data.get('abonar_account_number', 'N/A')),
-                        'account_bank_currency_1': str(settlement_data.get('abonar_bank_name', 'N/A')),
+                        'account_bank_currency_1': get_bank_display_name(str(settlement_data.get('abonar_bank_name', 'N/A'))),
                         'account_name_currency_1': str(settlement_data.get('abonar_account_name', 'N/A')),
                         'swift_code_currency_1': str(settlement_data.get('abonar_swift_code', 'N/A')),
                         'account_number_currency_2': str(settlement_data.get('cargar_account_number', 'N/A')),
-                        'account_bank_currency_2': str(settlement_data.get('cargar_bank_name', 'N/A')),
+                        'account_bank_currency_2': get_bank_display_name(str(settlement_data.get('cargar_bank_name', 'N/A'))),
                         'account_name_currency_2': str(settlement_data.get('cargar_account_name', 'N/A')),
                         'swift_code_currency_2': str(settlement_data.get('cargar_swift_code', 'N/A')),
                     })
@@ -516,7 +564,7 @@ class SettlementInstructionService:
                 variables.update({
                     'account_name': str(settlement_data.get('account_name', 'N/A')),
                     'account_number': str(settlement_data.get('account_number', 'N/A')),
-                    'account_bank': str(settlement_data.get('bank_name', 'N/A')),
+                    'account_bank': get_bank_display_name(str(settlement_data.get('bank_name', 'N/A'))),
                     'swift_code': str(settlement_data.get('swift_code', 'N/A')),
                     'cutoff_time': str(settlement_data.get('cutoff_time', 'N/A')),
                     'special_instructions': str(settlement_data.get('special_instructions', 'Standard settlement instructions apply.')),
@@ -528,24 +576,24 @@ class SettlementInstructionService:
                     # Cargar account (same as main account for Compensación)
                     'cargar_account_name': str(settlement_data.get('account_name', 'N/A')),
                     'cargar_account_number': str(settlement_data.get('account_number', 'N/A')),
-                    'cargar_bank_name': str(settlement_data.get('bank_name', 'N/A')),
+                    'cargar_bank_name': get_bank_display_name(str(settlement_data.get('bank_name', 'N/A'))),
                     'cargar_swift_code': str(settlement_data.get('swift_code', 'N/A')),
                     'cargar_currency': str(settlement_data.get('settlement_currency', trade_data.get('SettlementCurrency', trade_data.get('settlement_currency', 'N/A')))),
                     
                     # Abonar account (same as main account for Compensación)
                     'abonar_account_name': str(settlement_data.get('account_name', 'N/A')),
                     'abonar_account_number': str(settlement_data.get('account_number', 'N/A')),
-                    'abonar_bank_name': str(settlement_data.get('bank_name', 'N/A')),
+                    'abonar_bank_name': get_bank_display_name(str(settlement_data.get('bank_name', 'N/A'))),
                     'abonar_swift_code': str(settlement_data.get('swift_code', 'N/A')),
                     'abonar_currency': str(settlement_data.get('settlement_currency', trade_data.get('SettlementCurrency', trade_data.get('settlement_currency', 'N/A')))),
                     
                     # Currency-based mapping for backwards compatibility
                     'account_number_currency_1': str(settlement_data.get('account_number', 'N/A')),
-                    'account_bank_currency_1': str(settlement_data.get('bank_name', 'N/A')),
+                    'account_bank_currency_1': get_bank_display_name(str(settlement_data.get('bank_name', 'N/A'))),
                     'account_name_currency_1': str(settlement_data.get('account_name', 'N/A')),
                     'swift_code_currency_1': str(settlement_data.get('swift_code', 'N/A')),
                     'account_number_currency_2': str(settlement_data.get('account_number', 'N/A')),
-                    'account_bank_currency_2': str(settlement_data.get('bank_name', 'N/A')),
+                    'account_bank_currency_2': get_bank_display_name(str(settlement_data.get('bank_name', 'N/A'))),
                     'account_name_currency_2': str(settlement_data.get('account_name', 'N/A')),
                     'swift_code_currency_2': str(settlement_data.get('swift_code', 'N/A')),
                 })
@@ -772,7 +820,15 @@ class SettlementInstructionService:
         if not settlement_rules:
             return None
             
-        trade_counterparty = trade_data.get('CounterpartyName', trade_data.get('BankCounterparty', '')).lower()
+        original_counterparty = trade_data.get('CounterpartyName', trade_data.get('BankCounterparty', ''))
+        
+        # Resolve counterparty name to bank ID using client mappings BEFORE rule matching
+        resolved_counterparty = await self._resolve_counterparty_to_bank_id(
+            trade_data.get('client_id', ''), 
+            original_counterparty
+        )
+        
+        trade_counterparty = resolved_counterparty.lower()
         trade_currency1 = trade_data.get('Currency1', '')
         trade_currency2 = trade_data.get('Currency2', '')
         trade_product = trade_data.get('ProductType', trade_data.get('Product', ''))
@@ -831,20 +887,20 @@ class SettlementInstructionService:
                         # Basic fields
                         'account_name': rule.get('abonarAccountName', 'N/A'),
                         'account_number': rule.get('abonarAccountNumber', 'N/A'),
-                        'bank_name': rule.get('abonarBankName', 'N/A'),
+                        'bank_name': rule.get('abonarBankName', 'N/A'),  # Keep original ID for internal processing
                         'swift_code': rule.get('abonarSwiftCode', 'N/A'),
                         
                         # Abonar fields
                         'abonar_account_name': rule.get('abonarAccountName', 'N/A'),
                         'abonar_account_number': rule.get('abonarAccountNumber', 'N/A'),
-                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),
+                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),  # Keep original ID for internal processing
                         'abonar_swift_code': rule.get('abonarSwiftCode', 'N/A'),
                         'abonar_currency': rule.get('abonarCurrency', 'N/A'),
                         
                         # Cargar fields (same as abonar for Compensación)
                         'cargar_account_name': rule.get('abonarAccountName', 'N/A'),
                         'cargar_account_number': rule.get('cargarAccountNumber', rule.get('abonarAccountNumber', 'N/A')),
-                        'cargar_bank_name': rule.get('cargarBankName', rule.get('abonarBankName', 'N/A')),
+                        'cargar_bank_name': rule.get('cargarBankName', rule.get('abonarBankName', 'N/A')),  # Keep original ID for internal processing
                         'cargar_swift_code': rule.get('cargarSwiftCode', rule.get('abonarSwiftCode', 'N/A')),
                         'cargar_currency': rule.get('cargarCurrency', rule.get('abonarCurrency', 'N/A')),
                         
@@ -893,21 +949,21 @@ class SettlementInstructionService:
                         # Cargar account fields
                         'cargar_account_name': rule.get('cargarAccountName', 'N/A'),
                         'cargar_account_number': rule.get('cargarAccountNumber', 'N/A'),
-                        'cargar_bank_name': rule.get('cargarBankName', 'N/A'),
+                        'cargar_bank_name': rule.get('cargarBankName', 'N/A'),  # Keep original ID for internal processing
                         'cargar_swift_code': rule.get('cargarSwiftCode', 'N/A'),
                         'cargar_currency': rule.get('cargarCurrency', 'N/A'),
                         
                         # Abonar account fields
                         'abonar_account_name': rule.get('abonarAccountName', 'N/A'),
                         'abonar_account_number': rule.get('abonarAccountNumber', 'N/A'),
-                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),
+                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),  # Keep original ID for internal processing
                         'abonar_swift_code': rule.get('abonarSwiftCode', 'N/A'),
                         'abonar_currency': rule.get('abonarCurrency', 'N/A'),
                         
                         # Basic fields (for backward compatibility)
                         'account_name': rule.get('abonarAccountName', 'N/A'),
                         'account_number': rule.get('abonarAccountNumber', 'N/A'),
-                        'bank_name': rule.get('abonarBankName', 'N/A'),
+                        'bank_name': rule.get('abonarBankName', 'N/A'),  # Keep original ID for internal processing
                         'swift_code': rule.get('abonarSwiftCode', 'N/A'),
                         
                         # Other fields

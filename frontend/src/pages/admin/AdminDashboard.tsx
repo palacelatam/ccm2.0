@@ -5,6 +5,7 @@ import { useAuth } from '../../components/auth/AuthContext';
 import { clientService } from '../../services/api/clientService';
 import AlertModal from '../../components/common/AlertModal';
 import { getTradeCodeOptions } from '../../constants/tradeCodes';
+import { getBankDisplayName } from '../../utils/bankUtils';
 import './AdminDashboard.css';
 
 interface AlertSettings {
@@ -120,26 +121,33 @@ const AdminDashboard: React.FC = () => {
     { name: 'paymentDate', type: 'date', format: 'YYYY-MM-DD', required: true, description: 'Date when payment is due' }
   ];
   
-  // Chilean banks list in alphabetical order
+  // Chilean banks with IDs and display names (alphabetical order)
   const CHILEAN_BANKS = [
-    'Banco BICE',
-    'Banco BTG Pactual Chile',
-    'Banco Consorcio',
-    'Banco de Chile',
-    'Banco de Crédito e Inversiones',
-    'Banco del Estado de Chile',
-    'Banco Falabella',
-    'Banco Internacional',
-    'Banco Itaú Chile',
-    'Banco Ripley',
-    'Banco Santander Chile',
-    'Banco Security',
-    'HSBC Bank Chile',
-    'Scotiabank Chile',
-    'Tanner Banco Digital'
+    { id: 'banco-abc', name: 'Banco ABC' },
+    { id: 'banco-bice', name: 'Banco BICE' },
+    { id: 'banco-btg-pactual', name: 'Banco BTG Pactual Chile' },
+    { id: 'banco-consorcio', name: 'Banco Consorcio' },
+    { id: 'banco-de-chile', name: 'Banco de Chile' },
+    { id: 'banco-bci', name: 'Banco de Crédito e Inversiones' },
+    { id: 'banco-estado', name: 'Banco del Estado de Chile' },
+    { id: 'banco-falabella', name: 'Banco Falabella' },
+    { id: 'banco-internacional', name: 'Banco Internacional' },
+    { id: 'banco-itau', name: 'Banco Itaú Chile' },
+    { id: 'banco-ripley', name: 'Banco Ripley' },
+    { id: 'banco-santander', name: 'Banco Santander Chile' },
+    { id: 'banco-security', name: 'Banco Security' },
+    { id: 'banco-hsbc', name: 'HSBC Bank Chile' },
+    { id: 'banco-scotiabank', name: 'Scotiabank Chile' },
+    { id: 'banco-tanner', name: 'Tanner Banco Digital' }
   ];
   
   const [activeTab, setActiveTab] = useState<'automation' | 'alerts' | 'settlement' | 'accounts' | 'mapping'>('automation');
+
+  // Helper function to get bank name from bank ID
+  const getBankNameById = (bankId: string): string => {
+    const bank = CHILEAN_BANKS.find(b => b.id === bankId);
+    return bank ? bank.name : bankId; // Fallback to ID if not found (for backward compatibility)
+  };
   
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1914,7 +1922,7 @@ const AdminDashboard: React.FC = () => {
                       const headerText = item.data as string;
                       return (
                         <div key={`header-${headerText}-${index}`} className="counterparty-group-header">
-                          <h4>{headerText === 'Not Counterparty Specific' ? t('admin.settlement.table.notCounterpartySpecific') : headerText}</h4>
+                          <h4>{headerText === 'Not Counterparty Specific' ? t('admin.settlement.table.notCounterpartySpecific') : getBankNameById(headerText)}</h4>
                         </div>
                       );
                     } else {
@@ -1945,7 +1953,7 @@ const AdminDashboard: React.FC = () => {
                           <div className="table-cell" title="Direction">
                             {rule.direction ? t(`admin.settlement.directions.${rule.direction}`) : '-'}
                           </div>
-                          <div className="table-cell" title="Counterparty">{rule.counterparty || 'No Counterparty'}</div>
+                          <div className="table-cell" title="Counterparty">{rule.counterparty ? getBankNameById(rule.counterparty) : 'No Counterparty'}</div>
                           <div className="table-cell" title="Product">{rule.product || '-'}</div>
                           <div className="table-cell" title="Modalidad">
                             {rule.modalidad ? t(`admin.settlement.modalidad.${rule.modalidad}`) : '-'}
@@ -2035,7 +2043,7 @@ const AdminDashboard: React.FC = () => {
                       >
                         <option value="">{t('admin.settlement.placeholders.counterparty')}</option>
                         {CHILEAN_BANKS.map(bank => (
-                          <option key={bank} value={bank}>{bank}</option>
+                          <option key={bank.id} value={bank.id}>{bank.name}</option>
                         ))}
                       </select>
                     </div>
@@ -2186,7 +2194,7 @@ const AdminDashboard: React.FC = () => {
                               {ruleForm.cargarCurrency ? (
                                 Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.cargarCurrency).map(acc => acc.bankName))).length > 0 ? (
                                   Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.cargarCurrency).map(acc => acc.bankName))).map(bankName => (
-                                    <option key={bankName} value={bankName}>{bankName}</option>
+                                    <option key={bankName} value={bankName}>{getBankDisplayName(bankName)}</option>
                                   ))
                                 ) : (
                                   <option value="" disabled>No {ruleForm.cargarCurrency} accounts configured - please add one in Accounts tab</option>
@@ -2379,7 +2387,7 @@ const AdminDashboard: React.FC = () => {
                               {ruleForm.abonarCurrency ? (
                                 Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.abonarCurrency).map(acc => acc.bankName))).length > 0 ? (
                                   Array.from(new Set(getAvailableAccounts(undefined, undefined, ruleForm.abonarCurrency).map(acc => acc.bankName))).map(bankName => (
-                                    <option key={bankName} value={bankName}>{bankName}</option>
+                                    <option key={bankName} value={bankName}>{getBankDisplayName(bankName)}</option>
                                   ))
                                 ) : (
                                   <option value="" disabled>No {ruleForm.abonarCurrency} accounts configured - please add one in Accounts tab</option>
@@ -2545,7 +2553,7 @@ const AdminDashboard: React.FC = () => {
                           >
                             <option value="">{t('admin.accounts.placeholders.bankName')}</option>
                             {CHILEAN_BANKS.map(bank => (
-                              <option key={bank} value={bank}>{bank}</option>
+                              <option key={bank.id} value={bank.id}>{bank.name}</option>
                             ))}
                           </select>
                         </div>
@@ -2607,7 +2615,7 @@ const AdminDashboard: React.FC = () => {
                           />
                         </div>
                         <div className="table-cell">{account.accountName}</div>
-                        <div className="table-cell">{account.bankName}</div>
+                        <div className="table-cell">{getBankDisplayName(account.bankName)}</div>
                         <div className="table-cell">{account.swiftCode}</div>
                         <div className="table-cell">{account.accountCurrency}</div>
                         <div className="table-cell">{account.accountNumber}</div>
