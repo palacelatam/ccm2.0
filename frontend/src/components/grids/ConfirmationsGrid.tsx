@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GetContextMenuItemsParams, MenuItemDef, CellContextMenuEvent } from 'ag-grid-community';
 import { useTranslation } from 'react-i18next';
@@ -20,16 +20,18 @@ interface ConfirmationsGridProps {
   onRowClick?: (matchId: string | null) => void;
   showTitle?: boolean;
   title?: string;
+  hideUploadControls?: boolean;
 }
 
-const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({ 
+const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, ConfirmationsGridProps>(({ 
   onDataChange, 
   refreshTrigger,
   selectedMatchId,
   onRowClick,
   showTitle = false,
-  title = ''
-}) => {
+  title = '',
+  hideUploadControls = false
+}, ref) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [emails, setEmails] = useState<EmailConfirmation[]>([]);
@@ -60,6 +62,12 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   // Get client ID from user context
   const clientId = user?.organization?.id || user?.id;
+
+  // Expose triggerFileUpload method and uploading state to parent component
+  useImperativeHandle(ref, () => ({
+    triggerFileUpload,
+    uploading
+  }));
   const organizationName = user?.organization?.name || 'Company';
 
 
@@ -255,7 +263,14 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
   };
 
   const triggerFileUpload = () => {
-    fileInputRef.current?.click();
+    console.log('triggerFileUpload called in ConfirmationsGrid');
+    console.log('fileInputRef.current:', fileInputRef.current);
+    if (fileInputRef.current) {
+      console.log('Clicking file input');
+      fileInputRef.current.click();
+    } else {
+      console.log('File input not found');
+    }
   };
 
   // Handle status update
@@ -1173,6 +1188,14 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Hidden file input - always rendered for external access */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".msg,.pdf"
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+      />
       {/* Title with Upload Controls on same row */}
       {showTitle && (
         <div style={{ 
@@ -1235,8 +1258,8 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
           </div>
         </div>
       )}
-      {/* Old Upload Controls - only shown when title is not shown */}
-      {!showTitle && (
+      {/* Old Upload Controls - only shown when title is not shown and upload controls are not hidden */}
+      {!showTitle && !hideUploadControls && (
         <div className="grid-header-controls" style={{ 
           display: 'flex', 
           justifyContent: 'flex-end', 
@@ -1475,6 +1498,8 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
       )}
     </div>
   );
-};
+});
+
+ConfirmationsGrid.displayName = 'ConfirmationsGrid';
 
 export default ConfirmationsGrid;

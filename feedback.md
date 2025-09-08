@@ -1,2 +1,6 @@
-2025-09-08 11:22:05,579 - urllib3.connectionpool - DEBUG - https://storage.googleapis.com:443 "GET /storage/v1/b/ccm-dev-pool-settlement-documents/o/https%3A%2F%2Fstorage.googleapis.com%2Fccm-dev-pool-settlement-documents%2Fxyz-corp%2Fsettlement-instructions%2FSI_9239834_XYZCorporation_BancoABC_20250908_142106_20250908_112106_cc6ed04c.docx?fields=name&prettyPrint=false HTTP/1.1" 404 555
-INFO:     None:0 - "POST /api/v1/clients/xyz-corp/settlement-instructions/get-url HTTP/1.1" 500 Internal Server Error
+Upload icon clicked
+ClientDashboard.tsx:53 confirmationsGridRef.current: {triggerFileUpload: ƒ}triggerFileUpload: () => {…}[[Prototype]]: Object
+ClientDashboard.tsx:55 Calling triggerFileUpload
+ConfirmationsGrid.tsx:265 triggerFileUpload called in ConfirmationsGrid
+ConfirmationsGrid.tsx:266 fileInputRef.current: null
+ConfirmationsGrid.tsx:271 File input not found

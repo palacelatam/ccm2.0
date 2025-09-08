@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import MatchedTradesGrid from '../../components/grids/MatchedTradesGrid';
 import ConfirmationsGrid from '../../components/grids/ConfirmationsGrid';
@@ -14,6 +14,7 @@ const ClientDashboard: React.FC = () => {
   const { user } = useAuth();
   const [isBottomPanelExpanded, setIsBottomPanelExpanded] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const confirmationsGridRef = useRef<{ triggerFileUpload: () => void; uploading: boolean }>(null);
   
   // Toast state for real-time notifications
   const [showToast, setShowToast] = useState(false);
@@ -45,6 +46,15 @@ const ClientDashboard: React.FC = () => {
 
   const handleEmailRowClick = (matchId: string | null) => {
     setSelectedMatchId(matchId);
+  };
+
+  const handleUploadClick = () => {
+    if (!confirmationsGridRef.current) return;
+    
+    // Don't allow clicks when uploading
+    if (confirmationsGridRef.current.uploading) return;
+    
+    confirmationsGridRef.current.triggerFileUpload();
   };
 
   // Connect to real-time event stream - SIMPLE VERSION WITH EVENT HANDLING
@@ -85,6 +95,9 @@ const ClientDashboard: React.FC = () => {
   // Placeholder values for the status indicator
   const connected = status === 'connected';
   const error = status === 'error' ? 'Connection error' : null;
+  
+  // Get uploading state from ConfirmationsGrid ref
+  const isUploading = confirmationsGridRef.current?.uploading || false;
 
   return (
     <div className="dashboard-container">
@@ -98,12 +111,37 @@ const ClientDashboard: React.FC = () => {
           />
         </div>
         <div className="top-right-panel">
-          <h3>{t('dashboard.confirmations')}</h3>
+          <h3 style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center'
+          }}>
+            <span>{t('dashboard.confirmations')}</span>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="#4a9eff" 
+              strokeWidth="1.8" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              onClick={handleUploadClick}
+            >
+              <title>Upload MSG/PDF email file</title>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </h3>
           <ConfirmationsGrid 
+            ref={confirmationsGridRef}
             onDataChange={triggerGridRefresh} 
             refreshTrigger={refreshTrigger}
             selectedMatchId={selectedMatchId}
             onRowClick={handleEmailRowClick}
+            showTitle={false}
+            hideUploadControls={true}
           />
         </div>
       </div>
