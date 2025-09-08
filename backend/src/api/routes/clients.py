@@ -12,6 +12,7 @@ from services.client_service import ClientService
 from services.bank_service import BankService
 from services.email_parser import EmailParserService
 from services.matching_service import MatchingService
+from services.settlement_instruction_service import settlement_instruction_service
 from models.base import APIResponse
 from models.client import (
     ClientSettings, ClientSettingsUpdate,
@@ -1177,8 +1178,11 @@ async def generate_settlement_instruction(
         
         logger.info(f"Found {len(settlement_rules)} settlement rules and {len(bank_accounts)} bank accounts")
         
-        # Find matching settlement rules (logic from test_trade.py)
-        def find_matching_settlement_rules(trade_data, settlement_rules):
+        # Use SHARED function from settlement service to get complete settlement data
+        settlement_data = await settlement_instruction_service.find_and_prepare_settlement_data(trade_data, settlement_rules)
+        
+        # OLD inline function - REMOVING to use shared version
+        def find_matching_settlement_rules_OLD(trade_data, settlement_rules):
             if not settlement_rules:
                 return None
                 
@@ -1301,83 +1305,16 @@ async def generate_settlement_instruction(
                     'accountCurrency': rule_settlement_currency
                 }
         
-        # Find matching settlement rules and bank accounts
-        settlement_rules_matched = find_matching_settlement_rules(trade_data, settlement_rules)
-        if not settlement_rules_matched:
+        # Check if we found matching settlement data
+        if not settlement_data:
             logger.error(f"No matching settlement rules found for trade {trade_number}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"No matching settlement rules found for this trade. Please check settlement rules configuration."
             )
         
-        bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
-        if not bank_accounts_matched:
-            logger.error(f"No matching bank accounts found for trade {trade_number}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No matching bank accounts found for the settlement rule. Please check bank account configuration."
-            )
-        
-        # Prepare settlement data (reusing logic from test_trade.py)
-        settlement_data = None
-        if isinstance(bank_accounts_matched, dict) and 'cargar' in bank_accounts_matched:
-            # Physical delivery - two accounts
-            cargar_account = bank_accounts_matched.get('cargar')
-            abonar_account = bank_accounts_matched.get('abonar')
-            
-            settlement_data = {
-                'cargar_account_name': cargar_account.get('accountName', 'N/A'),
-                'cargar_account_number': cargar_account.get('accountNumber', 'N/A'),
-                'cargar_bank_name': cargar_account.get('bankName', 'N/A'),
-                'cargar_swift_code': cargar_account.get('swiftCode', 'N/A'),
-                'cargar_currency': cargar_account.get('accountCurrency', 'N/A'),
-                'abonar_account_name': abonar_account.get('accountName', 'N/A'),
-                'abonar_account_number': abonar_account.get('accountNumber', 'N/A'),
-                'abonar_bank_name': abonar_account.get('bankName', 'N/A'),
-                'abonar_swift_code': abonar_account.get('swiftCode', 'N/A'),
-                'abonar_currency': abonar_account.get('accountCurrency', 'N/A'),
-                'cutoff_time': '15:00 Santiago Time',
-                'special_instructions': 'Physical delivery settlement - two-way transfer',
-                'central_bank_trade_code': settlement_rules_matched.get('matched_rule', {}).get('centralBankTradeCode', 'N/A'),
-                # For backward compatibility
-                'account_name': abonar_account.get('accountName', 'N/A'),
-                'account_number': abonar_account.get('accountNumber', 'N/A'),
-                'bank_name': abonar_account.get('bankName', 'N/A'),
-                'swift_code': abonar_account.get('swiftCode', 'N/A')
-            }
-            logger.info("Settlement data prepared for Physical Delivery (two accounts)")
-        else:
-            # Compensación - single account (populate both basic and abonar/cargar fields)
-            settlement_data = {
-                # Basic fields
-                'account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                'account_number': bank_accounts_matched.get('accountNumber', 'N/A'),
-                'bank_name': bank_accounts_matched.get('bankName', 'N/A'),
-                'swift_code': bank_accounts_matched.get('swiftCode', 'N/A'),
-                
-                # Abonar fields (from settlement rule)
-                'abonar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                'abonar_account_number': settlement_rules_matched.get('abonarAccountNumber', 'N/A'),
-                'abonar_bank_name': settlement_rules_matched.get('abonarBankName', 'N/A'),
-                'abonar_swift_code': settlement_rules_matched.get('abonarSwiftCode', 'N/A'),
-                'abonar_currency': settlement_rules_matched.get('abonarCurrency', 'N/A'),
-                
-                # Cargar fields (from settlement rule - same for Compensación)
-                'cargar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                'cargar_account_number': settlement_rules_matched.get('cargarAccountNumber', 'N/A'),
-                'cargar_bank_name': settlement_rules_matched.get('cargarBankName', 'N/A'),
-                'cargar_swift_code': settlement_rules_matched.get('cargarSwiftCode', 'N/A'),
-                'cargar_currency': settlement_rules_matched.get('cargarCurrency', 'N/A'),
-                
-                # Other fields
-                'cutoff_time': '15:00 Santiago Time',
-                'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.'),
-                'central_bank_trade_code': settlement_rules_matched.get('centralBankTradeCode', 'N/A')
-            }
-            logger.info("Settlement data prepared for Compensación with abonar/cargar fields populated")
-        
-        # Generate settlement instruction document using existing service
-        from services.settlement_instruction_service import settlement_instruction_service
+        # Settlement data already includes all account information from the rule
+        logger.info(f"Settlement data prepared with account: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
         
         # Map counterparty to bank ID (reusing logic from test_trade.py)
         counterparty = trade_data.get('CounterpartyName', '')
@@ -1487,27 +1424,13 @@ async def generate_settlement_instruction(
                 logger.info(f"Attempting to update email document: {actual_email_id}, trade index: {trade_index} (original: {email_id})")
                 email_doc_ref = client_service.db.collection('clients').document(client_id).collection('emails').document(actual_email_id)
                 
-                # Check if document exists first
-                doc_snapshot = email_doc_ref.get()
-                if doc_snapshot.exists:
-                    # Get the current document to preserve array structure
-                    email_data = doc_snapshot.to_dict()
-                    llm_data = email_data.get('llmExtractedData', {})
-                    trades = llm_data.get('Trades', [])
-                    
-                    # Update the specific trade in the array while preserving array structure
-                    if trade_index < len(trades) and isinstance(trades, list):
-                        trades[trade_index]['settlementInstructionStoragePath'] = upload_result['storage_path']
-                        
-                        # Update the entire Trades array to preserve its structure
-                        email_doc_ref.update({
-                            'llmExtractedData.Trades': trades
-                        })
-                        logger.info(f"Settlement instruction storage path stored in Firestore for email {actual_email_id}, trade {trade_index}")
-                    else:
-                        logger.error(f"Invalid trade index {trade_index} or Trades is not an array")
-                else:
-                    logger.warning(f"Email document {actual_email_id} does not exist - settlement instruction metadata not attached to email")
+                # Use SHARED function from settlement service to update email with storage path
+                await settlement_instruction_service.update_email_with_settlement_path(
+                    client_id=client_id,
+                    email_id=actual_email_id,
+                    storage_path=upload_result['storage_path'],
+                    trade_index=trade_index
+                )
             except Exception as e:
                 logger.error(f"Failed to update email document {email_id}: {e}")
                 # Don't fail the entire request if email update fails

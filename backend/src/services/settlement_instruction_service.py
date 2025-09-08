@@ -755,6 +755,215 @@ class SettlementInstructionService:
                 'error': str(e),
                 'generated_at': datetime.now().isoformat()
             }
+    
+    async def find_and_prepare_settlement_data(self, trade_data: Dict[str, Any], settlement_rules: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Find matching settlement rules and prepare settlement data for a trade.
+        SHARED function used by both manual and automatic flows.
+        Returns complete settlement data ready for document generation.
+        
+        Args:
+            trade_data: Trade data dictionary
+            settlement_rules: List of settlement rules
+            
+        Returns:
+            Complete settlement data dictionary or None
+        """
+        if not settlement_rules:
+            return None
+            
+        trade_counterparty = trade_data.get('CounterpartyName', trade_data.get('BankCounterparty', '')).lower()
+        trade_currency1 = trade_data.get('Currency1', '')
+        trade_currency2 = trade_data.get('Currency2', '')
+        trade_product = trade_data.get('ProductType', trade_data.get('Product', ''))
+        trade_direction = trade_data.get('Direction', '').upper()
+        settlement_type = trade_data.get('SettlementType', '')
+        settlement_currency = trade_data.get('SettlementCurrency', '')
+        
+        logger.info(f"🔍 Matching settlement rules - Type: {settlement_type}, Currency: {settlement_currency}")
+        logger.info(f"   Counterparty: '{trade_counterparty}'")
+        logger.info(f"   Product: '{trade_product}'")
+        logger.info(f"   Direction: '{trade_direction}'")
+        logger.info(f"   Currency1: '{trade_currency1}'")
+        logger.info(f"   Currency2: '{trade_currency2}'")
+        logger.info(f"   Available rules: {len(settlement_rules)}")
+        
+        # Debug: Show all rules
+        for i, rule in enumerate(settlement_rules):
+            logger.info(f"   Rule {i+1}/{len(settlement_rules)}: name='{rule.get('name', 'unnamed')}', "
+                       f"counterparty='{rule.get('counterparty', '')}', "
+                       f"product='{rule.get('product', '')}', "
+                       f"modalidad='{rule.get('modalidad', '')}', "
+                       f"settlementCurrency='{rule.get('settlementCurrency', '')}', "
+                       f"active={rule.get('active', True)}")
+        
+        if settlement_type == "Compensación":
+            for rule in settlement_rules:
+                rule_counterparty = rule.get('counterparty', '').lower()
+                rule_product = rule.get('product', '')
+                rule_modalidad = rule.get('modalidad', '')
+                rule_settlement_currency = rule.get('settlementCurrency', '')
+                rule_active = rule.get('active', True)
+                
+                if not rule_active:
+                    continue
+                    
+                # Check if all non-empty criteria match
+                counterparty_matches = not rule_counterparty or rule_counterparty in trade_counterparty
+                product_matches = not rule_product or rule_product.lower() in trade_product.lower()
+                # Case-insensitive comparison and handle accents (ó vs o)
+                modalidad_matches = not rule_modalidad or rule_modalidad.lower().replace('ó', 'o') == settlement_type.lower().replace('ó', 'o')
+                currency_matches = not rule_settlement_currency or rule_settlement_currency == settlement_currency
+                
+                # Debug each match
+                logger.info(f"      Rule '{rule.get('name', 'unnamed')}': "
+                           f"counterparty={counterparty_matches} ({rule_counterparty} in {trade_counterparty}), "
+                           f"product={product_matches} ({rule_product} in {trade_product}), "
+                           f"modalidad={modalidad_matches} ({rule_modalidad} == {settlement_type}), "
+                           f"currency={currency_matches} ({rule_settlement_currency} == {settlement_currency})")
+                
+                if counterparty_matches and product_matches and modalidad_matches and currency_matches:
+                    logger.info(f"✅ Matched rule: {rule.get('name')} for Compensación")
+                    
+                    # Return complete settlement data from the rule
+                    return {
+                        'matched_rule': rule,
+                        # Basic fields
+                        'account_name': rule.get('abonarAccountName', 'N/A'),
+                        'account_number': rule.get('abonarAccountNumber', 'N/A'),
+                        'bank_name': rule.get('abonarBankName', 'N/A'),
+                        'swift_code': rule.get('abonarSwiftCode', 'N/A'),
+                        
+                        # Abonar fields
+                        'abonar_account_name': rule.get('abonarAccountName', 'N/A'),
+                        'abonar_account_number': rule.get('abonarAccountNumber', 'N/A'),
+                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),
+                        'abonar_swift_code': rule.get('abonarSwiftCode', 'N/A'),
+                        'abonar_currency': rule.get('abonarCurrency', 'N/A'),
+                        
+                        # Cargar fields (same as abonar for Compensación)
+                        'cargar_account_name': rule.get('abonarAccountName', 'N/A'),
+                        'cargar_account_number': rule.get('cargarAccountNumber', rule.get('abonarAccountNumber', 'N/A')),
+                        'cargar_bank_name': rule.get('cargarBankName', rule.get('abonarBankName', 'N/A')),
+                        'cargar_swift_code': rule.get('cargarSwiftCode', rule.get('abonarSwiftCode', 'N/A')),
+                        'cargar_currency': rule.get('cargarCurrency', rule.get('abonarCurrency', 'N/A')),
+                        
+                        # Other fields
+                        'cutoff_time': '15:00 Santiago Time',
+                        'special_instructions': rule.get('specialInstructions', 'Standard settlement instructions apply.'),
+                        'central_bank_trade_code': rule.get('centralBankTradeCode', 'N/A')
+                    }
+                    
+        elif settlement_type == "Entrega Física":
+            # Determine pay/receive currencies based on direction
+            if trade_direction == "BUY":
+                pay_currency = trade_currency2
+                receive_currency = trade_currency1
+            else:
+                pay_currency = trade_currency1
+                receive_currency = trade_currency2
+                
+            for rule in settlement_rules:
+                rule_counterparty = rule.get('counterparty', '').lower()
+                rule_product = rule.get('product', '')
+                rule_modalidad = rule.get('modalidad', '')
+                cargar_currency = rule.get('cargarCurrency', '')
+                abonar_currency = rule.get('abonarCurrency', '')
+                rule_active = rule.get('active', True)
+                
+                if not rule_active:
+                    continue
+                    
+                # Check all criteria
+                counterparty_matches = not rule_counterparty or rule_counterparty in trade_counterparty
+                product_matches = not rule_product or rule_product.lower() in trade_product.lower()
+                # Case-insensitive comparison and handle accents (ó vs o)
+                modalidad_matches = not rule_modalidad or rule_modalidad.lower().replace('ó', 'o') == settlement_type.lower().replace('ó', 'o')
+                currency_matches = cargar_currency == pay_currency and abonar_currency == receive_currency
+                
+                if counterparty_matches and product_matches and modalidad_matches and currency_matches:
+                    logger.info(f"✅ Matched rule: {rule.get('name')} for Entrega Física")
+                    
+                    # Return complete settlement data from the rule
+                    return {
+                        'matched_rule': rule,
+                        'pay_currency': pay_currency,
+                        'receive_currency': receive_currency,
+                        
+                        # Cargar account fields
+                        'cargar_account_name': rule.get('cargarAccountName', 'N/A'),
+                        'cargar_account_number': rule.get('cargarAccountNumber', 'N/A'),
+                        'cargar_bank_name': rule.get('cargarBankName', 'N/A'),
+                        'cargar_swift_code': rule.get('cargarSwiftCode', 'N/A'),
+                        'cargar_currency': rule.get('cargarCurrency', 'N/A'),
+                        
+                        # Abonar account fields
+                        'abonar_account_name': rule.get('abonarAccountName', 'N/A'),
+                        'abonar_account_number': rule.get('abonarAccountNumber', 'N/A'),
+                        'abonar_bank_name': rule.get('abonarBankName', 'N/A'),
+                        'abonar_swift_code': rule.get('abonarSwiftCode', 'N/A'),
+                        'abonar_currency': rule.get('abonarCurrency', 'N/A'),
+                        
+                        # Basic fields (for backward compatibility)
+                        'account_name': rule.get('abonarAccountName', 'N/A'),
+                        'account_number': rule.get('abonarAccountNumber', 'N/A'),
+                        'bank_name': rule.get('abonarBankName', 'N/A'),
+                        'swift_code': rule.get('abonarSwiftCode', 'N/A'),
+                        
+                        # Other fields
+                        'cutoff_time': '15:00 Santiago Time',
+                        'special_instructions': 'Physical delivery settlement - two-way transfer',
+                        'central_bank_trade_code': rule.get('centralBankTradeCode', 'N/A')
+                    }
+        
+        return None
+    
+    async def update_email_with_settlement_path(self, client_id: str, email_id: str, storage_path: str, trade_index: int = 0) -> bool:
+        """
+        Update email document in Firestore with settlement instruction storage path.
+        SHARED function used by both manual and automatic flows.
+        
+        Args:
+            client_id: Client ID
+            email_id: Email document ID
+            storage_path: Cloud storage path of the settlement instruction
+            trade_index: Index of the trade in the Trades array (default 0)
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            db = get_cmek_firestore_client()
+            
+            # Update the email document with the settlement instruction storage path
+            email_doc_ref = db.collection('clients').document(client_id).collection('emails').document(email_id)
+            email_doc = email_doc_ref.get()
+            
+            if email_doc.exists:
+                email_data = email_doc.to_dict()
+                llm_data = email_data.get('llmExtractedData', {})
+                trades = llm_data.get('Trades', [])
+                
+                # Update the specific trade in the array while preserving array structure
+                if trade_index < len(trades) and isinstance(trades, list):
+                    trades[trade_index]['settlementInstructionStoragePath'] = storage_path
+                    
+                    # Update the entire Trades array to preserve its structure
+                    email_doc_ref.update({
+                        'llmExtractedData.Trades': trades
+                    })
+                    logger.info(f"✅ Settlement instruction storage path stored in Firestore for email {email_id}, trade {trade_index}")
+                    return True
+                else:
+                    logger.error(f"❌ Invalid trade index {trade_index} or Trades is not an array")
+                    return False
+            else:
+                logger.warning(f"⚠️ Email document {email_id} does not exist - settlement instruction metadata not attached to email")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update email with settlement path: {e}")
+            return False
 
 
 # Global instance

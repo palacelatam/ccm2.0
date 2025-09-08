@@ -18,13 +18,17 @@ interface ConfirmationsGridProps {
   refreshTrigger?: number;
   selectedMatchId?: string | null;
   onRowClick?: (matchId: string | null) => void;
+  showTitle?: boolean;
+  title?: string;
 }
 
 const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({ 
   onDataChange, 
   refreshTrigger,
   selectedMatchId,
-  onRowClick
+  onRowClick,
+  showTitle = false,
+  title = ''
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -1169,15 +1173,78 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
 
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* Upload Controls */}
-      <div className="grid-header-controls" style={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        alignItems: 'center', 
-        borderBottom: '1px solid #333',
-        marginTop: '-16px',
-        marginBottom: '8px'
-      }}>
+      {/* Title with Upload Controls on same row */}
+      {showTitle && (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          marginBottom: '10px',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #333'
+        }}>
+          <h3 style={{ margin: 0, color: '#fff' }}>{title}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {uploadMessage && (
+              <div style={{ 
+                color: uploadMessage.includes('Successfully') ? '#28a745' : '#dc3545',
+                fontSize: '14px'
+              }}>
+                {uploadMessage}
+              </div>
+            )}
+            <button 
+              onClick={triggerFileUpload}
+              disabled={uploading}
+              title={uploading ? 'Uploading...' : 'Upload MSG/PDF email file'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                opacity: uploading ? 0.5 : 1,
+                transition: 'opacity 0.2s ease'
+              }}
+            >
+              {uploading ? (
+                <div style={{ 
+                  width: '20px', 
+                  height: '20px', 
+                  border: '2px solid #333', 
+                  borderTop: '2px solid #007bff', 
+                  borderRadius: '50%', 
+                  animation: 'spin 1s linear infinite' 
+                }}>
+                </div>
+              ) : (
+                <span style={{ fontSize: '18px', color: '#b3b3b3' }}>📎</span>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".msg,.pdf"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+          </div>
+        </div>
+      )}
+      {/* Old Upload Controls - only shown when title is not shown */}
+      {!showTitle && (
+        <div className="grid-header-controls" style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          alignItems: 'center', 
+          borderBottom: '1px solid #333',
+          marginTop: '-16px',
+          marginBottom: '8px'
+        }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {uploadMessage && (
             <div style={{ 
@@ -1229,6 +1296,7 @@ const ConfirmationsGrid: React.FC<ConfirmationsGridProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Grid Content */}
       {emails.length === 0 ? (

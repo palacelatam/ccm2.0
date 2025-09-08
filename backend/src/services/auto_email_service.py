@@ -162,109 +162,12 @@ class AutoEmailService:
                                 
                                 logger.info(f"📋 Found {len(settlement_rules)} settlement rules and {len(bank_accounts)} bank accounts")
                                 
-                                # Find matching settlement rules (copied from Phase III)
-                                def find_matching_settlement_rules(trade_data, settlement_rules):
-                                    if not settlement_rules:
-                                        return None
-                                    
-                                    # Get trade details for matching
-                                    counterparty = trade_data.get('BankCounterparty', trade_data.get('Counterparty', ''))
-                                    product = trade_data.get('Product', trade_data.get('ProductType', ''))
-                                    pay_currency = trade_data.get('PayCurrency', '')
-                                    receive_currency = trade_data.get('ReceiveCurrency', '')
-                                    
-                                    logger.info(f"🔍 Matching against counterparty: {counterparty}, product: {product}, currencies: {pay_currency}/{receive_currency}")
-                                    
-                                    # Find matching rules (highest priority first)
-                                    matching_rules = []
-                                    for rule in settlement_rules:
-                                        matches = True
-                                        
-                                        # Check counterparty (optional)
-                                        rule_counterparty = rule.get('counterparty', '')
-                                        if rule_counterparty and counterparty.lower() not in rule_counterparty.lower():
-                                            matches = False
-                                            continue
-                                        
-                                        # Check product (optional)
-                                        rule_product = rule.get('product', '')
-                                        if rule_product and product.lower() not in rule_product.lower():
-                                            matches = False
-                                            continue
-                                        
-                                        if matches:
-                                            matching_rules.append(rule)
-                                    
-                                    if not matching_rules:
-                                        return None
-                                    
-                                    # Sort by priority and return the highest priority rule
-                                    matching_rules.sort(key=lambda r: r.get('priority', 999))
-                                    best_rule = matching_rules[0]
-                                    logger.info(f"✅ Matched settlement rule: {best_rule.get('name', 'unnamed')}")
-                                    return best_rule
+                                # Use SHARED function from settlement service
+                                settlement_data = await settlement_service.find_and_prepare_settlement_data(trade_data_with_product, settlement_rules)
                                 
-                                # Find matching bank accounts (copied from Phase III)
-                                def find_matching_bank_accounts(settlement_rules_matched, bank_accounts):
-                                    if not settlement_rules_matched:
-                                        return None
-                                    
-                                    # For Compensación case - get bank account details directly from the settlement rule
-                                    rule = settlement_rules_matched
-                                    
-                                    # Get bank account details directly from settlement rule
-                                    rule_bank_name = rule.get('abonarBankName', '')
-                                    rule_account_number = rule.get('abonarAccountNumber', '')
-                                    rule_swift_code = rule.get('abonarSwiftCode', '')
-                                    rule_account_name = rule.get('abonarAccountName', '')
-                                    rule_settlement_currency = rule.get('abonarCurrency', '')
-                                    
-                                    return {
-                                        'accountName': rule_account_name,
-                                        'accountNumber': rule_account_number,
-                                        'bankName': rule_bank_name,
-                                        'swiftCode': rule_swift_code,
-                                        'accountCurrency': rule_settlement_currency
-                                    }
-                                
-                                # Find matching settlement rules and bank accounts
-                                settlement_rules_matched = find_matching_settlement_rules(trade_data_with_product, settlement_rules)
-                                if not settlement_rules_matched:
+                                if not settlement_data:
                                     logger.error(f"❌ No matching settlement rules found for auto settlement")
                                     raise Exception("No matching settlement rules found for auto settlement")
-                                
-                                bank_accounts_matched = find_matching_bank_accounts(settlement_rules_matched, bank_accounts)
-                                if not bank_accounts_matched:
-                                    logger.error(f"❌ No matching bank accounts found for auto settlement")
-                                    raise Exception("No matching bank accounts found for auto settlement")
-                                
-                                # Prepare settlement data (copied from Phase III)
-                                settlement_data = {
-                                    # Basic fields
-                                    'account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                                    'account_number': bank_accounts_matched.get('accountNumber', 'N/A'),
-                                    'bank_name': bank_accounts_matched.get('bankName', 'N/A'),
-                                    'swift_code': bank_accounts_matched.get('swiftCode', 'N/A'),
-                                    
-                                    # Abonar fields (from settlement rule)
-                                    'abonar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                                    'abonar_account_number': settlement_rules_matched.get('abonarAccountNumber', 'N/A'),
-                                    'abonar_bank_name': settlement_rules_matched.get('abonarBankName', 'N/A'),
-                                    'abonar_swift_code': settlement_rules_matched.get('abonarSwiftCode', 'N/A'),
-                                    'abonar_currency': settlement_rules_matched.get('abonarCurrency', 'N/A'),
-                                    
-                                    # Cargar fields (from settlement rule - same for Compensación)
-                                    'cargar_account_name': bank_accounts_matched.get('accountName', 'N/A'),
-                                    'cargar_account_number': settlement_rules_matched.get('cargarAccountNumber', 'N/A'),
-                                    'cargar_bank_name': settlement_rules_matched.get('cargarBankName', 'N/A'),
-                                    'cargar_swift_code': settlement_rules_matched.get('cargarSwiftCode', 'N/A'),
-                                    'cargar_currency': settlement_rules_matched.get('cargarCurrency', 'N/A'),
-                                    
-                                    # Other fields
-                                    'cutoff_time': '15:00 Santiago Time',
-                                    'special_instructions': settlement_rules_matched.get('specialInstructions', 'Standard settlement instructions apply.'),
-                                    'central_bank_trade_code': settlement_rules_matched.get('centralBankTradeCode', 'N/A')
-                                }
                                 
                                 logger.info(f"💰 Settlement data prepared: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
                                 
@@ -313,9 +216,23 @@ class AutoEmailService:
                                     
                                     if upload_result['success']:
                                         # Update doc_result with cloud storage info
-                                        doc_result['storage_path'] = upload_result['public_url']
+                                        doc_result['storage_path'] = upload_result['storage_path']  # Use relative path
+                                        doc_result['public_url'] = upload_result['public_url']  # Full URL
                                         doc_result['signed_url'] = upload_result['signed_url']
                                         logger.info(f"✅ Document uploaded to cloud storage: {upload_result['public_url']}")
+                                        
+                                        # Update email document with settlement path (using SHARED function)
+                                        # This enables the frontend to show checkmark and disable duplicate creation
+                                        email_doc_id = email_data.get('email_id', '')
+                                        if email_doc_id:
+                                            await settlement_service.update_email_with_settlement_path(
+                                                client_id=client_id,
+                                                email_id=email_doc_id,
+                                                storage_path=upload_result['storage_path'],  # Use relative path, not full URL
+                                                trade_index=0  # Auto generation typically processes first trade
+                                            )
+                                        else:
+                                            logger.warning(f"⚠️ No email_id available to update settlement path in Firestore")
                                     else:
                                         logger.error(f"❌ Cloud storage upload failed: {upload_result.get('error')}")
                             else:
