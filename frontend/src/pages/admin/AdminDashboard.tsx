@@ -125,7 +125,7 @@ const AdminDashboard: React.FC = () => {
   const CHILEAN_BANKS = [
     { id: 'banco-abc', name: 'Banco ABC' },
     { id: 'banco-bice', name: 'Banco BICE' },
-    { id: 'banco-btg-pactual', name: 'Banco BTG Pactual Chile' },
+    { id: 'banco-btg-pactual', name: 'BTG Pactual' },
     { id: 'banco-consorcio', name: 'Banco Consorcio' },
     { id: 'banco-de-chile', name: 'Banco de Chile' },
     { id: 'banco-bci', name: 'Banco de Crédito e Inversiones' },

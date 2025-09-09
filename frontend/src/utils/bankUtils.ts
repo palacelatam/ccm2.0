@@ -17,7 +17,7 @@ export function getBankDisplayName(bankId: string): string {
   const bankDisplayNames: Record<string, string> = {
     'banco-abc': 'Banco ABC',
     'banco-bice': 'Banco BICE',
-    'banco-btg-pactual': 'Banco BTG Pactual Chile',
+    'banco-btg-pactual': 'BTG Pactual',
     'banco-consorcio': 'Banco Consorcio',
     'banco-de-chile': 'Banco de Chile',
     'banco-bci': 'Banco de Crédito e Inversiones',
@@ -51,7 +51,7 @@ export function getBankIdFromDisplayName(displayName: string): string {
   const displayToId: Record<string, string> = {
     'Banco ABC': 'banco-abc',
     'Banco BICE': 'banco-bice', 
-    'Banco BTG Pactual Chile': 'banco-btg-pactual',
+    'BTG Pactual': 'banco-btg-pactual',
     'Banco Consorcio': 'banco-consorcio',
     'Banco de Chile': 'banco-de-chile',
     'Banco de Crédito e Inversiones': 'banco-bci',
@@ -79,7 +79,7 @@ export function getAllBanks(): Array<{id: string, name: string}> {
   return [
     {id: 'banco-abc', name: 'Banco ABC'},
     {id: 'banco-bice', name: 'Banco BICE'},
-    {id: 'banco-btg-pactual', name: 'Banco BTG Pactual Chile'},
+    {id: 'banco-btg-pactual', name: 'BTG Pactual'},
     {id: 'banco-consorcio', name: 'Banco Consorcio'},
     {id: 'banco-de-chile', name: 'Banco de Chile'},
     {id: 'banco-bci', name: 'Banco de Crédito e Inversiones'},

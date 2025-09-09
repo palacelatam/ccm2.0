@@ -15,11 +15,11 @@ def get_bank_display_name(bank_id: str) -> str:
     if not bank_id:
         return bank_id
     
-    # Bank ID to display name mapping
+    # Bank ID to display name mapping (using official names from RUT/SWIFT list)
     bank_display_names = {
-        'banco-abc': 'Banco ABC',
+        'banco-abc': 'Banco ABC',  # Test bank
         'banco-bice': 'Banco BICE',
-        'banco-btg-pactual': 'Banco BTG Pactual Chile',
+        'banco-btg-pactual': 'BTG Pactual',
         'banco-consorcio': 'Banco Consorcio',
         'banco-de-chile': 'Banco de Chile',
         'banco-bci': 'Banco de Crédito e Inversiones',
@@ -32,7 +32,7 @@ def get_bank_display_name(bank_id: str) -> str:
         'banco-security': 'Banco Security',
         'banco-hsbc': 'HSBC Bank Chile',
         'banco-scotiabank': 'Scotiabank Chile',
-        'banco-tanner': 'Tanner Banco Digital'
+        'banco-tanner': 'Tanner Banco Digital'  # Not in official list, keeping as is
     }
     
     return bank_display_names.get(bank_id.lower(), bank_id)
@@ -51,11 +51,11 @@ def get_bank_id_from_display_name(display_name: str) -> str:
     if not display_name:
         return display_name
     
-    # Reverse mapping for display name to bank ID
+    # Reverse mapping for display name to bank ID (using official names from RUT/SWIFT list)
     display_to_id = {
-        'Banco ABC': 'banco-abc',
+        'Banco ABC': 'banco-abc',  # Test bank
         'Banco BICE': 'banco-bice', 
-        'Banco BTG Pactual Chile': 'banco-btg-pactual',
+        'BTG Pactual': 'banco-btg-pactual',
         'Banco Consorcio': 'banco-consorcio',
         'Banco de Chile': 'banco-de-chile',
         'Banco de Crédito e Inversiones': 'banco-bci',
@@ -68,7 +68,7 @@ def get_bank_id_from_display_name(display_name: str) -> str:
         'Banco Security': 'banco-security',
         'HSBC Bank Chile': 'banco-hsbc',
         'Scotiabank Chile': 'banco-scotiabank',
-        'Tanner Banco Digital': 'banco-tanner'
+        'Tanner Banco Digital': 'banco-tanner'  # Not in official list, keeping as is
     }
     
     return display_to_id.get(display_name, display_name.lower().replace(' ', '-').replace('ó', 'o'))
