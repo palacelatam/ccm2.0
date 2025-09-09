@@ -883,6 +883,7 @@ class ClientService:
                             'CounterpartyPaymentMethod': trade.get('CounterpartyPaymentMethod', ''),
                             'OurPaymentMethod': trade.get('OurPaymentMethod', ''),
                             'settlementInstructionStoragePath': trade.get('settlementInstructionStoragePath', ''),
+                            'settlementInstructionError': trade.get('settlementInstructionError', ''),
                         }
                         
                         # First check if this trade has a match_id stored directly in it

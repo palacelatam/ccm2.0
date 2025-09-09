@@ -738,8 +738,18 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
         
         // Check for settlement instruction error in email data (from auto-settlement failures)
         const emailData = params.data;
-        const tradeData = emailData?.llmExtractedData?.Trades?.[0]; // Typically first trade
-        const hasAutoError = tradeData?.settlementInstructionError;
+        const hasAutoError = emailData?.settlementInstructionError;
+        
+        // DEBUG: Log the data structure to see what we're getting
+        if (emailData?.id && emailData.id.includes('IlG5cbLZTpMWj33m8eiU')) {
+          console.log('🔍 DEBUG Settlement Icon - Email ID:', emailData.id);
+          console.log('🔍 DEBUG Settlement Icon - EmailData keys:', Object.keys(emailData || {}));
+          console.log('🔍 DEBUG Settlement Icon - settlementInstructionError (direct):', emailData?.settlementInstructionError);
+          console.log('🔍 DEBUG Settlement Icon - llmExtractedData:', emailData?.llmExtractedData);
+          console.log('🔍 DEBUG Settlement Icon - hasAutoError:', hasAutoError);
+          console.log('🔍 DEBUG Settlement Icon - storagePath:', storagePath);
+          console.log('🔍 DEBUG Settlement Icon - hasError (manual):', hasError);
+        }
         
         let icon = '';
         let color = '#b3b3b3';
@@ -1471,8 +1481,7 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
                 // Add "Create Settlement Instruction" or "Retry" if conditions are met
                 const emailId = selectedEmailForMenu.id;
                 const hasError = settlementInstructionErrors.has(emailId);
-                const tradeData = selectedEmailForMenu?.llmExtractedData?.Trades?.[0]; // Typically first trade
-                const hasAutoError = tradeData?.settlementInstructionError;
+                const hasAutoError = selectedEmailForMenu?.settlementInstructionError;
                 const anyError = hasError || hasAutoError;
                 
                 if (selectedEmailForMenu.status === 'Confirmation OK' && 

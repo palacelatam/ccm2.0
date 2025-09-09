@@ -972,7 +972,9 @@ class SettlementInstructionService:
                         'central_bank_trade_code': rule.get('centralBankTradeCode', 'N/A')
                     }
         
-        return None
+        # If we reach here, no rules matched
+        logger.error(f"❌ No matching settlement rules found for trade")
+        raise Exception("No matching settlement rules found for this trade")
     
     async def update_email_with_settlement_path(self, client_id: str, email_id: str, storage_path: str, trade_index: int = 0) -> bool:
         """
@@ -1003,6 +1005,8 @@ class SettlementInstructionService:
                 # Update the specific trade in the array while preserving array structure
                 if trade_index < len(trades) and isinstance(trades, list):
                     trades[trade_index]['settlementInstructionStoragePath'] = storage_path
+                    # Remove any existing error since generation succeeded
+                    trades[trade_index].pop('settlementInstructionError', None)
                     
                     # Update the entire Trades array to preserve its structure
                     email_doc_ref.update({

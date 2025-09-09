@@ -1305,13 +1305,7 @@ async def generate_settlement_instruction(
                     'accountCurrency': rule_settlement_currency
                 }
         
-        # Check if we found matching settlement data
-        if not settlement_data:
-            logger.error(f"No matching settlement rules found for trade {trade_number}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No matching settlement rules found for this trade. Please check settlement rules configuration."
-            )
+        # Settlement service will raise an exception if no matching rules are found
         
         # Settlement data already includes all account information from the rule
         logger.info(f"Settlement data prepared with account: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")

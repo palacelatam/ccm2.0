@@ -163,22 +163,8 @@ class AutoEmailService:
                                 logger.info(f"📋 Found {len(settlement_rules)} settlement rules and {len(bank_accounts)} bank accounts")
                                 
                                 # Use SHARED function from settlement service
+                                # This will raise an exception if no matching rules are found
                                 settlement_data = await settlement_service.find_and_prepare_settlement_data(trade_data_with_product, settlement_rules)
-                                
-                                if not settlement_data:
-                                    logger.error(f"❌ No matching settlement rules found for auto settlement")
-                                    
-                                    # Update email document with error information so frontend can show error state
-                                    email_doc_id = email_data.get('email_id', '')
-                                    if email_doc_id:
-                                        await settlement_service.update_email_with_settlement_error(
-                                            client_id=client_id,
-                                            email_id=email_doc_id,
-                                            error_message="No matching settlement rules found for this trade",
-                                            trade_index=0  # Auto generation typically processes first trade
-                                        )
-                                    
-                                    raise Exception("No matching settlement rules found for auto settlement")
                                 
                                 logger.info(f"💰 Settlement data prepared: {settlement_data.get('account_name')} / {settlement_data.get('account_number')}")
                                 
