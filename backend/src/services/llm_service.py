@@ -143,7 +143,7 @@ Email Body:
                 response = self.client.messages.create(
                     model=self.settings.anthropic_model,
                     max_tokens=4000,
-                    temperature=0.1,
+                    temperature=0,
                     messages=[
                         {
                             "role": "user",
@@ -167,7 +167,7 @@ Email Body:
                         model="claude-2.1",  # Use a model that works with completions API
                         prompt=formatted_prompt,
                         max_tokens_to_sample=4000,
-                        temperature=0.1,
+                        temperature=0,
                         stop_sequences=["\n\nHuman:"]
                     )
                     response_text = response.completion

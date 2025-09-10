@@ -933,9 +933,19 @@ class SettlementInstructionService:
                 # Check all criteria
                 counterparty_matches = not rule_counterparty or rule_counterparty in trade_counterparty
                 product_matches = not rule_product or rule_product.lower() in trade_product.lower()
-                # Case-insensitive comparison and handle accents (ó vs o)
-                modalidad_matches = not rule_modalidad or rule_modalidad.lower().replace('ó', 'o') == settlement_type.lower().replace('ó', 'o')
+                # Case-insensitive comparison and handle accents (ó vs o) and spaces
+                rule_modalidad_normalized = rule_modalidad.lower().replace('ó', 'o').replace(' ', '').replace('í', 'i')
+                settlement_type_normalized = settlement_type.lower().replace('ó', 'o').replace(' ', '').replace('í', 'i')
+                modalidad_matches = not rule_modalidad or rule_modalidad_normalized == settlement_type_normalized
                 currency_matches = cargar_currency == pay_currency and abonar_currency == receive_currency
+                
+                # Debug each match for Entrega Física
+                logger.info(f"      Rule '{rule.get('name', 'unnamed')}' (Entrega Física): "
+                           f"counterparty={counterparty_matches} ('{rule_counterparty}' in '{trade_counterparty}'), "
+                           f"product={product_matches} ('{rule_product}' in '{trade_product}'), "
+                           f"modalidad={modalidad_matches} ('{rule_modalidad_normalized}' == '{settlement_type_normalized}'), "
+                           f"currency={currency_matches} (cargar='{cargar_currency}'=='{pay_currency}' AND abonar='{abonar_currency}'=='{receive_currency}')")
+                logger.info(f"      Trade direction: {trade_direction}, pay_currency: {pay_currency}, receive_currency: {receive_currency}")
                 
                 if counterparty_matches and product_matches and modalidad_matches and currency_matches:
                     logger.info(f"✅ Matched rule: {rule.get('name')} for Entrega Física")
