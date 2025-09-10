@@ -262,6 +262,7 @@
         "counterparty": "Counterparty",
         "product": "Product",
         "modalidad": "Settlement Mode",
+        "settlementType": "Settlement Type",
         "payCurrency": "Pay Currency",
         "receiveCurrency": "Receive Currency",
         "actions": "Actions",

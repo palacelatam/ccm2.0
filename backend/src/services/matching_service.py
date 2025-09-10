@@ -25,7 +25,7 @@ class MatchingService:
     6. PRESERVED amount tolerances (0% exact, 0.1% close) - appropriate for trading
     """
     
-    # Scoring weights (total up to ~90 points) - UPDATED for better currency matching
+    # Scoring weights (total up to ~95 points) - UPDATED for better currency matching + product type
     SCORING_WEIGHTS = {
         'counterparty_exact': 25,      # Reduced from 30
         'counterparty_partial': 15,    # Reduced from 20  
@@ -33,7 +33,8 @@ class MatchingService:
         'currency_pair_exact': 30,     # Increased from 20 - MORE IMPORTANT
         'currency_pair_reversed': 25,  # Increased from 15 - MORE IMPORTANT
         'amount_exact': 15,            # Same
-        'amount_close': 10             # Same
+        'amount_close': 10,            # Same
+        'product_type': 5              # NEW - differentiate spot vs forward
     }
     
     # Matching thresholds - TIGHTENED for better precision
@@ -134,7 +135,8 @@ class MatchingService:
                 logger.info(f"  Final Status: {status}")
                 
                 # Calculate confidence percentage
-                confidence = round((best_match['score'] / 90) * 100)
+                # Maximum possible score is 100 (counterparty: 25, date: 25, currency: 30, amount: 15, product: 5)
+                confidence = round((best_match['score'] / 100) * 100)
                 
                 # DEBUGGING: Check if this might be a duplicate match
                 matched_trade_num = best_match['trade'].get('TradeNumber')
@@ -161,7 +163,7 @@ class MatchingService:
                 logger.info(f"✅ FINAL MATCH RESULT:")
                 logger.info(f"  Email Trade: {email_trade_num}")
                 logger.info(f"  Matched to Client Trade: {matched_trade_num}")
-                logger.info(f"  Score: {best_match['score']}/90 ({confidence}%)")
+                logger.info(f"  Score: {best_match['score']}/100 ({confidence}%)")
                 logger.info(f"  Status: {status}")
                 logger.info(f"  Match ID: {match_id}")
                 
@@ -367,6 +369,24 @@ class MatchingService:
             else:
                 debug_info.append(f"⚠️  EMAIL AMOUNT INVALID: {email_trade.get('QuantityCurrency1')} (normalized: {email_amount})")
             
+            # 5. Product type match (5 points)
+            logger.info(f"  📋 PRODUCT TYPE MATCHING:")
+            email_product_type = self._normalize_product_type(email_trade.get('ProductType'))
+            client_product_type = self._normalize_product_type(client_trade.get('ProductType'))
+            logger.info(f"    Email Product: '{email_trade.get('ProductType')}' (normalized: '{email_product_type}')")
+            logger.info(f"    Client Product: '{client_trade.get('ProductType')}' (normalized: '{client_product_type}')")
+            
+            if email_product_type and client_product_type:
+                if email_product_type == client_product_type:
+                    score += self.SCORING_WEIGHTS['product_type']
+                    reason = f"Product type: {email_product_type}"
+                    reasons.append(reason)
+                    debug_info.append(f"✅ PRODUCT TYPE MATCH: +{self.SCORING_WEIGHTS['product_type']} points - {reason}")
+                else:
+                    debug_info.append(f"❌ PRODUCT TYPE MISMATCH: '{email_product_type}' vs '{client_product_type}'")
+            else:
+                debug_info.append(f"⚠️  MISSING PRODUCT TYPE DATA: Email='{email_product_type}', Client='{client_product_type}'")
+            
             # Log all debug info for this trade comparison
             for info in debug_info:
                 logger.info(f"    {info}")
@@ -390,7 +410,7 @@ class MatchingService:
                 continue
             
             # Final score summary for this client trade
-            logger.info(f"  🏆 FINAL SCORE: {score}/{90} points")
+            logger.info(f"  🏆 FINAL SCORE: {score}/100 points")
             logger.info(f"  📊 THRESHOLD CHECK: {score} >= {self.MATCH_THRESHOLD}? {'✅ YES' if score >= self.MATCH_THRESHOLD else '❌ NO'}")
             logger.info(f"  ✅ CRITICAL FIELDS: {critical_matches}/3 critical matches (passed)")
             
@@ -419,14 +439,14 @@ class MatchingService:
             logger.info(f"📋 RANKED MATCHES:")
             for i, match in enumerate(sorted_matches):
                 trade_num = match['trade'].get('TradeNumber', 'Unknown')
-                logger.info(f"  #{i+1}: Trade {trade_num} - Score: {match['score']}/90 ({(match['score']/90*100):.1f}%)")
+                logger.info(f"  #{i+1}: Trade {trade_num} - Score: {match['score']}/100 ({(match['score']/100*100):.1f}%)")
                 logger.info(f"       Reasons: {', '.join(match['reasons'])}")
             
             best_match = sorted_matches[0]
-            logger.info(f"🏆 BEST MATCH: Trade {best_match['trade'].get('TradeNumber')} with {best_match['score']}/90 points")
+            logger.info(f"🏆 BEST MATCH: Trade {best_match['trade'].get('TradeNumber')} with {best_match['score']}/100 points")
         else:
             logger.info(f"❌ NO MATCHES FOUND - All client trades failed requirements:")
-            logger.info(f"   • Score threshold: {self.MATCH_THRESHOLD}/90 points")
+            logger.info(f"   • Score threshold: {self.MATCH_THRESHOLD}/100 points")
             logger.info(f"   • Critical fields: 2/3 (Counterparty, Date, Currency)")
             logger.info(f"   • Mandatory currency matching")
             
@@ -612,6 +632,24 @@ class MatchingService:
             return round(float(value), 4)  # Round to 4 decimal places
         
         return str(value).strip().upper()
+    
+    def _normalize_product_type(self, product_type: Any) -> Optional[str]:
+        """
+        Normalize product type for comparison
+        Maps various product type names to standardized values
+        """
+        if not product_type:
+            return None
+        
+        product_str = str(product_type).strip().upper()
+        
+        # Map to standard values
+        if product_str in ['SPOT']:
+            return 'SPOT'
+        elif product_str in ['FORWARD', 'SEGURO DE CAMBIO', 'SEGURO DE INFLACION', 'ARBITRAJE', 'NDF']:
+            return 'FORWARD'
+        
+        return product_str  # Return as-is if no mapping found
     
     def _is_valid_value(self, value: Any) -> bool:
         """Check if a value should be considered valid"""

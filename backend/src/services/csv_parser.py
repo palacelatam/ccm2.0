@@ -26,7 +26,7 @@ class CSVParserService:
         'Currency 1': 'Currency1',
         'Currency 2': 'Currency2',
         'Amount': 'QuantityCurrency1',
-        'Forward Price': 'Price',
+        'Price': 'Price',
         'Maturity Date': 'MaturityDate',
         'Fixing Reference': 'FixingReference',
         'Settlement Type': 'SettlementType',

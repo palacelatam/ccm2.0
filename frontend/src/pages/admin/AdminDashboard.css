@@ -34,6 +34,18 @@
   margin-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.admin-tabs .admin-title {
+  position: absolute;
+  right: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0.75rem 0;
 }
 
 .tab-button {
@@ -418,6 +430,37 @@ input:checked + .slider:before {
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
   margin-top: auto;
+}
+
+/* Inline Save Button - Positioned with tabs */
+.save-button-inline {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: absolute;
+  right: 120px; /* Position it with more space before the "Admin" title */
+}
+
+.save-button-inline.primary {
+  background: var(--accent-green);
+  color: white;
+}
+
+.save-button-inline.primary:hover:not(:disabled) {
+  background: #00b347;
+  transform: translateY(-1px);
+}
+
+.save-button-inline.primary:disabled {
+  background: #666;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.7;
 }
 
 .save-button,
@@ -851,6 +894,20 @@ input:checked + .slider:before {
   
   .admin-actions {
     flex-direction: column;
+  }
+  
+  .admin-actions-header {
+    padding: 0.5rem 0;
+  }
+  
+  .save-button-inline {
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    right: 100px; /* Adjust for smaller title on mobile with better spacing */
+  }
+  
+  .admin-tabs .admin-title {
+    font-size: 1.2rem;
   }
   
   .save-button,

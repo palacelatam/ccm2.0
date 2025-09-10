@@ -25,13 +25,14 @@ class EmailParserService:
     def __init__(self):
         self.llm_service = LLMService()
     
-    def process_email_file(self, file_content: bytes, filename: str) -> Tuple[Dict[str, Any], List[str]]:
+    def process_email_file(self, file_content: bytes, filename: str, client_name: str = None) -> Tuple[Dict[str, Any], List[str]]:
         """
         Process MSG or PDF email file and extract confirmation data
         
         Args:
             file_content: Raw file content as bytes
             filename: Original filename for type detection
+            client_name: Name of the client for context
             
         Returns:
             Tuple of (email_data, errors)
@@ -113,7 +114,7 @@ class EmailParserService:
                 }
                 
                 # Process with LLM to extract structured trade data
-                llm_extracted_data = self._extract_trade_data_with_llm(email_data)
+                llm_extracted_data = self._extract_trade_data_with_llm(email_data, client_name)
                 
                 result = {
                     'email_metadata': email_data,
@@ -184,7 +185,7 @@ class EmailParserService:
             }
             
             # Process with LLM to extract structured trade data
-            llm_extracted_data = self._extract_trade_data_with_llm(email_data)
+            llm_extracted_data = self._extract_trade_data_with_llm(email_data, client_name)
             
             return {
                 'email_metadata': email_data,
@@ -283,12 +284,13 @@ class EmailParserService:
                     return parts[1].strip()
         return ''
     
-    def _extract_trade_data_with_llm(self, email_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_trade_data_with_llm(self, email_data: Dict[str, Any], client_name: str = None) -> Dict[str, Any]:
         """
         Extract structured trade data using LLM
         
         Args:
             email_data: Raw email data
+            client_name: Name of the client for context
             
         Returns:
             Structured trade data in v1.0 format
@@ -303,8 +305,11 @@ class EmailParserService:
             'attachments_text': email_data.get('attachments_text', '')
         }
         
+        # Debug logging
+        logger.info(f"EmailParserService: Calling LLM with client_name: {client_name}")
+        
         # Call the actual LLM service
-        llm_response = self.llm_service.process_email_data(formatted_email_data)
+        llm_response = self.llm_service.process_email_data(formatted_email_data, client_name)
         
         return llm_response
     

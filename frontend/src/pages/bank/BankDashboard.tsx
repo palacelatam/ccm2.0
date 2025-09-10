@@ -1505,16 +1505,6 @@ const BankDashboard: React.FC = () => {
                       </button>
                     </div>
                   )}
-                  {filePreviewUrl && (
-                    <div className="file-preview">
-                      <h5>{t('bank.letters.documentPreview')}</h5>
-                      <div className="docx-preview">
-                        <div className="docx-icon" style={{fontSize: '48px', textAlign: 'center', margin: '20px 0'}}>📝</div>
-                        <p style={{textAlign: 'center'}}>Word document uploaded: {uploadedFile?.name}</p>
-                        <p style={{textAlign: 'center', fontSize: '0.9em', color: '#666'}}>Preview functionality coming soon</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1822,12 +1812,37 @@ const BankDashboard: React.FC = () => {
                     <p className="error-message">{previewErrorMessage || t('bank.letters.unknownError')}</p>
                   </div>
                 ) : previewDocument.documentUrl ? (
-                  <iframe
-                    src={previewDocument.documentUrl}
-                    width="100%"
-                    height="600px"
-                    title="PDF Document Preview"
-                  />
+                  <div className="pdf-viewer-container">
+                    {/* Left panel - Small thumbnail navigation */}
+                    <div className="pdf-thumbnail-panel">
+                      <div className="thumbnail-header">
+                        <span className="page-count">Page 1 of 1</span>
+                      </div>
+                      <div className="thumbnail-list">
+                        <div className="thumbnail-item active">
+                          <iframe
+                            src={`${previewDocument.documentUrl}#page=1&zoom=25`}
+                            title="Page 1 Thumbnail"
+                            className="thumbnail-iframe"
+                          />
+                          <span className="page-number">1</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Right panel - Main detailed view */}
+                    <div className="pdf-main-panel">
+                      <div className="pdf-main-view">
+                        <iframe
+                          src={`${previewDocument.documentUrl}#zoom=85`}
+                          width="100%"
+                          height="100%"
+                          title="PDF Document Preview"
+                          className="main-pdf-iframe"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="no-document">
                     <p>No PDF document uploaded for this template.</p>

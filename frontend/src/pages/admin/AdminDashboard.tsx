@@ -1591,6 +1591,18 @@ const AdminDashboard: React.FC = () => {
         >
           {t('admin.tabs.mapping')}
         </button>
+        
+        {/* Save Configuration Button - Positioned inline with tabs */}
+        {!showRuleForm && (
+          <button 
+            className="save-button-inline primary" 
+            onClick={saveConfiguration}
+            disabled={isSaving}
+          >
+            {isSaving ? t('admin.actions.saving') : t('admin.actions.save')}
+          </button>
+        )}
+        
         <div className="admin-title">Admin</div>
       </div>
       
@@ -2958,18 +2970,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
       </div>
-      
-      {!showRuleForm && (
-        <div className="admin-actions">
-          <button 
-            className="save-button primary" 
-            onClick={saveConfiguration}
-            disabled={isSaving}
-          >
-            {isSaving ? t('admin.actions.saving') : t('admin.actions.save')}
-          </button>
-        </div>
-      )}
       
       <AlertModal
         isOpen={alertModal.isOpen}

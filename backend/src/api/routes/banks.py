@@ -295,8 +295,22 @@ async def preview_settlement_letter_document(
                 message="Settlement letter not found"
             )
         
-        # Check if the letter has a document_storage_path
-        storage_path = getattr(letter, 'document_storage_path', None)
+        # Prioritize PDF preview for browser viewing, fallback to DOCX if no PDF available
+        pdf_storage_path = getattr(letter, 'pdf_preview_storage_path', None)
+        docx_storage_path = getattr(letter, 'document_storage_path', None)
+        
+        # Debug logging to understand what's happening
+        logger.info(f"Preview request for letter {letter_id}:")
+        logger.info(f"  - PDF storage path: {pdf_storage_path}")
+        logger.info(f"  - DOCX storage path: {docx_storage_path}")
+        logger.info(f"  - Has PDF preview flag: {getattr(letter, 'has_pdf_preview', 'not set')}")
+        
+        # Use PDF preview if available, otherwise use DOCX
+        storage_path = pdf_storage_path if pdf_storage_path else docx_storage_path
+        is_pdf_preview = bool(pdf_storage_path)
+        
+        logger.info(f"  - Selected storage path: {storage_path}")
+        logger.info(f"  - Will serve as PDF preview: {is_pdf_preview}")
         
         if not storage_path:
             return APIResponse(
@@ -319,14 +333,30 @@ async def preview_settlement_letter_document(
                     detail=f"Failed to generate preview URL: {signed_url_result.get('error', 'Unknown error')}"
                 )
             
+            # Determine document name and type
+            if is_pdf_preview:
+                document_name = getattr(letter, 'document_name', 'settlement_document.pdf')
+                # Change extension to .pdf for preview
+                if document_name.endswith('.docx'):
+                    document_name = document_name.replace('.docx', '.pdf')
+                file_type = "pdf"
+                message = "PDF preview URL generated successfully"
+            else:
+                document_name = getattr(letter, 'document_name', 'settlement_document.docx')
+                file_type = "docx"
+                message = "Document download URL generated (PDF preview not available)"
+            
             return APIResponse(
                 success=True,
                 data={
                     "signed_url": signed_url_result["signed_url"],
                     "expires_in_minutes": signed_url_result["expires_in_minutes"],
-                    "document_name": getattr(letter, 'document_name', 'settlement_document.pdf')
+                    "document_name": document_name,
+                    "file_type": file_type,
+                    "is_pdf_preview": is_pdf_preview,
+                    "has_pdf_preview": getattr(letter, 'has_pdf_preview', False)
                 },
-                message="Document preview URL generated successfully"
+                message=message
             )
             
         except Exception as signed_url_error:

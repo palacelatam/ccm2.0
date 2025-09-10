@@ -244,6 +244,7 @@
         "counterparty": "Contraparte",
         "product": "Produto",
         "modalidad": "Modalidade",
+        "settlementType": "Tipo de Liquidação",
         "payCurrency": "Moeda a Pagar",
         "receiveCurrency": "Moeda a Receber",
         "actions": "Ações",

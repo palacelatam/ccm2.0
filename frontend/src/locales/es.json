@@ -262,6 +262,7 @@
         "counterparty": "Contraparte",
         "product": "Producto",
         "modalidad": "Modalidad",
+        "settlementType": "Modalidad",
         "payCurrency": "Moneda a Pagar",
         "receiveCurrency": "Moneda a Recibir",
         "actions": "Acciones",

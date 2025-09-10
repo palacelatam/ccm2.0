@@ -77,6 +77,18 @@ class ClientService:
             logger.error(f"Error checking if client {client_id} exists: {e}")
             return False
     
+    def get_client_name(self, client_id: str) -> Optional[str]:
+        """Get the client's name from the database"""
+        try:
+            client_doc = self.db.collection('clients').document(client_id).get()
+            if client_doc.exists:
+                client_data = client_doc.to_dict()
+                return client_data.get('name', client_data.get('organizationName', None))
+            return None
+        except Exception as e:
+            logger.error(f"Error getting client name for {client_id}: {e}")
+            return None
+    
     # ========== Client Settings Methods ==========
     
     async def get_client_settings(self, client_id: str) -> Optional[ClientSettings]:
@@ -2083,10 +2095,14 @@ class ClientService:
             # Create a session ID for tracking
             session_id = f"gmail_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
+            # Get client name for context
+            client_name = self.get_client_name(client_id)
+            logger.info(f"ClientService: Got client_name '{client_name}' for client_id '{client_id}'")
+            
             # Use existing EmailParserService to process the PDF attachment
             from services.email_parser import EmailParserService
             email_parser = EmailParserService()
-            email_data, errors = email_parser.process_email_file(attachment_data, filename)
+            email_data, errors = email_parser.process_email_file(attachment_data, filename, client_name)
             
             if errors:
                 logger.warning(f"Errors processing Gmail PDF {filename}: {errors}")
@@ -2157,8 +2173,12 @@ class ClientService:
                 'attachments_text': ''
             }
             
+            # Get client name for context
+            client_name = self.get_client_name(client_id)
+            logger.info(f"ClientService: Got client_name '{client_name}' for client_id '{client_id}' (email body processing)")
+            
             logger.info(f"📝 Processing email body with LLM ({len(email_metadata['body_content'])} chars)")
-            llm_extracted_data = llm_service.process_email_data(formatted_email_data)
+            llm_extracted_data = llm_service.process_email_data(formatted_email_data, client_name)
             
             # Create the email data structure matching the expected format
             email_data = {

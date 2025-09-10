@@ -59,22 +59,33 @@ class LLMService:
         logger.info("Vertex AI initialization - TODO: Implement when needed")
         # TODO: Implement Vertex AI initialization
     
-    def process_email_data(self, formatted_email_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process_email_data(self, formatted_email_data: Dict[str, Any], client_name: str = None) -> Dict[str, Any]:
         """
         Process email data using LLM to extract structured trade information
         
         Args:
             formatted_email_data: Dictionary containing email content and metadata
+            client_name: Name of the client for context in the prompt
             
         Returns:
             Structured trade data extracted by LLM
         """
         try:
+            # Debug logging
+            logger.info(f"LLMService: Processing email with client_name: {client_name}")
+            
             # Get the comprehensive prompt
-            prompt = self._get_email_processing_prompt()
+            prompt = self._get_email_processing_prompt(client_name)
             
             # Format the prompt with email data
-            formatted_prompt = prompt.format(formatted_data=self._format_email_for_llm(formatted_email_data))
+            formatted_prompt = prompt.format(
+                formatted_data=self._format_email_for_llm(formatted_email_data),
+                client_name=client_name if client_name else "the Client"
+            )
+            
+            # Debug the first line of the prompt
+            first_line = formatted_prompt.split('\n')[0] if formatted_prompt else "No prompt"
+            logger.info(f"LLMService: First line of formatted prompt: {first_line}")
             
             # Call LLM service (placeholder implementation)
             llm_response = self._call_llm_service(formatted_prompt)
@@ -289,12 +300,16 @@ Email Body:
             "Trades": []
         }
     
-    def _get_email_processing_prompt(self) -> str:
+    def _get_email_processing_prompt(self, client_name: str = None) -> str:
         """
         Get the comprehensive LLM prompt for trade data extraction
         Based on the v1.0 specification from feedback.md
+        
+        Args:
+            client_name: Name of the client for context
         """
-        return """You are receiving an email from a bank. This email is likely to be about a trade confirmation.
+        
+        return """You are a company called {client_name} or similar abbreviations or derivations. You are receiving an email from a bank. This email is likely to be about a trade confirmation for an FX Spot or Forward trade.
         
                 Tell me if this email is requesting the confirmation of a trade(s) or not. It could feasibly be about something else.
 
@@ -309,38 +324,46 @@ Email Body:
 
                 If this email is indeed about a trade confirmation, you need to extract the data as per the following instructions:
                 
-                Look for the trade number in the subject of the email and in the body. This is usually a number, e.g. "1234567890"). Can also be named as a reference and is one of the most important fields. It will always be present on a confirmation email.
+                Look for the trade number in the subject of the email and in the body. This is usually a number, e.g. "1234567890", but can also be alphanumeric). Can also be named as a reference and is one of the most important fields. It will always be present on a confirmation email.
 
                 I also need you to extract some data from the email body. Data in the email body should also override data in the email subject, as it is possible that the conversation
                 has moved on from the initial subject line.
 
-                Remember that this email is written from the Bank's perspective, not you, the Client's. Therefore, the details of the trade are reversed. Specific consequences of this can include the following:
-                - Counterparty: the bank could refer to you as the counterparty. However, from your perspective, the bank is the counterparty.
+                Remember that this email is written from the Bank's perspective, not you, the Client's ({client_name} or similar abbreviations or derivations). Therefore, the details of the trade are reversed. Specific consequences of this can include the following:
+                - Counterparty: the bank could refer to you, {client_name} or similar abbreviations or derivations, as the counterparty. However, from your perspective, the bank is the counterparty.
                 - Currency 1: the bank could refer to the currency you pay as Currency 1. However, from your perspective, the currency you pay is Currency 2.
                 - Currency 2: the bank could refer to the currency you receive as Currency 2. However, from your perspective, the currency you receive is Currency 1.
-                - Direction: the bank could refer to the direction of the trade as "Buy" or "Sell". However, from your perspective, the direction of the trade is the opposite. Do not be fooled by the direction of the trade, it is the opposite of what the document or emailsays.
+                - Direction: the bank could refer to the direction of the trade as "Buy" or "Sell". However, from your perspective, the direction of the trade is the opposite. Do not be fooled by the direction of the trade, it is the opposite of what the document or email says.
+                    A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
+                    This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
                 - Counterparty Payment Method: the bank will refer to the payment method they use as "Forma de Pago Nuestra" or something similar. This should be saved in the field "Counterparty Payment Method".
                 - Our Payment Method: the bank will refer to the payment method you use as "Forma de Pago Contraparte" or something similar. This should be saved in the field "Our Payment Method".
                 
+                It is very important to get the Direction right, OK?
+                A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
+                This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
+
                 The specific data you need to find is as follows:
                  
-                - Trade Number, a number indicating the ID of the trade, can also be named as a reference. This is usually a number, e.g. "1234567890").
+                - Trade Number, a number indicating the ID of the trade, can also be named as a reference. This is usually a number, e.g. "1234567890", but it can be alphanumeric too).
                 - Counterparty ID, typically the bank's ID. It may not be present in the email, in which case you should leave it blank.
                 - Counterparty Name, the bank's name
                 - Product Type, if this says "Spot", save as "Spot". If it says "Seguro de Cambio", "Seguro de Inflación", "Arbitraje", "Forward", "NDF", save as "Forward".
-                - Direction, from your perspective as the client, are you buying from the bank or selling to the bank? Save as "Buy" (if you the client are byuing the base currency and the bank is selling the counter currency) or "Sell" (if you the client are selling the base currency and the bank is buying the counter currency).
+                - Direction, from your perspective as the client {client_name} or similar abbreviations or derivations, are you buying from the bank or selling to the bank? Save as "Buy" (if you, {client_name} or similar abbreviations or derivations, are buying the base currency and the bank is selling the counter currency) or "Sell" (if you, {client_name} or similar abbreviations or derivations, are selling the base currency and the bank is buying the counter currency).
+                    A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
+                    This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
                 - Currency 1, an ISO 4217 currency code, the currency you are buying or selling according to the Direction field. Remember if the bank says "Buy", you are selling to the bank (and you should store it as "Sell"), and if the bank says "Sell", you are buying from the bank (and you should store it as "Buy").
                 - Amount of Currency 1, a number, the amount of currency 1 you are buying or selling according to the Direction field.
-                - Currency 2, an ISO 4217 currency code, the other currency of the trade.
-                - Settlement Type, if it says "Compensación" or "Non-Deliverable", save as "Compensación". If it says "Entrega Física" or "Deliverable", save as "Entrega Física".
-                - Settlement Currency, an ISO 4217 currency code. If the Settlement Type is "Entrega Física", this field is unlikely to exist or have a value, in which case set as "N/A".
+                - Currency 2, an ISO 4217 currency code, the other currency of the trade. If the product type is "Seguro de Cambio" and Currency 1 is "USD", then this will be "CLP".
+                - Settlement Type, if it says "Compensación" or "Non-Deliverable", save as "Compensación". If it says "Entrega Física" or "Deliverable", save as "Entrega Física". If the Product Type is Spot then the settlement type will necessarily be "Entrega Física".
+                - Settlement Currency, an ISO 4217 currency code. If the Settlement Type is "Entrega Física", this field is unlikely to exist or have a value, in which case set as "N/A". If the Product Type is Spot then the settlement currency will necessarily be "N/A".
                 - Trade Date, a date, which can be in different formats
                 - Value Date, a date, which can be in different formats
                 - Maturity Date, a date, which can be in different formats
                 - Payment Date, a date, which can be in different formats
                 - Duration, an integer number, indicating the number of days between the value date and the maturity date
-                - Forward Price, a number usually with decimal places
-                - Fixing Reference, If you see anything such as "USD Obs", "Dolar Observado", "CLP10", "Dólar Observado", "CLP Obs", save as "USD Obs".
+                - Price, a number usually with decimal places, could be referred to as Forward Price or Spot Price, or simply Price
+                - Fixing Reference, this can only be saved as one of three values: "USD Obs", "Bloomberg T0" or "N/A". You could see values such as "USD Obs", "Dolar Observado", "CLP10", "Dólar Observado", "CLP Obs", in which case the correct saved value should be "USD Obs". You could see values such as "Bloomberg", "BBG", "Bloomberg T0", "BBG T0", in which case the correct saved value should be "Bloomberg T0". If you find nothing for this data point, save as "N/A". If the Product Type is Spot then the Fixing Reference field must necessarily be "N/A".
                 - Counterparty Payment Method, look in fields labelled "Forma de Pago". Usually one of the following values: "Trans Alto Valor", "ComBanc", "SWIFT", "Cuenta Corriente".
                 - Our Payment Method, look in fields labelled "Forma de Pago". Usually one of the following values: "Trans Alto Valor", "ComBanc", "SWIFT", "Cuenta Corriente"
 
@@ -374,7 +397,7 @@ Email Body:
                             "MaturityDate": date in format dd-mm-yyyy,
                             "PaymentDate": date in format dd-mm-yyyy,
                             "Price": number to a minimum of two decimal places,
-                            "FixingReference": string,
+                            "FixingReference": string ("USD Obs", "Bloomberg T0" or "N/A"),
                             "CounterpartyPaymentMethod": string,
                             "OurPaymentMethod": string
                         }}

@@ -9,7 +9,7 @@
 9) Fix Buy/Sell determination in prompt
 10) Locales in other parts of the program (general tidy up, lots still in English or Spanish hardcoded)
 11) Deal with uploaded .msg file which only has email display name, not an email address.
-12) Move Guardar Confirmation button up on Client Admin screen, it is not noticeable.
+12) Move Guardar Confirmation button up on Client Admin screen, it is not noticeable. DONE
 13) Complete SMS implementation, waiting on Twilio
 14) Preview of template on grid and detail page.
 15) Check the decorators are in place on all API calls (I don't think so).

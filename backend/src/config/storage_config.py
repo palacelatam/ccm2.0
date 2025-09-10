@@ -16,8 +16,11 @@ STORAGE_LOCATION = "southamerica-west1"  # Santiago region
 
 # File upload constraints
 MAX_FILE_SIZE_MB = 10  # 10MB max file size
-ALLOWED_CONTENT_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-ALLOWED_EXTENSIONS = [".docx"]
+ALLOWED_CONTENT_TYPES = [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # DOCX
+    "application/pdf"  # PDF (for previews)
+]
+ALLOWED_EXTENSIONS = [".docx", ".pdf"]
 
 def get_storage_client():
     """
@@ -67,12 +70,15 @@ def get_storage_bucket():
 def generate_storage_path(bank_id: str, segment_id: str, filename: str, unique_suffix: str = None) -> str:
     """
     Generate standardized storage path for settlement documents
-    Format: {bank-id}/{segment-id}/{filename}_{timestamp}_{unique-suffix}.pdf
+    Format: {bank-id}/{segment-id}/{filename}_{timestamp}_{unique-suffix}.{ext}
     """
     import datetime
     
-    # Clean filename (remove extension)
-    name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
+    # Extract extension and clean filename
+    if '.' in filename:
+        name_without_ext, ext = filename.rsplit('.', 1)
+    else:
+        name_without_ext, ext = filename, 'docx'  # Default to docx if no extension
     
     # Generate timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -82,8 +88,8 @@ def generate_storage_path(bank_id: str, segment_id: str, filename: str, unique_s
         import uuid
         unique_suffix = str(uuid.uuid4())[:8]
     
-    # Build filename
-    final_filename = f"{name_without_ext}_{timestamp}_{unique_suffix}.docx"
+    # Build filename with original extension
+    final_filename = f"{name_without_ext}_{timestamp}_{unique_suffix}.{ext}"
     
     # Build full path
     return f"{bank_id}/{segment_id or 'default'}/{final_filename}"
@@ -106,9 +112,15 @@ def validate_file(file_content: bytes, filename: str, content_type: str) -> tupl
     if not any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
         return False, f"File extension not allowed. Only {', '.join(ALLOWED_EXTENSIONS)} files are permitted."
     
-    # Basic DOCX signature check (DOCX files start with PK as they are ZIP archives)
-    if not file_content.startswith(b'PK'):
-        return False, "Invalid Word document format"
+    # File signature validation
+    if content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        # DOCX files start with PK (ZIP archive signature)
+        if not file_content.startswith(b'PK'):
+            return False, "Invalid Word document format"
+    elif content_type == "application/pdf":
+        # PDF files start with %PDF
+        if not file_content.startswith(b'%PDF'):
+            return False, "Invalid PDF document format"
     
     return True, ""
 

@@ -310,7 +310,7 @@ class BankService {
   /**
    * Preview settlement instruction letter document - generates signed URL
    */
-  async previewSettlementLetterDocument(bankId: string, letterId: string, expirationMinutes?: number): Promise<APIResponse<{signed_url: string, expires_in_minutes: number, document_name: string}>> {
+  async previewSettlementLetterDocument(bankId: string, letterId: string, expirationMinutes?: number): Promise<APIResponse<{signed_url: string, expires_in_minutes: number, document_name: string, file_type: string, is_pdf_preview: boolean, has_pdf_preview: boolean}>> {
     const params = expirationMinutes ? `?expiration_minutes=${expirationMinutes}` : '';
     return apiClient.get(`/api/v1/banks/${bankId}/settlement-letters/${letterId}/document/preview${params}`);
   }

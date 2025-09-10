@@ -74,6 +74,10 @@ class SettlementInstructionLetter(BaseFirestoreModel):
     document_size: Optional[int] = Field(None, description="Document file size in bytes")
     document_content_type: Optional[str] = Field(None, description="Document MIME content type")
     document_uploaded_at: Optional[str] = Field(None, description="Document upload timestamp")
+    # PDF Preview fields
+    has_pdf_preview: Optional[bool] = Field(None, description="Whether PDF preview is available")
+    pdf_preview_storage_path: Optional[str] = Field(None, description="Cloud storage path for PDF preview")
+    pdf_preview_url: Optional[str] = Field(None, description="Cloud storage URL for PDF preview")
     template_variables: List[str] = Field(default_factory=list, description="Available template variables")
     conditions: Dict[str, Any] = Field(default_factory=dict, description="Template selection conditions")
 

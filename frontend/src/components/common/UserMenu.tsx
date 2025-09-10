@@ -51,13 +51,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
       
       {isOpen && (
         <div className="user-menu-dropdown">
-          <div className="menu-item" onClick={() => {/* Settings action */}}>
-            {t('userMenu.settings')}
-          </div>
-          <div className="menu-item" onClick={() => {/* Reports action */}}>
-            {t('userMenu.reports')}
-          </div>
-          <div className="menu-divider"></div>
           <div className="menu-item logout" onClick={handleLogout}>
             {t('userMenu.logout')}
           </div>

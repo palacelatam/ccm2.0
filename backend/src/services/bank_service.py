@@ -7,6 +7,12 @@ from google.cloud.firestore import DocumentReference
 from pydantic import ValidationError
 import logging
 from datetime import datetime
+import tempfile
+import os
+from pathlib import Path
+from docx2pdf import convert
+from docx import Document
+from io import BytesIO
 
 from config.firebase_config import get_cmek_firestore_client
 from services.storage_service import StorageService
@@ -27,6 +33,210 @@ class BankService:
     def __init__(self):
         self.db = get_cmek_firestore_client()
         self.storage_service = StorageService()
+    
+    # ========== PDF Generation Helper Methods ==========
+    
+    def _convert_docx_to_pdf(self, docx_content: bytes, temp_filename: str) -> Optional[bytes]:
+        """
+        Convert DOCX content to PDF using python-docx2pdf library
+        
+        Args:
+            docx_content: The DOCX file content as bytes
+            temp_filename: Original filename for temp file creation
+            
+        Returns:
+            PDF content as bytes or None if conversion fails
+        """
+        temp_dir = None
+        
+        try:
+            # Create temporary directory
+            temp_dir = tempfile.mkdtemp()
+            
+            # Create temporary DOCX file
+            docx_filename = os.path.join(temp_dir, temp_filename)
+            with open(docx_filename, 'wb') as f:
+                f.write(docx_content)
+            
+            # Expected PDF filename after conversion
+            pdf_filename = Path(docx_filename).with_suffix('.pdf')
+            
+            logger.info(f"Converting DOCX to PDF using python-docx2pdf: {temp_filename}")
+            
+            # Convert using python-docx2pdf
+            convert(docx_filename, str(pdf_filename))
+            
+            if pdf_filename.exists():
+                # Read the generated PDF
+                with open(pdf_filename, 'rb') as f:
+                    pdf_content = f.read()
+                
+                logger.info(f"Successfully converted {temp_filename} to PDF ({len(pdf_content)} bytes)")
+                return pdf_content
+            else:
+                logger.error(f"PDF file not generated: {pdf_filename}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error converting DOCX to PDF using docx2pdf: {e}")
+            # Fallback 1: Try mammoth + weasyprint
+            try:
+                logger.info("Trying mammoth + weasyprint conversion")
+                return self._convert_docx_to_pdf_mammoth(docx_content, temp_filename)
+            except Exception as mammoth_error:
+                logger.error(f"Mammoth conversion failed: {mammoth_error}")
+                # Fallback 2: Try reportlab text extraction
+                try:
+                    logger.info("Trying reportlab text extraction conversion")
+                    return self._convert_docx_to_pdf_fallback(docx_content, temp_filename)
+                except Exception as fallback_error:
+                    logger.error(f"All conversion methods failed: {fallback_error}")
+                    return None
+        finally:
+            # Clean up temporary files
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    import shutil
+                    shutil.rmtree(temp_dir)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup temp directory {temp_dir}: {cleanup_error}")
+    
+    def _convert_docx_to_pdf_fallback(self, docx_content: bytes, temp_filename: str) -> Optional[bytes]:
+        """
+        Fallback DOCX to PDF conversion using reportlab and python-docx
+        This is a basic conversion that extracts text content only
+        """
+        try:
+            from reportlab.lib.pagesizes import letter
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            from io import BytesIO
+            
+            logger.info(f"Attempting fallback PDF conversion for {temp_filename}")
+            
+            # Load DOCX document
+            doc = Document(BytesIO(docx_content))
+            
+            # Create PDF buffer
+            pdf_buffer = BytesIO()
+            pdf_doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Extract text from DOCX and add to PDF
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    p = Paragraph(paragraph.text, styles['Normal'])
+                    story.append(p)
+                    story.append(Spacer(1, 12))
+            
+            # Build PDF
+            pdf_doc.build(story)
+            pdf_content = pdf_buffer.getvalue()
+            pdf_buffer.close()
+            
+            logger.info(f"Fallback conversion successful for {temp_filename} ({len(pdf_content)} bytes)")
+            return pdf_content
+            
+        except Exception as e:
+            logger.error(f"Fallback PDF conversion failed: {e}")
+            return None
+    
+    def _convert_docx_to_pdf_mammoth(self, docx_content: bytes, temp_filename: str) -> Optional[bytes]:
+        """
+        Convert DOCX to PDF using mammoth (DOCX to HTML) + weasyprint (HTML to PDF)
+        This preserves more formatting than the reportlab fallback
+        """
+        try:
+            import mammoth
+            import weasyprint
+            from io import BytesIO
+            
+            logger.info(f"Converting DOCX to HTML using mammoth: {temp_filename}")
+            
+            # Convert DOCX to HTML using mammoth
+            with BytesIO(docx_content) as docx_stream:
+                result = mammoth.convert_to_html(docx_stream)
+                html_content = result.value
+            
+            if result.messages:
+                logger.warning(f"Mammoth conversion warnings: {result.messages}")
+            
+            # Create basic HTML document with styling
+            full_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
+                    p {{ margin-bottom: 10px; }}
+                    h1, h2, h3 {{ color: #333; }}
+                </style>
+            </head>
+            <body>
+                {html_content}
+            </body>
+            </html>
+            """
+            
+            logger.info(f"Converting HTML to PDF using weasyprint: {temp_filename}")
+            
+            # Convert HTML to PDF using weasyprint
+            pdf_bytes = weasyprint.HTML(string=full_html).write_pdf()
+            
+            logger.info(f"Mammoth conversion successful for {temp_filename} ({len(pdf_bytes)} bytes)")
+            return pdf_bytes
+            
+        except Exception as e:
+            logger.error(f"Mammoth PDF conversion failed: {e}")
+            return None
+    
+    async def _generate_pdf_preview(
+        self,
+        file_content: bytes,
+        filename: str,
+        bank_id: str,
+        segment_id: str,
+        uploaded_by: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate PDF preview from DOCX template and upload to Cloud Storage
+        
+        Returns:
+            Upload result dictionary or None if generation/upload fails
+        """
+        try:
+            # Convert DOCX to PDF
+            pdf_content = self._convert_docx_to_pdf(file_content, filename)
+            
+            if not pdf_content:
+                logger.warning(f"Failed to generate PDF preview for {filename}")
+                return None
+            
+            # Generate PDF filename
+            pdf_filename = Path(filename).with_suffix('.pdf').name
+            
+            # Upload PDF to Cloud Storage
+            pdf_upload_result = await self.storage_service.upload_settlement_document(
+                file_content=pdf_content,
+                filename=pdf_filename,
+                content_type="application/pdf",
+                bank_id=bank_id,
+                segment_id=segment_id,
+                uploaded_by=uploaded_by
+            )
+            
+            if pdf_upload_result["success"]:
+                logger.info(f"Successfully uploaded PDF preview: {pdf_upload_result['storage_path']}")
+                return pdf_upload_result
+            else:
+                logger.error(f"Failed to upload PDF preview: {pdf_upload_result.get('error')}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error generating PDF preview for {filename}: {e}")
+            return None
     
     # ========== Bank Management Methods ==========
     
@@ -293,12 +503,12 @@ class BankService:
         content_type: str,
         created_by_uid: str
     ) -> Optional[SettlementInstructionLetter]:
-        """Create a new settlement instruction letter with document upload"""
+        """Create a new settlement instruction letter with document upload and PDF preview generation"""
         try:
-            # First, upload the document to Cloud Storage
+            # First, upload the DOCX document to Cloud Storage
             segment_id = letter_data.client_segment_id if letter_data.client_segment_id else "default"
             
-            upload_result = await self.storage_service.upload_settlement_document(
+            docx_upload_result = await self.storage_service.upload_settlement_document(
                 file_content=file_content,
                 filename=filename,
                 content_type=content_type,
@@ -307,9 +517,18 @@ class BankService:
                 uploaded_by=created_by_uid
             )
             
-            if not upload_result["success"]:
-                logger.error(f"Failed to upload document: {upload_result.get('error')}")
+            if not docx_upload_result["success"]:
+                logger.error(f"Failed to upload DOCX document: {docx_upload_result.get('error')}")
                 return None
+            
+            # Generate PDF preview for browser viewing
+            pdf_upload_result = await self._generate_pdf_preview(
+                file_content=file_content,
+                filename=filename,
+                bank_id=bank_id,
+                segment_id=segment_id,
+                uploaded_by=created_by_uid
+            )
             
             # Create the settlement letter record with document info
             letters_ref = self.db.collection('banks').document(bank_id).collection('settlementInstructionLetters')
@@ -318,13 +537,17 @@ class BankService:
             letter_dict = letter_data.model_dump()
             letter_dict.update({
                 'id': letter_ref.id,
-                # Document storage information
+                # DOCX document storage information (for download/processing)
                 'document_name': filename,
-                'document_storage_path': upload_result["storage_path"],
-                'document_url': upload_result["public_url"],
-                'document_size': upload_result["file_size"],
+                'document_storage_path': docx_upload_result["storage_path"],
+                'document_url': docx_upload_result["public_url"],
+                'document_size': docx_upload_result["file_size"],
                 'document_content_type': content_type,
-                'document_uploaded_at': upload_result["uploaded_at"],
+                'document_uploaded_at': docx_upload_result["uploaded_at"],
+                # PDF preview information (for browser preview)
+                'has_pdf_preview': pdf_upload_result is not None,
+                'pdf_preview_storage_path': pdf_upload_result.get("storage_path") if pdf_upload_result else None,
+                'pdf_preview_url': pdf_upload_result.get("public_url") if pdf_upload_result else None,
                 # Standard metadata
                 'created_at': datetime.now(),
                 'last_updated_at': datetime.now(),
@@ -333,7 +556,11 @@ class BankService:
             
             letter_ref.set(letter_dict)
             
-            logger.info(f"Created settlement letter {letter_ref.id} with document {upload_result['storage_path']}")
+            logger.info(f"Created settlement letter {letter_ref.id} with document {docx_upload_result['storage_path']}")
+            if pdf_upload_result:
+                logger.info(f"PDF preview available at {pdf_upload_result['storage_path']}")
+            else:
+                logger.warning(f"PDF preview generation failed for {filename}")
             
             return SettlementInstructionLetter(**letter_dict)
             
