@@ -139,12 +139,14 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
     { 
       headerName: t('grid.columns.tradeNumber'), 
       field: 'TradeNumber', 
-      width: 70 
+      width: 70,
+      cellRenderer: createCellRenderer('TradeNumber')
     },
     { 
       headerName: t('grid.columns.counterparty'), 
       field: 'CounterpartyName', 
-      width: 150 
+      width: 150,
+      cellRenderer: createCellRenderer('CounterpartyName')
     },
     { 
       headerName: t('grid.columns.productType'), 
@@ -189,12 +191,29 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
       width: 120,
       sortable: true, 
       filter: true,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('ValueDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
@@ -275,12 +294,29 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
       width: 120,
       sortable: true, 
       filter: true,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('MaturityDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 
@@ -307,12 +343,29 @@ const MatchedTradesGrid: React.FC<MatchedTradesGridProps> = ({
       width: 120,
       sortable: true, 
       filter: true,
-      valueFormatter: (params) => {
-        if (!params.value) return '';
-        const [day, month, year] = params.value.split('-');
-        const date = new Date(year, month - 1, day);
-        const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
-        return `${dayName} ${day}-${month}-${year}`;
+      cellRenderer: (params: any) => {
+        const value = params.value || '';
+        const formattedValue = value ? (() => {
+          const [day, month, year] = value.split('-');
+          const date = new Date(year, month - 1, day);
+          const dayName = date.toLocaleDateString('es-CL', { weekday: 'short' });
+          return `${dayName} ${day}-${month}-${year}`;
+        })() : '';
+        
+        const differingFields = params.data?.differingFields || [];
+        const hasDifference = differingFields.includes('PaymentDate');
+        
+        return React.createElement('div', {
+          style: {
+            backgroundColor: hasDifference ? '#ff0000' : 'transparent',
+            color: hasDifference ? '#ffffff' : 'inherit',
+            padding: '2px 4px',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, formattedValue);
       }
     },
     { 

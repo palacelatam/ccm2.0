@@ -806,7 +806,8 @@ class ClientService:
         """Get all email confirmations with extracted trade data, flattened for frontend display"""
         try:
             emails_ref = self.db.collection('clients').document(client_id).collection('emails')
-            docs = emails_ref.stream()  # Let frontend handle sorting
+            # Only get emails where confirmationDetected is true
+            docs = emails_ref.where('confirmationDetected', '==', True).stream()
             
             flattened_records = []
             for doc in docs:
