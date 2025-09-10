@@ -303,7 +303,7 @@ Email Body:
     def _get_email_processing_prompt(self, client_name: str = None) -> str:
         """
         Get the comprehensive LLM prompt for trade data extraction
-        Based on the v1.0 specification from feedback.md
+        Based on the v1.0 specification with improved direction detection
         
         Args:
             client_name: Name of the client for context
@@ -326,22 +326,42 @@ Email Body:
                 
                 Look for the trade number in the subject of the email and in the body. This is usually a number, e.g. "1234567890", but can also be alphanumeric). Can also be named as a reference and is one of the most important fields. It will always be present on a confirmation email.
 
-                I also need you to extract some data from the email body. Data in the email body should also override data in the email subject, as it is possible that the conversation
-                has moved on from the initial subject line.
+                I also need you to extract some data from the email body. Data in the email body should also override data in the email subject, as it is possible that the conversation has moved on from the initial subject line.
 
                 Remember that this email is written from the Bank's perspective, not you, the Client's ({client_name} or similar abbreviations or derivations). Therefore, the details of the trade are reversed. Specific consequences of this can include the following:
                 - Counterparty: the bank could refer to you, {client_name} or similar abbreviations or derivations, as the counterparty. However, from your perspective, the bank is the counterparty.
                 - Currency 1: the bank could refer to the currency you pay as Currency 1. However, from your perspective, the currency you pay is Currency 2.
                 - Currency 2: the bank could refer to the currency you receive as Currency 2. However, from your perspective, the currency you receive is Currency 1.
-                - Direction: the bank could refer to the direction of the trade as "Buy" or "Sell". However, from your perspective, the direction of the trade is the opposite. Do not be fooled by the direction of the trade, it is the opposite of what the document or email says.
-                    A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
-                    This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
                 - Counterparty Payment Method: the bank will refer to the payment method they use as "Forma de Pago Nuestra" or something similar. This should be saved in the field "Counterparty Payment Method".
                 - Our Payment Method: the bank will refer to the payment method you use as "Forma de Pago Contraparte" or something similar. This should be saved in the field "Our Payment Method".
                 
-                It is very important to get the Direction right, OK?
-                A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
-                This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
+                CRITICAL: Direction Detection - This is EXTREMELY IMPORTANT to get right:
+
+                STEP-BY-STEP DIRECTION LOGIC:
+                1. Look for fields with "Comprador" (Buyer) or "Vendedor" (Seller) in Spanish documents
+                2. Look for fields with "Buyer" or "Seller" in English documents  
+                3. Apply this EXACT rule:
+                   - IF {client_name} is listed as "Comprador" or "Buyer" → Direction = "Buy" 
+                   - IF the bank is listed as "Comprador" or "Buyer" → Direction = "Sell"
+
+                KEY IDENTIFIER PHRASES TO LOOK FOR:
+                - "Comprador de Moneda Extranjera de Referencia:"
+                - "Comprador de Spot:"
+                - "Comprador de Arbitraje:"
+                - "Comprador de Forward:"
+                - "Buyer of Trade:"
+                - "Buyer of Reference Foreign Currency:"
+                - "Vendedor de [Trade Type]:"
+                - "Seller of [Trade Type]:"
+
+                EXAMPLES:
+                - "Comprador de Moneda Extranjera de Referencia: XYZ Corp" → XYZ Corp is buying → Direction = "Buy"
+                - "Comprador de Spot: XYZ Corp" → XYZ Corp is buying → Direction = "Buy"  
+                - "Comprador de Arbitraje: Bci" → Bank is buying, XYZ Corp is selling → Direction = "Sell"
+
+                VERIFICATION: Cross-check with the "Vendedor" (Seller) field - it should show the opposite party.
+
+                IGNORE all other directional language in the document. ONLY use the explicit "Comprador/Buyer" designation to determine direction.
 
                 The specific data you need to find is as follows:
                  
@@ -349,10 +369,8 @@ Email Body:
                 - Counterparty ID, typically the bank's ID. It may not be present in the email, in which case you should leave it blank.
                 - Counterparty Name, the bank's name
                 - Product Type, if this says "Spot", save as "Spot". If it says "Seguro de Cambio", "Seguro de Inflación", "Arbitraje", "Forward", "NDF", save as "Forward".
-                - Direction, from your perspective as the client {client_name} or similar abbreviations or derivations, are you buying from the bank or selling to the bank? Save as "Buy" (if you, {client_name} or similar abbreviations or derivations, are buying the base currency and the bank is selling the counter currency) or "Sell" (if you, {client_name} or similar abbreviations or derivations, are selling the base currency and the bank is buying the counter currency).
-                    A strong indicator of the direction is that the confirmation could say something along the lines of "Buyer of Trade", which if this coincides with {client_name} or similar abbreviations or derivations, would indicate that this is a "Buy" direction from our perspective. If the value here is not {client_name} or similar abbreviations or derivations and therefore is the bank counterparty, this is a strong indicator that the Direction is "Sell" from our perspective.
-                    This may be reinforced in some cases if the confirmation contains something along the lines of "Seller of Trade" which, if it exists, would likely have the other party to what is in the Buyer section.
-                - Currency 1, an ISO 4217 currency code, the currency you are buying or selling according to the Direction field. Remember if the bank says "Buy", you are selling to the bank (and you should store it as "Sell"), and if the bank says "Sell", you are buying from the bank (and you should store it as "Buy").
+                - Direction, from your perspective as the client {client_name} or similar abbreviations or derivations, are you buying from the bank or selling to the bank? Save as "Buy" or "Sell" using the STEP-BY-STEP DIRECTION LOGIC above.
+                - Currency 1, an ISO 4217 currency code, the currency you are buying or selling according to the Direction field.
                 - Amount of Currency 1, a number, the amount of currency 1 you are buying or selling according to the Direction field.
                 - Currency 2, an ISO 4217 currency code, the other currency of the trade. If the product type is "Seguro de Cambio" and Currency 1 is "USD", then this will be "CLP".
                 - Settlement Type, if it says "Compensación" or "Non-Deliverable", save as "Compensación". If it says "Entrega Física" or "Deliverable", save as "Entrega Física". If the Product Type is Spot then the settlement type will necessarily be "Entrega Física".
@@ -405,9 +423,7 @@ Email Body:
                     ]
                 }}
 
-                Now STOP for a minute, before you return the JSON. I need you to compare the data you have extracted into the Trades array in the JSON with the data in the email. If there is any difference on a specific field, overwrite the data in the JSON with the data you think is correct in the email.
-                
-                I repeat, the email body is the best source of truth.
+                FINAL VERIFICATION STEP: Before returning the JSON, double-check the Direction field by re-reading who is listed as "Comprador" or "Buyer" in the email. Use ONLY this information to set the Direction field.
 
                 If the Direction field is "Buy", then QuantityCurrency1 is the amount of currency 1 you are buying from the bank. If the Direction field is "Sell", then QuantityCurrency1 is the amount of currency 1 you are selling to the bank.
 
