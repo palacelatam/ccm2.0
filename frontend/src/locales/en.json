@@ -529,6 +529,7 @@
       "pending": "Pending",
       "processed": "Processed",
       "error": "Error",
+      "confirmedViaPortal": "Confirmed Via Portal",
       "default": "Unknown"
     },
     "messages": {

@@ -497,6 +497,7 @@
       "pending": "Pendente",
       "processed": "Processado",
       "error": "Erro",
+      "confirmedViaPortal": "Confirmado Via Portal",
       "default": "Desconhecido"
     },
     "messages": {

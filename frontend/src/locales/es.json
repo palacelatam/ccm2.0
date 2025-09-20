@@ -524,6 +524,7 @@
       "pending": "Pendiente",
       "processed": "Procesado",
       "error": "Error",
+      "confirmedViaPortal": "Confirmado Por Portal",
       "default": "Desconocido"
     },
     "messages": {

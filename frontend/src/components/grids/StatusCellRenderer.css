@@ -57,6 +57,12 @@
   border: none;
 }
 
+.status-confirmed-portal {
+  background: linear-gradient(135deg, #00bcd4, #0097a7);
+  color: white;
+  border: none;
+}
+
 .status-default {
   background: linear-gradient(135deg, #6c757d, #5a6268);
   color: white;

@@ -575,11 +575,37 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
             if (selectedTradeForMenu.status?.toLowerCase() === 'unmatched') {
               menuItems.push({
                 label: t('grid.contextMenu.confirmedViaPortal'),
-                action: () => {
-                  // Test alert to confirm the click is working
-                  alert(`Button clicked! Trade Number: ${selectedTradeForMenu.TradeNumber || 'Unknown'}`);
-                  console.log('Confirmed Via Portal clicked for trade:', selectedTradeForMenu);
+                action: async () => {
                   setShowInlineMenu(false);
+
+                  try {
+                    // Call the API to update trade status
+                    const tradeId = selectedTradeForMenu.id;
+                    if (!tradeId || !clientId) {
+                      console.error('Missing trade ID or client ID');
+                      alert('Error: Missing trade or client information');
+                      return;
+                    }
+
+                    console.log(`Updating trade ${tradeId} status to confirmed_via_portal`);
+
+                    // Update the status via API
+                    await clientService.updateTradeStatus(
+                      clientId,
+                      tradeId,
+                      'confirmed_via_portal'
+                    );
+
+                    // Show success alert for now
+                    alert(`Trade ${selectedTradeForMenu.TradeNumber} status updated to 'Confirmed Via Portal'`);
+
+                    // Refresh the grid to show the updated status
+                    await loadTrades(true);
+
+                  } catch (error) {
+                    console.error('Error updating trade status:', error);
+                    alert(`Failed to update trade status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                  }
                 }
               });
             }

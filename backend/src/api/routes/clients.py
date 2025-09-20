@@ -906,6 +906,72 @@ async def delete_all_unmatched_trades(
         )
 
 
+@router.patch("/{client_id}/trades/{trade_id}/status", response_model=APIResponse[Dict[str, Any]])
+async def update_trade_status(
+    request: Request,
+    client_id: str = Path(..., description="Client ID"),
+    trade_id: str = Path(..., description="Trade ID"),
+    status_update: Dict[str, Any] = None
+):
+    """Update the status of a trade"""
+    auth_context = get_auth_context(request)
+    validate_client_access(auth_context, client_id)
+
+    # Validate request body
+    if not status_update:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status update body is required"
+        )
+
+    new_status = status_update.get('status')
+    if not new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status field is required"
+        )
+
+    # Validate status value - allow specific statuses
+    allowed_statuses = ['matched', 'unmatched', 'confirmed_via_portal', 'disputed']
+    if new_status not in allowed_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Allowed values: {', '.join(allowed_statuses)}"
+        )
+
+    client_service = ClientService()
+
+    try:
+        # Update the trade status using the existing private method
+        await client_service._update_trade_status(client_id, trade_id, new_status)
+
+        # Get the updated trade to return
+        trade_ref = client_service.db.collection('clients').document(client_id).collection('trades').document(trade_id)
+        trade_doc = trade_ref.get()
+
+        if not trade_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Trade {trade_id} not found after update"
+            )
+
+        updated_trade = trade_doc.to_dict()
+        updated_trade['id'] = trade_id
+
+        return APIResponse(
+            success=True,
+            data=updated_trade,
+            message=f"Trade status updated to {new_status}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error updating trade {trade_id} status for client {client_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update trade status: {str(e)}"
+        )
+
+
 @router.get("/{client_id}/email-confirmations", response_model=APIResponse[List[Dict[str, Any]]])
 async def get_email_confirmations(
     request: Request,

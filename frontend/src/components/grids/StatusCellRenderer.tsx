@@ -20,6 +20,8 @@ const StatusCellRenderer: React.FC<ICellRendererParams> = ({ value }) => {
         return 'status-processed';
       case 'ERROR':
         return 'status-error';
+      case 'CONFIRMED_VIA_PORTAL':
+        return 'status-confirmed-portal';
       default:
         return 'status-default';
     }
@@ -42,6 +44,8 @@ const StatusCellRenderer: React.FC<ICellRendererParams> = ({ value }) => {
         return t('grid.status.processed');
       case 'error':
         return t('grid.status.error');
+      case 'confirmed_via_portal':
+        return t('grid.status.confirmedViaPortal');
       default:
         return t('grid.status.default');
     }

@@ -293,18 +293,45 @@ class ClientService {
    * @returns Updated email confirmation
    */
   async updateEmailConfirmationStatus(
-    clientId: string, 
-    emailId: string, 
+    clientId: string,
+    emailId: string,
     status: string
   ): Promise<EmailConfirmation> {
     // TODO: Add audit fields (updatedBy, updatedAt) when centralized audit system is implemented
     const response = await this.makeRequest<EmailConfirmation>(
       `${this.baseURL}/${clientId}/email-confirmations/${emailId}/status`,
-      { 
+      {
         method: 'PATCH',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status,
           // Placeholder for audit fields
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.email || 'unknown'
+        })
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Update trade status
+   * @param clientId - The client ID
+   * @param tradeId - The trade ID
+   * @param status - The new status (e.g., 'matched', 'unmatched', 'confirmed_via_portal', 'disputed')
+   * @returns Updated trade data
+   */
+  async updateTradeStatus(
+    clientId: string,
+    tradeId: string,
+    status: string
+  ): Promise<any> {
+    const response = await this.makeRequest<any>(
+      `${this.baseURL}/${clientId}/trades/${tradeId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status,
+          // Audit fields
           updatedAt: new Date().toISOString(),
           updatedBy: auth.currentUser?.email || 'unknown'
         })
