@@ -80,14 +80,19 @@ class ClientDataCleaner:
                 results['matches_deleted'] += 1
                 logger.info(f"{'Deleted' if confirm else 'Would delete'} match: {match_doc.id}")
             
-            # 3. Reset matched trades to unmatched
-            logger.info("Resetting matched trades to unmatched...")
+            # 3. Reset matched and confirmed_via_portal trades to unmatched
+            logger.info("Resetting matched and confirmed_via_portal trades to unmatched...")
             trades_ref = self.db.collection('clients').document(client_id).collection('trades')
-            
-            # Query for trades with status "matched"
-            matched_trades = trades_ref.where('status', '==', 'matched').stream()
-            
-            for trade_doc in matched_trades:
+
+            # Query for trades with status "matched" and "confirmed_via_portal"
+            # Firestore doesn't support OR queries, so we need two separate queries
+            matched_trades = list(trades_ref.where('status', '==', 'matched').stream())
+            confirmed_trades = list(trades_ref.where('status', '==', 'confirmed_via_portal').stream())
+
+            # Combine both results
+            all_processed_trades = matched_trades + confirmed_trades
+
+            for trade_doc in all_processed_trades:
                 trade_data = trade_doc.to_dict()
                 trade_number = trade_data.get('TradeNumber', 'Unknown')
                 
@@ -129,7 +134,7 @@ class ClientDataCleaner:
         stats = {
             'emails_count': 0,
             'matches_count': 0,
-            'matched_trades_count': 0,
+            'processed_trades_count': 0,
             'total_trades_count': 0
         }
         
@@ -153,9 +158,9 @@ class ClientDataCleaner:
             all_trades = list(trades_ref.stream())
             stats['total_trades_count'] = len(all_trades)
             
-            # Count matched trades
-            matched_trades = [t for t in all_trades if t.get('status') == 'matched']
-            stats['matched_trades_count'] = len(matched_trades)
+            # Count processed trades (matched + confirmed_via_portal)
+            processed_trades = [t for t in all_trades if t.to_dict().get('status') in ['matched', 'confirmed_via_portal']]
+            stats['processed_trades_count'] = len(processed_trades)
             
         except Exception as e:
             logger.error(f"Error getting client stats: {str(e)}")
@@ -194,13 +199,13 @@ def main():
     # Show current stats
     print("\nCurrent client statistics:")
     stats = cleaner.get_client_stats(client_id)
-    if stats['emails_count'] == 0 and stats['matches_count'] == 0 and stats['matched_trades_count'] == 0:
+    if stats['emails_count'] == 0 and stats['matches_count'] == 0 and stats['processed_trades_count'] == 0:
         print(f"  Client '{client_id}' has no data to clean up")
         return
-    
+
     print(f"  Emails: {stats['emails_count']}")
     print(f"  Matches: {stats['matches_count']}")
-    print(f"  Matched trades: {stats['matched_trades_count']}")
+    print(f"  Processed trades (matched + confirmed via portal): {stats['processed_trades_count']}")
     print(f"  Total trades: {stats['total_trades_count']}")
     print()
     

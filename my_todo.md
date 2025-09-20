@@ -18,7 +18,7 @@
 18) In searching for settlement instruction templates it seems to use the bank name, make it lower case and put hyphens between and use this as the bank-id. This seems incredibly fragile. DONE
 19) What happens if an email comes in and the client trade data hasn't yet been uploaded?
 20) Fix settlement rule matching on entrega física. Not finding the rule in settlement_instruction_service.py. DONE
-21) Put options to mark as confirmed via portal.
+21) Put options to mark as confirmed via portal. DONE
 22) Implement reading and processing email confirmation via Bank portal
 23) Implement EOD including checks and controls
 24) Implement reporting

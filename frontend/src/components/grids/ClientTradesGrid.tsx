@@ -596,9 +596,6 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
                       'confirmed_via_portal'
                     );
 
-                    // Show success alert for now
-                    alert(`Trade ${selectedTradeForMenu.TradeNumber} status updated to 'Confirmed Via Portal'`);
-
                     // Refresh the grid to show the updated status
                     await loadTrades(true);
 

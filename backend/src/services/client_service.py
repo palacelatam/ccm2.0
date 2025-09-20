@@ -743,7 +743,9 @@ class ClientService:
     async def get_matched_trades(self, client_id: str) -> List[Dict[str, Any]]:
         """Get matched trades with enriched match information"""
         try:
-            # Get trades with status = 'matched'
+            # Get trades with status = 'matched' only
+            # Trades with 'confirmed_via_portal' status should NOT appear in matched trades grid
+            # since they don't have actual email matches
             trades_ref = self.db.collection('clients').document(client_id).collection('trades')
             query = trades_ref.where('status', '==', 'matched')
             trade_docs = query.stream()
@@ -1063,33 +1065,53 @@ class ClientService:
     
     async def check_existing_match(self, client_id: str, trade_id: str) -> Optional[Dict[str, Any]]:
         """
-        Check if a client trade already has an existing match
-        
+        Check if a client trade already has an existing match or has been confirmed via portal
+
         Args:
             client_id: ID of the client
             trade_id: ID of the client trade to check
-            
+
         Returns:
-            Match document if exists, None otherwise
+            Match document if exists or trade is already confirmed, None otherwise
         """
         try:
+            # First, check the trade's status to see if it's already been processed
+            trade_ref = self.db.collection('clients').document(client_id).collection('trades').document(trade_id)
+            trade_doc = trade_ref.get()
+
+            if trade_doc.exists:
+                trade_data = trade_doc.to_dict()
+                trade_status = trade_data.get('status', '').lower()
+
+                # If trade is already matched or confirmed via portal, treat it as a duplicate
+                if trade_status in ['matched', 'confirmed_via_portal']:
+                    logger.info(f"✅ Trade {trade_id} already has status '{trade_status}' - treating as duplicate")
+                    return {
+                        'id': f'status_{trade_status}_{trade_id}',  # Synthetic ID to indicate status-based duplicate
+                        'type': 'status_duplicate',
+                        'status': trade_status,
+                        'tradeId': trade_id,
+                        'message': f'Trade already processed with status: {trade_status}'
+                    }
+
+            # Then check for existing match records (original logic)
             logger.debug(f"🔎 Querying matches collection: clients/{client_id}/matches where tradeId=={trade_id}")
             matches_ref = self.db.collection('clients').document(client_id).collection('matches')
             query = matches_ref.where('tradeId', '==', trade_id).limit(1)
             docs = query.stream()
-            
+
             match_docs = list(docs)
             logger.debug(f"🔎 Query returned {len(match_docs)} documents")
-            
+
             if match_docs:
                 match_data = match_docs[0].to_dict()
                 match_data['id'] = match_docs[0].id
                 logger.info(f"✅ Found existing match for trade {trade_id}: Match ID {match_data['id']}")
                 return match_data
-            
+
             logger.debug(f"✅ No existing match found for trade {trade_id}")
             return None
-            
+
         except Exception as e:
             logger.error(f"Error checking existing match for trade {trade_id}: {e}")
             return None
