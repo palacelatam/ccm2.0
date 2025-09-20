@@ -166,11 +166,11 @@ const ConfirmationsGrid = forwardRef<{ triggerFileUpload: () => void }, Confirma
       const target = e.target as HTMLElement;
       // Check if the clicked element is within a status column cell
       const cellElement = target.closest('[col-id="status"]');
-      
+
       if (cellElement) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Find the row node to get the data
         const rowElement = cellElement.closest('[role="row"]');
         if (rowElement && gridRef.current?.api) {

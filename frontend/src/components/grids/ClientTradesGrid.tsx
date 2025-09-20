@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { clientService, ClientService } from '../../services/clientService';
 import StatusCellRenderer from './StatusCellRenderer';
 import AlertModal from '../common/AlertModal';
+import InlineMenu, { InlineMenuItem } from '../common/InlineMenu';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import './TradeGrid.css';
@@ -30,6 +31,11 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
   const [successData, setSuccessData] = useState<{tradesCount: number, message: string} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<AgGridReact>(null);
+
+  // Inline menu state for right-click functionality
+  const [showInlineMenu, setShowInlineMenu] = useState(false);
+  const [inlineMenuPosition, setInlineMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedTradeForMenu, setSelectedTradeForMenu] = useState<any | null>(null);
 
   // Get client ID from user context (assuming user has organization data)
   const clientId = user?.organization?.id || user?.id;
@@ -76,13 +82,50 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
       loadTrades(true); // Preserve grid state on refresh
     }
   }, [refreshTrigger, loadTrades]);
+
+  // Add native context menu handler for status column
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if the clicked element is within a trade_status column cell
+      const cellElement = target.closest('[col-id="trade_status"]');
+
+      if (cellElement) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Find the row node to get the data
+        const rowElement = cellElement.closest('[role="row"]');
+        if (rowElement && gridRef.current?.api) {
+          const rowIndex = rowElement.getAttribute('row-index');
+          if (rowIndex) {
+            const rowNode = gridRef.current.api.getDisplayedRowAtIndex(parseInt(rowIndex));
+            if (rowNode) {
+              setSelectedTradeForMenu(rowNode.data);
+              setInlineMenuPosition({ x: e.clientX, y: e.clientY });
+              setShowInlineMenu(true);
+            }
+          }
+        }
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener('contextmenu', handleContextMenu);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [trades]); // Re-attach when trades change
   
   const columnDefs: ColDef[] = useMemo(() => [
-    { 
-      headerName: t('grid.columns.status'), 
-      field: 'status', 
-      width: 150, 
-      sortable: true, 
+    {
+      headerName: t('grid.columns.status'),
+      field: 'status',  // Keep this as 'status' to read the correct data field
+      colId: 'trade_status',  // Use a unique column ID to avoid conflicts
+      width: 150,
+      sortable: true,
       filter: true,
       cellRenderer: StatusCellRenderer
     },
@@ -517,6 +560,39 @@ const ClientTradesGrid: React.FC<ClientTradesGridProps> = ({ refreshTrigger }) =
           title={t('grid.messages.uploadSuccessful')}
           message={successData.message}
           type="success"
+        />
+      )}
+
+      {/* Inline Menu for right-click */}
+      {showInlineMenu && selectedTradeForMenu && (
+        <InlineMenu
+          position={inlineMenuPosition}
+          onClose={() => setShowInlineMenu(false)}
+          items={(() => {
+            const menuItems: (InlineMenuItem | 'separator')[] = [];
+
+            // Only show "Confirmed Via Portal" if status is "unmatched"
+            if (selectedTradeForMenu.status?.toLowerCase() === 'unmatched') {
+              menuItems.push({
+                label: t('grid.contextMenu.confirmedViaPortal'),
+                action: () => {
+                  // Test alert to confirm the click is working
+                  alert(`Button clicked! Trade Number: ${selectedTradeForMenu.TradeNumber || 'Unknown'}`);
+                  console.log('Confirmed Via Portal clicked for trade:', selectedTradeForMenu);
+                  setShowInlineMenu(false);
+                }
+              });
+            }
+
+            // Return the menu items (or empty array if no applicable items)
+            return menuItems.length > 0 ? menuItems : [
+              {
+                label: 'No actions available',
+                action: () => {},
+                disabled: true
+              }
+            ];
+          })()}
         />
       )}
     </div>

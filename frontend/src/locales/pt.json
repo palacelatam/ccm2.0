@@ -454,7 +454,8 @@
       "duplicate": "Duplicar",
       "mailback": "Mailback",
       "createSettlementInstruction": "Criar Carta de Instrução",
-      "downloadSettlementInstruction": "Baixar Carta de Instrução"
+      "downloadSettlementInstruction": "Baixar Carta de Instrução",
+      "confirmedViaPortal": "Confirmado Via Portal"
     },
     "columns": {
       "tradeId": "ID do Trade",

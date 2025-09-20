@@ -13,24 +13,25 @@ from typing import List, Dict
 # Add parent directory to path to import backend modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
-from src.config.firebase_config import initialize_firebase, get_auth_client
+from src.config.firebase_config import initialize_firebase, get_auth_client, get_cmek_firestore_client
+from datetime import datetime
 
-# Bank list with domains
+# Bank list with domains and bank IDs
 BANK_USERS = [
-    {'email': 'admin@bice.cl', 'name': 'Banco BICE Admin'},
-    {'email': 'admin@btgpactual.cl', 'name': 'Banco BTG Pactual Admin'},
-    {'email': 'admin@bancoconsorcio.cl', 'name': 'Banco Consorcio Admin'},
-    {'email': 'admin@bancochile.cl', 'name': 'Banco de Chile Admin'},
-    {'email': 'admin@bancoestado.cl', 'name': 'Banco Estado Admin'},
-    {'email': 'admin@bancofalabella.cl', 'name': 'Banco Falabella Admin'},
-    {'email': 'admin@internacional.cl', 'name': 'Banco Internacional Admin'},
-    {'email': 'admin@itau.cl', 'name': 'Banco Itaú Admin'},
-    {'email': 'admin@bancoripley.cl', 'name': 'Banco Ripley Admin'},
-    {'email': 'admin@santander.cl', 'name': 'Banco Santander Admin'},
-    {'email': 'admin@security.cl', 'name': 'Banco Security Admin'},
-    {'email': 'admin@hsbc.cl', 'name': 'HSBC Admin'},
-    {'email': 'admin@scotiabank.cl', 'name': 'Scotiabank Admin'},
-    {'email': 'admin@tanner.cl', 'name': 'Tanner Admin'}
+    {'email': 'admin@bice.cl', 'name': 'Banco BICE Admin', 'bankId': 'banco-bice', 'firstName': 'Admin', 'lastName': 'BICE'},
+    {'email': 'admin@btgpactual.cl', 'name': 'Banco BTG Pactual Admin', 'bankId': 'banco-btg-pactual', 'firstName': 'Admin', 'lastName': 'BTG Pactual'},
+    {'email': 'admin@bancoconsorcio.cl', 'name': 'Banco Consorcio Admin', 'bankId': 'banco-consorcio', 'firstName': 'Admin', 'lastName': 'Consorcio'},
+    {'email': 'admin@bancochile.cl', 'name': 'Banco de Chile Admin', 'bankId': 'banco-de-chile', 'firstName': 'Admin', 'lastName': 'Banco de Chile'},
+    {'email': 'admin@bancoestado.cl', 'name': 'Banco Estado Admin', 'bankId': 'banco-estado', 'firstName': 'Admin', 'lastName': 'Estado'},
+    {'email': 'admin@bancofalabella.cl', 'name': 'Banco Falabella Admin', 'bankId': 'banco-falabella', 'firstName': 'Admin', 'lastName': 'Falabella'},
+    {'email': 'admin@internacional.cl', 'name': 'Banco Internacional Admin', 'bankId': 'banco-internacional', 'firstName': 'Admin', 'lastName': 'Internacional'},
+    {'email': 'admin@itau.cl', 'name': 'Banco Itaú Admin', 'bankId': 'banco-itau', 'firstName': 'Admin', 'lastName': 'Itaú'},
+    {'email': 'admin@bancoripley.cl', 'name': 'Banco Ripley Admin', 'bankId': 'banco-ripley', 'firstName': 'Admin', 'lastName': 'Ripley'},
+    {'email': 'admin@santander.cl', 'name': 'Banco Santander Admin', 'bankId': 'banco-santander', 'firstName': 'Admin', 'lastName': 'Santander'},
+    {'email': 'admin@security.cl', 'name': 'Banco Security Admin', 'bankId': 'banco-security', 'firstName': 'Admin', 'lastName': 'Security'},
+    {'email': 'admin@hsbc.cl', 'name': 'HSBC Admin', 'bankId': 'banco-hsbc', 'firstName': 'Admin', 'lastName': 'HSBC'},
+    {'email': 'admin@scotiabank.cl', 'name': 'Scotiabank Admin', 'bankId': 'banco-scotiabank', 'firstName': 'Admin', 'lastName': 'Scotiabank'},
+    {'email': 'admin@tanner.cl', 'name': 'Tanner Admin', 'bankId': 'banco-tanner', 'firstName': 'Admin', 'lastName': 'Tanner'}
 ]
 
 def generate_password(length=12):
@@ -38,7 +39,60 @@ def generate_password(length=12):
     characters = string.ascii_letters + string.digits + "!@#$%^&*"
     return ''.join(random.choice(characters) for _ in range(length))
 
-def create_auth_users(auth) -> List[Dict]:
+def check_firestore_user_exists(db, uid):
+    """Check if Firestore user profile already exists"""
+    try:
+        user_ref = db.collection('users').document(uid)
+        return user_ref.get().exists
+    except Exception:
+        return False
+
+def delete_firestore_user_profile(db, uid):
+    """Delete existing Firestore user profile"""
+    try:
+        user_ref = db.collection('users').document(uid)
+        user_ref.delete()
+        return True
+    except Exception as e:
+        print(f"❌ Failed to delete Firestore profile: {str(e)}")
+        return False
+
+async def create_firestore_user_profile(db, user_record, user_info):
+    """Create complete Firestore user profile document"""
+    try:
+        user_data = {
+            'createdAt': datetime.now(),
+            'email': user_info['email'],
+            'emailVerified': user_record.email_verified,
+            'firstName': user_info['firstName'],
+            'lastName': user_info['lastName'],
+            'language': 'es',
+            'lastUpdatedAt': datetime.now(),
+            'lastUpdatedBy': db.collection('users').document(user_record.uid),
+            'loginMetadata': {
+                'lastLoginAt': None,
+                'lastLoginIP': None,
+                'loginCount': 0
+            },
+            'organizationId': db.collection('banks').document(user_info['bankId']),
+            'organizationType': 'bank',
+            'primaryRole': db.collection('roles').document('bank_admin'),
+            'roles': [db.collection('roles').document('bank_admin')],
+            'status': 'active',
+            'timezone': 'America/Santiago',
+            'twoFactorEnabled': False
+        }
+        
+        # Create the user profile document
+        user_ref = db.collection('users').document(user_record.uid)
+        user_ref.set(user_data)
+        
+        return True
+    except Exception as e:
+        print(f"❌ Failed to create Firestore profile for {user_info['email']}: {str(e)}")
+        return False
+
+async def create_auth_users(auth, db) -> List[Dict]:
     """Create Firebase Auth users and return credentials"""
     print("=" * 60)
     print("CREATING FIREBASE AUTH USERS")
@@ -55,13 +109,42 @@ def create_auth_users(auth) -> List[Dict]:
         name = user_info['name']
         
         try:
-            # Check if user already exists
+            # Check if user already exists in Firebase Auth
             existing_user = auth.get_user_by_email(email)
-            print(f"⚠️  User already exists: {email} (UID: {existing_user.uid})")
+            print(f"⚠️  Firebase Auth user already exists: {email} (UID: {existing_user.uid})")
+            
+            # Check if Firestore profile also exists
+            firestore_exists = check_firestore_user_exists(db, existing_user.uid)
+            if firestore_exists:
+                print(f"⚠️  Firestore profile also exists for: {email}")
+                response = input(f"❓ Delete and recreate user {email}? (y/N): ").strip().lower()
+                if response in ['y', 'yes']:
+                    # Delete Firestore profile
+                    if delete_firestore_user_profile(db, existing_user.uid):
+                        print(f"🗑️  Deleted existing Firestore profile for: {email}")
+                        # Create new Firestore profile
+                        profile_success = await create_firestore_user_profile(db, existing_user, user_info)
+                        if profile_success:
+                            print(f"✅ Recreated Firestore profile for: {email}")
+                        else:
+                            print(f"❌ Failed to recreate Firestore profile for: {email}")
+                    else:
+                        print(f"❌ Failed to delete existing profile for: {email}")
+                else:
+                    print(f"⏭️  Skipped: {email}")
+            else:
+                print(f"ℹ️  Creating missing Firestore profile for: {email}")
+                # Create Firestore profile for existing Auth user
+                profile_success = await create_firestore_user_profile(db, existing_user, user_info)
+                if profile_success:
+                    print(f"✅ Created Firestore profile for existing user: {email}")
+                else:
+                    print(f"❌ Failed to create Firestore profile for: {email}")
+            
             users_existing += 1
             continue
         except:
-            # User doesn't exist, create it
+            # User doesn't exist in Firebase Auth, create it
             pass
         
         try:
@@ -76,14 +159,29 @@ def create_auth_users(auth) -> List[Dict]:
                 email_verified=False  # Banks should verify their emails
             )
             
-            print(f"✅ Created: {email} (UID: {user.uid})")
-            credentials.append({
-                'email': email,
-                'password': password,
-                'name': name,
-                'uid': user.uid
-            })
-            users_created += 1
+            # Create Firestore user profile
+            profile_success = await create_firestore_user_profile(db, user, user_info)
+            
+            if profile_success:
+                print(f"✅ Created: {email} (UID: {user.uid}) - Auth + Firestore profile")
+                credentials.append({
+                    'email': email,
+                    'password': password,
+                    'name': name,
+                    'uid': user.uid
+                })
+                users_created += 1
+            else:
+                print(f"⚠️ Auth created but Firestore profile failed: {email}")
+                # Still count as created since Auth user exists
+                credentials.append({
+                    'email': email,
+                    'password': password,
+                    'name': name,
+                    'uid': user.uid,
+                    'profile_error': True
+                })
+                users_created += 1
             
         except Exception as e:
             print(f"❌ Failed to create {email}: {str(e)}")
@@ -128,20 +226,20 @@ def save_credentials(credentials: List[Dict]):
     print("⚠️  IMPORTANT: Share these credentials securely with the banks!")
     print("⚠️  Delete this file after sharing the credentials!")
 
-def main():
+async def main():
     """Main function"""
     print("=" * 60)
     print("FIREBASE AUTH USER CREATION SCRIPT")
     print("=" * 60)
     print()
-    print("This script will create Firebase Authentication users for all bank admins.")
+    print("This script will create complete Firebase users (Auth + Firestore profile) for all bank admins.")
     print(f"Total users to create: {len(BANK_USERS)}")
     print()
     
     # Show list of users
     print("Users to be created:")
     for user in BANK_USERS:
-        print(f"  • {user['email']} ({user['name']})")
+        print(f"  • {user['email']} ({user['name']}) → {user['bankId']}")
     print()
     
     # Confirm
@@ -154,11 +252,12 @@ def main():
     print("🔧 Initializing Firebase...")
     initialize_firebase()
     auth = get_auth_client()
-    print("✅ Firebase initialized")
+    db = get_cmek_firestore_client()
+    print("✅ Firebase initialized (Auth + Firestore)")
     print()
     
     # Create users
-    credentials = create_auth_users(auth)
+    credentials = await create_auth_users(auth, db)
     
     # Save credentials if any were created
     if credentials:
@@ -173,8 +272,9 @@ def main():
     print()
     print("Next steps:")
     print("1. Share credentials securely with each bank")
-    print("2. Run setup-all-banks.py to create bank documents and user profiles")
+    print("2. Banks can now log in to the CCM system with their full profiles")
     print("3. Banks should change their passwords on first login")
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
