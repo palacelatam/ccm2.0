@@ -33,19 +33,10 @@ interface ReportData {
   'Settlement Instructions Sent': string;
 }
 
-interface EmailData {
-  'Email ID': string;
-  'Date Received': string;
-  'Sender': string;
-  'Subject': string;
-  'Status': string; // Duplicate, Unrecognised
-  'Reason': string;
-}
 
 const Reports: React.FC = () => {
   const { t } = useTranslation();
   const [reportData, setReportData] = useState<ReportData[]>([]);
-  const [emailData, setEmailData] = useState<EmailData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<string>('0');
   const [startDate, setStartDate] = useState<string>('');
@@ -54,7 +45,6 @@ const Reports: React.FC = () => {
   const [selectedCounterparty, setSelectedCounterparty] = useState<string>('All');
   const [selectedProduct, setSelectedProduct] = useState<string>('All');
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
-  const [emailGridApi, setEmailGridApi] = useState<GridApi | null>(null);
 
   const columnDefs: ColDef[] = useMemo(() => [
     {
@@ -210,59 +200,11 @@ const Reports: React.FC = () => {
     }
   ], [t]);
 
-  const emailColumnDefs: ColDef[] = useMemo(() => [
-    {
-      field: 'Date Received',
-      headerName: 'Fecha Recibido',
-      width: 120,
-      sortable: true,
-      filter: true
-    },
-    {
-      field: 'Sender',
-      headerName: 'Remitente',
-      width: 200,
-      sortable: true,
-      filter: true
-    },
-    {
-      field: 'Subject',
-      headerName: 'Asunto',
-      width: 300,
-      sortable: true,
-      filter: true
-    },
-    {
-      field: 'Status',
-      headerName: 'Estado',
-      width: 120,
-      cellRenderer: (params: any) => {
-        const className = params.value === 'Duplicate' ? 'status-pending' : 'status-unrecognised';
-        return (
-          <span className={`status-badge ${className}`}>
-            {params.value}
-          </span>
-        );
-      },
-      sortable: true,
-      filter: true
-    },
-    {
-      field: 'Reason',
-      headerName: 'Razón',
-      flex: 1,
-      sortable: true,
-      filter: true
-    }
-  ], [t]);
 
   const onGridReady = (params: GridReadyEvent) => {
     setGridApi(params.api);
   };
 
-  const onEmailGridReady = (params: GridReadyEvent) => {
-    setEmailGridApi(params.api);
-  };
 
   useEffect(() => {
     loadReportData();
@@ -416,24 +358,8 @@ const Reports: React.FC = () => {
       return dateB.getTime() - dateA.getTime();
     });
 
-    const mockEmailData: EmailData[] = [
-      {
-        'Email ID': 'email001', 'Date Received': '15/01/2025', 'Sender': 'confirmations@santander.cl',
-        'Subject': 'RE: Confirmación de Operación T001', 'Status': 'Duplicado', 'Reason': 'Misma operación confirmada múltiples veces'
-      },
-      {
-        'Email ID': 'email002', 'Date Received': '14/01/2025', 'Sender': 'operations@bci.cl',
-        'Subject': 'Confirmación de Operación FX', 'Status': 'No Reconocido', 'Reason': 'No se encontró operación coincidente en el sistema'
-      },
-      {
-        'Email ID': 'email003', 'Date Received': '13/01/2025', 'Sender': 'unknown@randombank.com',
-        'Subject': 'Detalles de Operación', 'Status': 'No Reconocido', 'Reason': 'Contraparte desconocida'
-      }
-    ];
-
     setTimeout(() => {
       setReportData(mockData);
-      setEmailData(mockEmailData);
       setLoading(false);
     }, 500);
   };
@@ -829,21 +755,6 @@ const Reports: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid-section" style={{ marginTop: '30px' }}>
-        <h2>Correos Duplicados y No Reconocidos</h2>
-        <div className="ag-theme-alpine-dark" style={{ height: 300, width: '100%' }}>
-          <AgGridReact
-            rowData={emailData}
-            columnDefs={emailColumnDefs}
-            onGridReady={onEmailGridReady}
-            defaultColDef={{
-              resizable: true,
-              sortable: true
-            }}
-            animateRows={true}
-          />
-        </div>
-      </div>
     </div>
   );
 };
