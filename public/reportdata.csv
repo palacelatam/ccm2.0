@@ -1,0 +1,26 @@
+Report Date,Trade ID,Trade Number,Counterparty Name,Product Type,Direction,Amount,Currency Pair,Trade Date,Match Status,Fields Match,Email Sent,Settlement Sent,Confirmation Source,Confidence Score
+2025-01-15,trade001,T001,Banco Santander,Spot,Buy,1000000,USD/CLP,2025-01-15,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-15,trade002,T002,Itaú,Forward,Sell,500000,EUR/USD,2025-01-15,Fully Matched,Yes,Yes,No,Email,98
+2025-01-15,trade003,T003,BCI,Spot,Buy,750000,USD/CLP,2025-01-15,Unmatched,No,No,No,None,0
+2025-01-15,trade004,T004,Banco Estado,NDF,Sell,2000000,USD/BRL,2025-01-15,Partial Match,No,Yes,No,Email,75
+2025-01-15,trade005,T005,Scotiabank,Spot,Buy,300000,EUR/CLP,2025-01-15,Confirmed Via Portal,Yes,No,Yes,Portal,100
+2025-01-14,trade006,T006,Banco Santander,Forward,Sell,1500000,USD/CLP,2025-01-14,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-14,trade007,T007,Itaú,Spot,Buy,800000,USD/CLP,2025-01-14,Fully Matched,Yes,Yes,Yes,Email,99
+2025-01-14,trade008,T008,BCI,NDF,Sell,600000,EUR/USD,2025-01-14,Disputed,No,Yes,No,Email,85
+2025-01-14,trade009,T009,Banco Estado,Spot,Buy,450000,USD/CLP,2025-01-14,Unmatched,No,No,No,None,0
+2025-01-14,trade010,T010,Scotiabank,Forward,Sell,900000,USD/BRL,2025-01-14,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-13,trade011,T011,Banco Santander,Spot,Buy,1200000,USD/CLP,2025-01-13,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-13,trade012,T012,Itaú,NDF,Sell,700000,EUR/CLP,2025-01-13,Partial Match,No,Yes,No,Email,72
+2025-01-13,trade013,T013,BCI,Forward,Buy,550000,USD/CLP,2025-01-13,Fully Matched,Yes,Yes,Yes,Email,97
+2025-01-13,trade014,T014,Banco Estado,Spot,Sell,850000,USD/CLP,2025-01-13,Unmatched,No,No,No,None,0
+2025-01-13,trade015,T015,Scotiabank,Spot,Buy,400000,EUR/USD,2025-01-13,Confirmed Via Portal,Yes,No,Yes,Portal,100
+2025-01-12,trade016,T016,Banco Santander,Forward,Sell,1100000,USD/CLP,2025-01-12,Fully Matched,Yes,Yes,No,Email,100
+2025-01-12,trade017,T017,Itaú,Spot,Buy,650000,USD/BRL,2025-01-12,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-12,trade018,T018,BCI,NDF,Sell,950000,EUR/CLP,2025-01-12,Disputed,No,Yes,No,Email,80
+2025-01-12,trade019,T019,Banco Estado,Spot,Buy,320000,USD/CLP,2025-01-12,Fully Matched,Yes,Yes,Yes,Email,99
+2025-01-12,trade020,T020,Scotiabank,Forward,Sell,780000,USD/CLP,2025-01-12,Partial Match,No,Yes,No,Email,65
+2025-01-11,trade021,T021,Banco Santander,Spot,Buy,1400000,USD/CLP,2025-01-11,Fully Matched,Yes,Yes,Yes,Email,100
+2025-01-11,trade022,T022,Itaú,NDF,Sell,520000,EUR/USD,2025-01-11,Fully Matched,Yes,Yes,Yes,Email,98
+2025-01-11,trade023,T023,BCI,Forward,Buy,680000,USD/CLP,2025-01-11,Unmatched,No,No,No,None,0
+2025-01-11,trade024,T024,Banco Estado,Spot,Sell,910000,USD/BRL,2025-01-11,Fully Matched,Yes,Yes,No,Email,100
+2025-01-11,trade025,T025,Scotiabank,Spot,Buy,460000,EUR/CLP,2025-01-11,Confirmed Via Portal,Yes,No,Yes,Portal,100

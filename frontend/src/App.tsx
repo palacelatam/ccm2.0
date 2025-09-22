@@ -6,6 +6,7 @@ import ClientDashboard from './pages/client/ClientDashboard';
 import BankDashboard from './pages/bank/BankDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import FXAnalytics from './pages/bank/FXAnalytics';
+import Reports from './pages/client/Reports';
 import Login from './pages/auth/Login';
 import './styles/App.css';
 
@@ -77,6 +78,11 @@ function AppRoutes() {
             <Route path="fx-analytics" element={
               <ProtectedRoute allowedRoles={['bank_admin']}>
                 <FXAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="reports" element={
+              <ProtectedRoute allowedRoles={['client_admin']}>
+                <Reports />
               </ProtectedRoute>
             } />
           </Route>

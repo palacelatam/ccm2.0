@@ -47,13 +47,22 @@ const TopBanner: React.FC = () => {
               
               {/* Client Admin Panel - Only for client_admin */}
               {user?.role === 'client_admin' && (
-                <Link 
-                  to="/admin" 
-                  className={`menu-item ${location.pathname === '/admin' ? 'active' : ''}`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {t('navigation.clientAdmin')}
-                </Link>
+                <>
+                  <Link
+                    to="/admin"
+                    className={`menu-item ${location.pathname === '/admin' ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {t('navigation.clientAdmin')}
+                  </Link>
+                  <Link
+                    to="/reports"
+                    className={`menu-item ${location.pathname === '/reports' ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {t('navigation.reports')}
+                  </Link>
+                </>
               )}
               
               {/* Bank Admin Panel - Only for bank_admin */}

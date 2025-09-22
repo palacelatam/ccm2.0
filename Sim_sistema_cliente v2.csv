@@ -1,0 +1,11 @@
+Trade ID,Counterparty,Product Type,Trade Date,Value Date,Direction,Currency 1,Currency 2,Amount,Forward Price,Maturity Date,Fixing Reference,Settlement Type,Settlement Currency,Payment Date,Our Payment Method,Counterparty Payment Method
+32010,Bci,Forward,01/10/2025,01/10/2025,Buy,USD,CLP,330000,932.33,01/10/2026,USD Obs,Compensación,CLP,03/10/2026,SWIFT,SWIFT
+32011,Bci,Forward,29/09/2025,01/10/2025,Buy,USD,CLP,330001,932.33,01/10/2026,USD Obs,Compensación,CLP,03/10/2026,SWIFT,SWIFT
+32012,Itau,Spot,01/09/2025,01/09/2025,Sell,USD,CLP,100000,998,01/09/2025,N/A,Entrega Física,N/A,01/09/2025,Cuenta Corriente,Cuenta Corriente
+32013,Banco ABC,Spot,29/09/2025,29/09/2025,Buy,USD,CLP,1000000,932.88,29/09/2025,N/A,Entrega Física,N/A,29/09/2025,LBTR,LBTR
+32014,Itau,Forward,29/09/2025,01/10/2025,Buy,EUR,USD,1000000,1.12,30/10/2025,Bloomberg T0,Compensación,USD,01/11/2025,LBTR,LBTR
+32015,Santander,Forward,30/09/2025,30/09/2025,Sell,GBP,USD,2000000,1.31,15/12/2025,Bloomberg T0,Compensación,USD,15/12/2025,SWIFT,SWIFT
+32016,Banco Estado,Spot,30/09/2025,30/09/2025,Buy,USD,CLP,400000,930.39,30/09/2025,USD Obs,Entrega Física,N/A,01/10/2025,LBTR,LBTR
+32017,Itau,Forward,01/10/2025,02/10/2025,Sell,EUR,USD,500000,1.13,02/12/2025,Bloomberg T0,Compensación,USD,03/12/2025,SWIFT,Cuenta Corriente
+32018,Banco ABC,Spot,30/09/2025,30/09/2025,Buy,USD,CLP,400000,930.2,30/09/2025,USD Obs,Entrega Física,N/A,01/10/2025,LBTR,LBTR
+32019,Banco ABC,Forward,29/09/2025,01/10/2025,Buy,USD,CLP,1000000,932.88,30/10/2025,USD Obs,Compensación,CLP,01/11/2025,LBTR,LBTR
