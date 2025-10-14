@@ -21,11 +21,6 @@ class TestSmsRequest(BaseModel):
     client_id: str = None
 
 
-class SmsStatusRequest(BaseModel):
-    """Request model for checking SMS status"""
-    message_sid: str
-
-
 @router.post("/test")
 async def send_test_sms(
     request: TestSmsRequest,
@@ -53,7 +48,7 @@ async def send_test_sms(
             return {
                 'success': True,
                 'message': 'Test SMS sent successfully',
-                'message_sid': result.get('message_sid'),
+                'message_id': result.get('message_id'),
                 'details': result
             }
         else:
@@ -94,44 +89,6 @@ async def validate_sms_configuration(
         
     except Exception as e:
         logger.error(f"Error validating SMS configuration: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/status")
-async def get_sms_status(
-    request: SmsStatusRequest,
-    current_user: dict = Depends(verify_firebase_token)
-) -> Dict[str, Any]:
-    """
-    Get the delivery status of a sent SMS
-    
-    Args:
-        request: SMS status request with message SID
-        current_user: Authenticated user
-        
-    Returns:
-        SMS status details
-    """
-    try:
-        logger.info(f"User {current_user['uid']} checking SMS status for {request.message_sid}")
-        
-        status = await sms_service.get_message_status(request.message_sid)
-        
-        if status:
-            return {
-                'success': True,
-                'status': status
-            }
-        else:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Message {request.message_sid} not found"
-            )
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting SMS status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

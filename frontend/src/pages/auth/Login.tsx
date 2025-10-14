@@ -48,7 +48,7 @@ const Login: React.FC = () => {
       <div className="login-card">
         <div className="login-header">
           <img src="/palace.jpg" alt="Palace Technology" className="login-logo" />
-          <h2>Client Confirmation Manager</h2>
+          <h2>FX+</h2>
           <p>Ingrese sus credenciales para acceder</p>
         </div>
 

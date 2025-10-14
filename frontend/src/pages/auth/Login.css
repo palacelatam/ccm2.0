@@ -31,10 +31,11 @@
 }
 
 .login-header h2 {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 42px;
+  font-weight: 700;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  color: #00D4FF;
+  letter-spacing: 0.5px;
 }
 
 .login-header p {

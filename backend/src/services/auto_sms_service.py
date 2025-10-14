@@ -38,6 +38,8 @@ class AutoSmsService:
         Returns:
             Dict containing SMS sending results
         """
+        logger.info(f"🔔 Processing SMS notifications for client {client_id}, trade status: {trade_status}")
+
         results = {
             'client_id': client_id,
             'trade_number': trade_data.get('TradeNumber', 'Unknown'),
@@ -46,7 +48,7 @@ class AutoSmsService:
             'disputed_sms': None,
             'errors': []
         }
-        
+
         try:
             # Get client SMS configuration
             db = get_cmek_firestore_client()
@@ -60,7 +62,9 @@ class AutoSmsService:
             
             config_data = config_doc.to_dict()
             alerts = config_data.get('alerts', {})
-            
+
+            logger.info(f"📋 Alerts configuration for client {client_id}: {alerts.keys() if alerts else 'None'}")
+
             # Get client info for organization name
             client_ref = db.collection('clients').document(client_id)
             client_doc = client_ref.get()
@@ -78,8 +82,10 @@ class AutoSmsService:
             if trade_status == "Confirmation OK":
                 # Check if confirmed trade SMS is enabled
                 sms_config = alerts.get('smsConfirmedTrades', {})
+                logger.info(f"✅ Confirmed trade SMS config: enabled={sms_config.get('enabled')}, phones={sms_config.get('phones')}")
+
                 if sms_config.get('enabled') and sms_config.get('phones'):
-                    logger.info(f"Sending confirmed trade SMS for client {client_id}")
+                    logger.info(f"📤 Sending confirmed trade SMS for client {client_id}")
                     
                     # Generate SMS content
                     sms_content = await self._generate_confirmed_trade_sms(
@@ -98,12 +104,16 @@ class AutoSmsService:
                     
                     results['confirmed_sms'] = sms_results
                     results['sms_sent'] = any(r.get('success') for r in sms_results)
-                    
+                else:
+                    logger.warning(f"⚠️ Confirmed trade SMS NOT sent - enabled: {sms_config.get('enabled', False)}, phones configured: {len(sms_config.get('phones', []))}")
+
             elif trade_status in ["Difference", "Needs Review"]:
                 # Check if disputed trade SMS is enabled
                 sms_config = alerts.get('smsDisputedTrades', {})
+                logger.info(f"⚠️ Disputed trade SMS config: enabled={sms_config.get('enabled')}, phones={sms_config.get('phones')}")
+
                 if sms_config.get('enabled') and sms_config.get('phones'):
-                    logger.info(f"Sending disputed trade SMS for client {client_id}")
+                    logger.info(f"📤 Sending disputed trade SMS for client {client_id}")
                     
                     # Generate SMS content
                     sms_content = await self._generate_disputed_trade_sms(
@@ -123,7 +133,12 @@ class AutoSmsService:
                     
                     results['disputed_sms'] = sms_results
                     results['sms_sent'] = any(r.get('success') for r in sms_results)
-            
+                else:
+                    logger.warning(f"⚠️ Disputed trade SMS NOT sent - enabled: {sms_config.get('enabled', False)}, phones configured: {len(sms_config.get('phones', []))}")
+            else:
+                logger.warning(f"⚠️ Trade status '{trade_status}' does not match SMS trigger conditions (expected 'Confirmation OK', 'Difference', or 'Needs Review')")
+
+            logger.info(f"📊 SMS notification result for client {client_id}: sms_sent={results['sms_sent']}")
             return results
             
         except Exception as e:
@@ -220,28 +235,33 @@ class AutoSmsService:
         
         # Generate message based on language
         if language == 'es':
+            # Handle singular/plural grammar
+            discrepancy_word = "discrepancias" if discrepancy_count != 1 else "discrepancia"
+
             message = (
-                f"⚠️ Trade #{trade_number} con discrepancias\n"
-                f"Contraparte: {counterparty}\n"
-                f"Revisar: {discrepancy_count} campos\n"
-                f"Acción requerida\n"
-                f"- {organization_name}"
+                f"⚠️ Trade #{trade_number} con contraparte {counterparty} tiene {discrepancy_count} {discrepancy_word}\n"
+                f"Favor revisar la aplicación y tomar acción a la brevedad.\n"
             )
         elif language == 'pt':
+            # Handle singular/plural grammar
+            discrepancy_word = "discrepâncias" if discrepancy_count != 1 else "discrepância"
+            field_word = "campos" if discrepancy_count != 1 else "campo"
+
             message = (
-                f"⚠️ Trade #{trade_number} com discrepâncias\n"
+                f"⚠️ Trade #{trade_number} com {discrepancy_count} {discrepancy_word}\n"
                 f"Contraparte: {counterparty}\n"
-                f"Revisar: {discrepancy_count} campos\n"
+                f"Revisar: {discrepancy_count} {field_word}\n"
                 f"Ação necessária\n"
-                f"- {organization_name}"
             )
         else:  # English
+            # Handle singular/plural grammar
+            field_word = "fields" if discrepancy_count != 1 else "field"
+
             message = (
                 f"⚠️ Trade #{trade_number} disputed\n"
                 f"Counterparty: {counterparty}\n"
-                f"Review: {discrepancy_count} fields\n"
+                f"Review: {discrepancy_count} {field_word}\n"
                 f"Action required\n"
-                f"- {organization_name}"
             )
         
         # Ensure message fits in 160 characters

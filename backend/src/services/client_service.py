@@ -1810,28 +1810,61 @@ class ClientService:
             bool: True if email was scheduled successfully
         """
         try:
+            comparison_status, differing_fields = trade_comparison_result
+
+            # Determine email type based on comparison result
+            if comparison_status == "Confirmation OK":
+                email_type = "confirmation"
+                logger.info(f"Trade matched perfectly - checking automation")
+            else:
+                email_type = "dispute"
+                logger.info(f"Trade has {len(differing_fields)} differences - checking automation")
+
+            # FIRST: Send SMS notifications if configured (independent of email automation)
+            # SMS is sent immediately (no delay like emails)
+            try:
+                trade_data = match_data.get("client_trade_data", {})
+                if not trade_data:
+                    trade_data = match_data.get("email_trade_data", {})
+
+                # Add trade number if not present
+                if "TradeNumber" not in trade_data:
+                    trade_data["TradeNumber"] = match_data.get("bank_trade_number", "Unknown")
+                if "CounterpartyName" not in trade_data:
+                    trade_data["CounterpartyName"] = match_data.get("counterparty_name", "Unknown")
+
+                sms_result = await auto_sms_service.process_trade_sms_notifications(
+                    client_id=client_id,
+                    trade_status=comparison_status,
+                    trade_data=trade_data,
+                    discrepancies=differing_fields if comparison_status != "Confirmation OK" else None
+                )
+
+                if sms_result.get('sms_sent'):
+                    logger.info(f"✅ SMS notifications sent for {email_type} trade")
+                else:
+                    logger.info(f"ℹ️ No SMS sent (may be disabled or no phone numbers configured)")
+
+            except Exception as sms_error:
+                logger.error(f"Error sending SMS notifications: {sms_error}")
+                # Don't fail the whole process if SMS fails
+
+            # SECOND: Check email automation settings
             # Get client automation settings
             client_settings = await self.get_client_settings(client_id)
             if not client_settings:
                 logger.info(f"No automation settings found for client {client_id}, skipping email automation")
                 return False
-            
+
             automation_settings = client_settings.automation
-            comparison_status, differing_fields = trade_comparison_result
-            
-            # Determine email type and settings based on comparison result
+
+            # Get email settings based on comparison result
             if comparison_status == "Confirmation OK":
-                # Perfect match - check auto_confirm_matched settings
                 email_settings = automation_settings.auto_confirm_matched
-                email_type = "confirmation"
-                logger.info(f"Trade matched perfectly - checking confirmation email automation")
             else:
-                # Differences found - check auto_confirm_disputed settings  
                 email_settings = automation_settings.auto_confirm_disputed
-                email_type = "dispute"
-                logger.info(f"Trade has {len(differing_fields)} differences - checking dispute email automation")
-            
-            # Check if automation is enabled for this email type
+
+            # Check if email automation is enabled for this email type
             if not email_settings.enabled:
                 logger.info(f"Email automation disabled for {email_type} emails in client {client_id}")
                 return False
@@ -1867,36 +1900,7 @@ class ClientService:
                 logger.info(f"✅ Successfully scheduled {email_type} email task: {task_name}")
             else:
                 logger.error(f"❌ Failed to schedule {email_type} email task")
-            
-            # Also trigger SMS notifications if configured
-            # SMS is sent immediately (no delay like emails)
-            try:
-                trade_data = match_data.get("client_trade_data", {})
-                if not trade_data:
-                    trade_data = match_data.get("email_trade_data", {})
-                
-                # Add trade number if not present
-                if "TradeNumber" not in trade_data:
-                    trade_data["TradeNumber"] = match_data.get("bank_trade_number", "Unknown")
-                if "CounterpartyName" not in trade_data:
-                    trade_data["CounterpartyName"] = match_data.get("counterparty_name", "Unknown")
-                
-                sms_result = await auto_sms_service.process_trade_sms_notifications(
-                    client_id=client_id,
-                    trade_status=comparison_status,
-                    trade_data=trade_data,
-                    discrepancies=differing_fields if comparison_status != "Confirmation OK" else None
-                )
-                
-                if sms_result.get('sms_sent'):
-                    logger.info(f"✅ SMS notifications sent for {email_type} trade")
-                else:
-                    logger.debug(f"No SMS sent (may be disabled or no phone numbers configured)")
-                    
-            except Exception as sms_error:
-                logger.error(f"Error sending SMS notifications: {sms_error}")
-                # Don't fail the whole process if SMS fails
-            
+
             return task_name is not None
                 
         except Exception as e:

@@ -27,10 +27,11 @@
 }
 
 .app-title h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 32px;
+  font-weight: 700;
+  color: #00D4FF;
   margin: 0;
+  letter-spacing: 0.5px;
 }
 
 .banner-right {

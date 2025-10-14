@@ -1,6 +1,6 @@
 {
   "navigation": {
-    "title": "Client Confirmation Manager",
+    "title": "FX+",
     "dashboard": "Dashboard",
     "clientSettings": "Client Settings",
     "clientAdmin": "Administration",
@@ -26,7 +26,7 @@
     "clientTrades": "Client Trades"
   },
   "login": {
-    "title": "Client Confirmation Manager",
+    "title": "FX+",
     "subtitle": "Enter your credentials to access",
     "email": "Email",
     "password": "Password",

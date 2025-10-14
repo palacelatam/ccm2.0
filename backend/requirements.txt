@@ -33,9 +33,6 @@ reportlab==4.0.7
 # LLM services
 anthropic==0.39.0
 
-# SMS services
-twilio==8.10.0
-
 # Environment management
 python-dotenv==1.0.0
 
