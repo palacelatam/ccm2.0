@@ -11,15 +11,17 @@
 11) Deal with uploaded .msg file which only has email display name, not an email address.
 12) Move Guardar Confirmation button up on Client Admin screen, it is not noticeable. DONE
 13) Complete SMS implementation, waiting on Twilio
-14) Preview of template on grid and detail page.
+14) Preview of template on grid and detail page. DONE
 15) Check the decorators are in place on all API calls (I don't think so).
 16) Automated upload of mandates into settlement rules
 17) Determine full workflow between states. Prob Confirmation OK isn't final step, should be Completed or something similar. Also, Resolved shouldn't exist. Difference -> Tagged -> Confirmation OK -> Completed.
 18) In searching for settlement instruction templates it seems to use the bank name, make it lower case and put hyphens between and use this as the bank-id. This seems incredibly fragile. DONE
-19) What happens if an email comes in and the client trade data hasn't yet been uploaded?
+19) What happens if an email comes in and the client trade data hasn't yet been uploaded? DONE
 20) Fix settlement rule matching on entrega física. Not finding the rule in settlement_instruction_service.py. DONE
 21) Put options to mark as confirmed via portal. DONE
 22) Implement reading and processing email confirmation via Bank portal
 23) Implement EOD including checks and controls
 24) Implement reporting
 25) Implement download of JSON or CSV
+26) Remove fallback "Mock Trade" when Claude is down
+27) Fallback to Gemini when Claude is down

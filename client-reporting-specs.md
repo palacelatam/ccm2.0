@@ -155,5 +155,4 @@ You can build an interactive front end using:
 
 ---
 
-Let me know if you want TypeScript interfaces or a Notion-ready version next.
 

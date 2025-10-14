@@ -22,7 +22,7 @@ interface ReportData {
   'Forward Price': string;
   'Settlement Type': string;
   'Match Status': string; // Sin Coincidencia, Full Match, Confirmado por Portal
-  'Confirmation Status': string; // Confirmation OK, Difference, N/A
+  'Confirmation Status': string; // Confirmation OK, Diferencia
   'Discrepant Fields': string; // List of fields with differences
   'Fields Match': string;
   'Email Sent': string;
@@ -278,10 +278,12 @@ const Reports: React.FC = () => {
         let disputeEmailSent: string = 'No';
         let settlementSent: string;
 
-        const statusRandom = Math.random();
-        if (statusRandom < 0.85) {
+        // Generate match status based on distribution
+        const matchRandom = Math.random();
+        if (matchRandom < 0.85) {
+          // 85% Full Match
           matchStatus = 'Full Match';
-          // 80% OK, 20% with differences
+          // For Full Match: 80% OK, 20% with differences
           if (Math.random() < 0.8) {
             confirmationStatus = 'Confirmation OK';
             confirmationEmailSent = 'Sí';
@@ -294,14 +296,16 @@ const Reports: React.FC = () => {
             disputeEmailSent = 'Sí';
             settlementSent = 'No';
           }
-        } else if (statusRandom < 0.95) {
+        } else if (matchRandom < 0.95) {
+          // 10% Confirmado por Portal
           matchStatus = 'Confirmado por Portal';
-          confirmationStatus = 'N/A';
-          confirmationEmailSent = 'Sí';
-          settlementSent = 'Sí';
+          confirmationStatus = 'N/A'; // Not applicable for portal confirmations
+          confirmationEmailSent = 'No';
+          settlementSent = 'Sí'; // Portal confirmed trades can have settlement instructions
         } else {
+          // 5% Sin Coincidencia
           matchStatus = 'Sin Coincidencia';
-          confirmationStatus = 'N/A';
+          confirmationStatus = 'N/A'; // Not applicable for unmatched trades
           confirmationEmailSent = 'No';
           settlementSent = 'No';
         }
@@ -485,18 +489,18 @@ const Reports: React.FC = () => {
 
   // Daily trend chart
   const dailyTrendData = useMemo(() => {
-    const dailyStats: { [date: string]: { total: number; matched: number; unmatched: number } } = {};
+    const dailyStats: { [date: string]: { total: number; confirmed: number; differences: number } } = {};
 
     filteredData.forEach(report => {
       const date = report['Trade Date'];
       if (!dailyStats[date]) {
-        dailyStats[date] = { total: 0, matched: 0, unmatched: 0 };
+        dailyStats[date] = { total: 0, confirmed: 0, differences: 0 };
       }
       dailyStats[date].total++;
-      if (report['Match Status'] === 'Full Match' || report['Match Status'] === 'Confirmado por Portal') {
-        dailyStats[date].matched++;
-      } else if (report['Match Status'] === 'Sin Coincidencia') {
-        dailyStats[date].unmatched++;
+      if (report['Confirmation Status'] === 'Confirmation OK') {
+        dailyStats[date].confirmed++;
+      } else if (report['Confirmation Status'] === 'Diferencia') {
+        dailyStats[date].differences++;
       }
     });
 
@@ -549,28 +553,30 @@ const Reports: React.FC = () => {
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: '#ffffff'
+        color: '#ffffff',
+        formatter: (value: number) => Math.floor(value).toString()
       },
       axisLine: {
         lineStyle: { color: '#ffffff' }
       },
       splitLine: {
         lineStyle: { color: '#444444' }
-      }
+      },
+      minInterval: 1
     },
     series: [
       {
-        name: 'Confirmados',
+        name: 'Confirmation OK',
         type: 'bar',
         stack: 'total',
-        data: dailyTrendData.map(d => d.matched),
+        data: dailyTrendData.map(d => d.confirmed),
         itemStyle: { color: '#22c55e' }
       },
       {
-        name: 'Sin Confirmar',
+        name: 'Diferencia',
         type: 'bar',
         stack: 'total',
-        data: dailyTrendData.map(d => d.unmatched),
+        data: dailyTrendData.map(d => d.differences),
         itemStyle: { color: '#ef4444' }
       }
     ]
