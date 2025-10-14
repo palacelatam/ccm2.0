@@ -18,12 +18,12 @@ const TopBanner: React.FC = () => {
         <div className="logo-container">
           <img src="/palace.jpg" alt="Palace Technology" className="palace-logo" />
         </div>
+      </div>
+
+      <div className="banner-right">
         <div className="app-title">
           <h2>{t('navigation.title')}</h2>
         </div>
-      </div>
-      
-      <div className="banner-right">
         <LanguageSwitcher />
         <div className="navigation-menu">
           <button 
