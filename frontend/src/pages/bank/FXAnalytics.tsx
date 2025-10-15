@@ -41,7 +41,7 @@ const FXAnalytics: React.FC = () => {
   const [showClientDropdown, setShowClientDropdown] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<string>('All');
   const [selectedCurrencyPair, setSelectedCurrencyPair] = useState<string>('All');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('30');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('365');
   const [currentBank] = useState<string>('Banco ABC');
   
   // Search filters for missed opportunities
@@ -66,7 +66,7 @@ const FXAnalytics: React.FC = () => {
     try {
       const response = await fetch('/tradedata.csv');
       const csvText = await response.text();
-      
+
       Papa.parse(csvText, {
         header: true,
         complete: (results) => {
@@ -221,19 +221,19 @@ const FXAnalytics: React.FC = () => {
 
   const filteredData = useMemo(() => {
     let filtered = [...tradeData];
-    
+
     if (selectedClient) {
       filtered = filtered.filter(trade => trade['Client Name'] === selectedClient);
     }
-    
+
     if (selectedProduct !== 'All') {
       filtered = filtered.filter(trade => trade['Product Type'] === selectedProduct);
     }
-    
+
     if (selectedCurrencyPair !== 'All') {
       filtered = filtered.filter(trade => trade['Currency Pair'] === selectedCurrencyPair);
     }
-    
+
     const cutoffDate = new Date();
     const days = parseInt(selectedPeriod);
     cutoffDate.setTime(cutoffDate.getTime() - (days * 24 * 60 * 60 * 1000));
@@ -241,7 +241,7 @@ const FXAnalytics: React.FC = () => {
       const tradeDate = new Date(trade['Trade Date']);
       return tradeDate >= cutoffDate;
     });
-    
+
     return filtered;
   }, [tradeData, selectedClient, selectedProduct, selectedCurrencyPair, selectedPeriod]);
 

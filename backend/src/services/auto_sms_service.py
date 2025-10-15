@@ -181,7 +181,6 @@ class AutoSmsService:
                 f"Contraparte: {counterparty}\n"
                 f"Monto: {amount_str} {currency}\n"
                 f"Estado: CONFIRMADO\n"
-                f"- {organization_name}"
             )
         elif language == 'pt':
             message = (
@@ -189,7 +188,6 @@ class AutoSmsService:
                 f"Contraparte: {counterparty}\n"
                 f"Valor: {amount_str} {currency}\n"
                 f"Status: CONFIRMADO\n"
-                f"- {organization_name}"
             )
         else:  # English
             message = (
@@ -197,7 +195,6 @@ class AutoSmsService:
                 f"Counterparty: {counterparty}\n"
                 f"Amount: {amount_str} {currency}\n"
                 f"Status: CONFIRMED\n"
-                f"- {organization_name}"
             )
         
         # Ensure message fits in 160 characters
