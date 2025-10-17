@@ -211,3 +211,6 @@ private/
 .sass-cache/
 connect.lock
 typings/
+
+# Generated documents
+backend/templates/generated/*.docx

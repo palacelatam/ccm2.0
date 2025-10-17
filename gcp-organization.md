@@ -6,7 +6,7 @@
 
 ## 1.0 Introduction & Strategic Objectives
 
-This document provides a detailed and comprehensive summary of the foundational setup for the Google Cloud Platform (GCP) Organization `palace.cl`. The primary objective of this foundation is to provide a secure, scalable, and compliant platform for the development and operation of enterprise-level Software-as-a-Service (SaaS) applications, with a specific focus on meeting the stringent requirements of the banking and financial services industry.
+This document provides a detailed and comprehensive summary of the foundational setup for the Google Cloud Platform (GCP) Organization `palace.cl`. The primary objective of this foundation is to provide a secure, scalable, and compliant platform for the development and operation of enterprise-level Software-as-a-Service (SaaS) applications, with a specific focus on meeting the stringent requirements of the industry.
 
 The entire foundation was configured using the Google Cloud Foundation Setup guide and was ultimately downloaded as a complete Infrastructure as Code (IaC) project using Terraform. This ensures that the environment is repeatable, version-controllable, and managed according to modern best practices.
 
@@ -16,27 +16,15 @@ The key strategic pillars underpinning this architecture are:
 * **Operational Excellence:** Leveraging Infrastructure as Code (IaC) for all foundational components to ensure reliability, prevent configuration drift, and enable automated, auditable changes.
 * **Compliance Readiness:** Establishing a framework with centralized logging, organization-wide security policies, and customer-managed encryption keys to simplify the process of meeting financial industry compliance standards.
 
+Please bear in mind that this was built using the best of our knowledge at the time. However, there may have been some amendments since then that have not been fully documented here.
+
 ---
 
 ## 2.0 SaaS Tenancy Model Strategy
 
-A core strategic decision made during the planning phase was the approach to client tenancy, a critical consideration for any SaaS business targeting the banking sector. The foundation has been architected to support a flexible, tiered offering that can accommodate the needs of different types of financial institutions.
-
-### 2.1 The Pool Model (Standard Tier)
-
-This is the primary, more scalable offering.
 * **Architecture:** A single, robust multi-tenant application is hosted within the production Shared VPC. This application serves many different clients from a shared infrastructure base.
 * **Data Isolation:** Data segregation is enforced at the application and database layers. This is achieved through strict code logic and database design (e.g., ensuring every database query is scoped to the authenticated client's `tenant_id`, or using separate schemas per client within a shared database).
-* **Target Clients:** This model is suitable for smaller banks, credit unions, and FinTechs who require a secure, enterprise-grade solution but may not have the budget or requirement for fully dedicated infrastructure.
-* **Prerequisites for Sale:** To successfully offer this model to financial clients, it is understood that rigorous proof of security is required. This includes obtaining third-party security certifications and audits, such as **SOC 2 Type 2** and **ISO 27001**, which validate the effectiveness of the application-level isolation controls.
-
-### 2.2 The Silo Model (Enterprise Tier)
-
-This is the premium offering, designed for large, risk-averse financial institutions.
-* **Architecture:** For each client in this tier, a completely separate and dedicated instance of the application and its underlying infrastructure is deployed. This includes a dedicated VPC, separate service projects, and a dedicated database instance.
-* **Data Isolation:** This model provides the maximum possible level of isolation at the network level. A client's data never resides on the same network or database server as another client's.
-* **Target Clients:** This model is designed for large, established banks that have stringent regulatory requirements and corporate policies demanding complete infrastructure isolation.
-* **Deployment Strategy:** The use of Terraform is critical for this model's viability. The foundational code allows for the automated, repeatable, and error-free deployment of a new, dedicated "silo" for each enterprise client, making this a manageable and scalable premium offering.
+* **Prerequisites for Sale:** To successfully offer this model to financial clients, it is understood that rigorous proof of security is required. This includes obtaining third-party security certifications and audits, specifically **ISO 27001**, which validates the effectiveness of the application-level isolation controls.
 
 ---
 
@@ -79,11 +67,19 @@ The organization follows a **"Simple, environment-oriented hierarchy"** model, d
     * **`Development`**: Houses sandbox projects for developers to experiment and build new features without affecting shared testing environments. Contains the `ccm-dev-pool` project with CMEK-enabled Firestore database for persistent development data.
     * **`Common`**: A dedicated folder for shared services and resources that span across all environments. This includes the VPC host projects, the centralized logging and monitoring project, and the KMS Autokey projects.
 * **Projects:** The Terraform deployment created a set of foundational projects, including:
-    * **Host Projects:** `vpc-host-prod` and `vpc-host-nonprod`, located in the `Common` folder.
-    * **Service Projects:** `prod1-service`, `prod2-service`, `nonprod1-service`, `nonprod2-service`, located in the `Production` and `Non-Production` folders respectively.
-    * **Development Service Project:** `ccm-dev-pool` (CCM2 - Dev Pool), located in the `Development` folder, used for client dashboard development with persistent CMEK-enabled Firestore.
-    * **Central Services Project:** `central-logging-monitoring`, located in the `Common` folder.
-    * **KMS Autokey Projects:** A dedicated project for managing encryption keys was created in each of the `Production`, `Non-Production`, and `Development` folders.
+    * **Host Projects:**
+      * `vpc-host-prod-oj681-ps264` (Production networking)
+      * `vpc-host-nonprod-pf819-wa214` (Non-production networking)
+      * Located in the `Common` folder
+    * **Service Projects:**
+      * **Production:** `prod1-svc-5q4z`, `prod2-svc-5q4z` (in folder ID: 484625400602)
+      * **Non-Production:** `nonprod1-svc-5q4z`, `nonprod2-svc-5q4z` (in folder ID: 441320525926)
+    * **Development Service Project:** `ccm-dev-pool` (CCM2 - Dev Pool), located in the `Development` folder (ID: 802429588971), used for application development with persistent CMEK-enabled Firestore.
+    * **Central Services Project:** `central-log-monitor-rp135-mx78`, located in the `Common` folder (ID: 883920606702).
+    * **KMS Projects:**
+      * Production: `kms-proj-g5c6fwjtocz9`
+      * Non-Production: `kms-proj-3zwv12e1sndn`
+      * Development: `kms-proj-nqs0vivc9gcm`
 
 ---
 
@@ -93,32 +89,32 @@ The network architecture is built on the **Shared VPC** model and is designed fo
 
 ### 5.1 Production Network: `vpc-prod-shared`
 
-* **Host Project:** `vpc-host-prod`
+* **Host Project:** `vpc-host-prod-oj681-ps264`
 * **Architecture:** Multi-regional for high availability.
 * **Configuration:**
     * **`subnet-prod-1`**:
         * **Region:** `southamerica-west1` (Santiago)
         * **IP Range:** `10.1.1.0/24`
-        * **Linked Service Project:** `prod1-service`
+        * **Linked Service Project:** `prod1-svc-5q4z`
     * **`subnet-prod-2`**:
         * **Region:** `us-east4` (N. Virginia)
         * **IP Range:** `10.1.2.0/24`
-        * **Linked Service Project:** `prod2-service`
+        * **Linked Service Project:** `prod2-svc-5q4z`
     * **Common Settings:** For both subnets, **VPC Flow Logs** and **Private Google Access** are **On**, while **Cloud NAT** is **Off**. The network includes 3 default firewall rules.
 
 ### 5.2 Non-Production Network: `vpc-nonprod-shared`
 
-* **Host Project:** `vpc-host-nonprod`
+* **Host Project:** `vpc-host-nonprod-pf819-wa214`
 * **Architecture:** Mirrors the production network to ensure environment parity.
 * **Configuration:**
     * **`subnet-non-prod-1`**:
         * **Region:** `southamerica-west1` (Santiago)
         * **IP Range:** `10.2.1.0/24`
-        * **Linked Service Project:** `nonprod1-service`
+        * **Linked Service Project:** `nonprod1-svc-5q4z`
     * **`subnet-non-prod-2`**:
         * **Region:** `us-east4` (N. Virginia)
         * **IP Range:** `10.2.2.0/24`
-        * **Linked Service Project:** `nonprod2-service`
+        * **Linked Service Project:** `nonprod2-svc-5q4z`
     * **Common Settings:** For both subnets, **VPC Flow Logs** and **Private Google Access** are **On**, while **Cloud NAT** is **Off**. The network includes 3 default firewall rules.
 
 ---
@@ -450,17 +446,252 @@ For production deployment:
 
 ---
 
-## 10.0 Deployment & Ongoing Management
+## 10.0 Production Architecture Alignment (October 2025)
 
-### 10.1 Terraform Deployment
+### 10.1 Load Balancer and Cloud Armor Configuration
+
+**Required for Production:** IP whitelisting for enterprise clients requires Global Load Balancer
+
+#### 10.1.1 Global Load Balancer Setup
+
+**Configuration:**
+```yaml
+Load Balancer:
+  Name: ccm-api-lb
+  Type: HTTPS Load Balancer (Global)
+  Project: prod1-svc-5q4z
+  Frontend:
+    IP: Static reserved IP
+    Port: 443
+    Certificate: Google-managed SSL for api.servicios.palace.cl
+  Backend:
+    Service: Cloud Run (ccm-backend-prod)
+    Region: southamerica-west1
+  Cost: $25/month + $3/month for static IP
+```
+
+**Cloud Armor Policy:**
+```yaml
+Policy Name: ccm-ip-whitelist
+Default Rule: Deny all (403 Forbidden)
+Client Rules:
+  - Priority 100-199: Client office IP ranges
+  - Priority 999: Palace office IPs for admin access
+Attached to: Load Balancer backend service
+```
+
+#### 10.1.2 Domain Configuration
+
+**Production URLs:**
+- Frontend: `app.servicios.palace.cl` → Firebase Hosting
+- Backend API: `api.servicios.palace.cl` → Load Balancer → Cloud Run
+
+**Development URLs:**
+- Frontend: `dev.servicios.palace.cl` → Firebase Hosting (dev)
+- Backend API: Direct Cloud Run URL (no Load Balancer needed)
+
+### 10.2 Multi-Environment Deployment Strategy
+
+#### 10.2.1 Environment Mapping
+
+| Environment | GCP Project | Purpose | Load Balancer |
+|------------|------------|---------|---------------|
+| Local | ccm-dev-pool (remote DB) | Development with emulators | No |
+| Development | ccm-dev-pool | Integration testing | No |
+| Staging | nonprod1-svc-5q4z | Pre-production testing | Optional |
+| Production | prod1-svc-5q4z | Live environment | Yes (Required) |
+
+#### 10.2.2 Cloud Run Configuration per Environment
+
+**Development (ccm-dev-pool):**
+```yaml
+Service: ccm-backend-dev
+Region: southamerica-west1
+Configuration:
+  CPU: 1
+  Memory: 2Gi
+  Min Instances: 0 (scale to zero)
+  Max Instances: 5
+  Timeout: 60s
+VPC Connector: Not required (public access for development)
+```
+
+**Staging (nonprod1-svc-5q4z):**
+```yaml
+Service: ccm-backend-staging
+Region: southamerica-west1
+Configuration:
+  CPU: 1
+  Memory: 2Gi
+  Min Instances: 0
+  Max Instances: 10
+  Timeout: 60s
+VPC Connector: vpc-connector-nonprod (optional)
+```
+
+**Production (prod1-svc-5q4z):**
+```yaml
+Service: ccm-backend-prod
+Region: southamerica-west1
+Configuration:
+  CPU: 1
+  Memory: 2Gi
+  Min Instances: 0 (with Cloud Scheduler warm-up)
+  Max Instances: 10
+  Timeout: 60s
+VPC Connector: vpc-connector-prod
+Cloud Scheduler: Warm-up every 10 min during business hours
+```
+
+#### 10.2.3 Firestore Databases per Environment
+
+| Environment | Project | Database Name | CMEK Key |
+|------------|---------|---------------|----------|
+| Local | N/A | Emulator | N/A |
+| Development | ccm-dev-pool | ccm-development | kms-proj-nqs0vivc9gcm/firestore-key |
+| Staging | nonprod1-svc-5q4z | ccm-staging | kms-proj-3zwv12e1sndn/firestore-key |
+| Production | prod1-svc-5q4z | ccm-production | kms-proj-g5c6fwjtocz9/firestore-key |
+
+### 10.3 Local Development Setup
+
+#### 10.3.1 Firebase Emulators Configuration
+
+**firebase.json:**
+```json
+{
+  "emulators": {
+    "firestore": {
+      "port": 8080,
+      "host": "localhost"
+    },
+    "auth": {
+      "port": 9099,
+      "host": "localhost"
+    },
+    "pubsub": {
+      "port": 8085,
+      "host": "localhost"
+    }
+  }
+}
+```
+
+#### 10.3.2 Local Development Workflow
+
+```bash
+# Terminal 1: Start Firebase emulators
+firebase emulators:start
+
+# Terminal 2: Start backend (FastAPI)
+cd backend
+export FIRESTORE_EMULATOR_HOST=localhost:8080
+export PUBSUB_EMULATOR_HOST=localhost:8085
+uvicorn src.main:app --reload --port 8000
+
+# Terminal 3: Start frontend (React)
+cd frontend
+npm start  # Runs on port 3000
+```
+
+**Environment Variables (.env.local):**
+```bash
+# Backend
+FIRESTORE_EMULATOR_HOST=localhost:8080
+PUBSUB_EMULATOR_HOST=localhost:8085
+PROJECT_ID=ccm-dev-pool
+ENVIRONMENT=local
+
+# Frontend
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_USE_EMULATOR=true
+```
+
+### 10.4 Pub/Sub Configuration for Gmail Push Notifications
+
+**Replaces 30-second polling with instant push notifications**
+
+#### 10.4.1 Topic and Subscription Setup
+
+**Per Environment:**
+```yaml
+Development:
+  Topic: projects/ccm-dev-pool/topics/gmail-notifications-dev
+  Subscription: gmail-processor-dev
+  Push Endpoint: https://ccm-backend-dev-*.run.app/api/v1/gmail/webhook
+
+Staging:
+  Topic: projects/nonprod1-svc-5q4z/topics/gmail-notifications-staging
+  Subscription: gmail-processor-staging
+  Push Endpoint: https://ccm-backend-staging-*.run.app/api/v1/gmail/webhook
+
+Production:
+  Topic: projects/prod1-svc-5q4z/topics/gmail-notifications-prod
+  Subscription: gmail-processor-prod
+  Push Endpoint: https://api.servicios.palace.cl/api/v1/gmail/webhook
+```
+
+### 10.5 Vertex AI Configuration
+
+**LLM Processing (Not available in southamerica-west1):**
+
+```yaml
+Platform: Google Vertex AI
+Region: us-east4 (required)
+Project: Use same as environment (e.g., prod1-svc-5q4z for production)
+Models:
+  Primary: Claude Sonnet 4.5 (via Model Garden)
+  Fallback: Gemini 2.5 Pro
+Authentication: Service Account (no API keys needed)
+```
+
+### 10.6 Automatic Trade File Synchronization
+
+**New Feature:** Client file source integration
+
+```yaml
+Supported Sources:
+  - Google Cloud Storage (preferred - Workload Identity)
+  - AWS S3 (IAM role or access keys)
+  - Azure Blob Storage (SAS tokens)
+  - SFTP (legacy support)
+
+Sync Configuration:
+  Frequency: Every 10 minutes (configurable)
+  Trigger: Cloud Scheduler → Cloud Run
+  Storage: Credentials in Secret Manager
+  Processing: Cloud Tasks queue
+```
+
+### 10.7 Cost Optimization Strategy
+
+#### 10.7.1 Per Environment Costs
+
+| Environment | Monthly Cost | Key Components |
+|------------|-------------|----------------|
+| Local | $0 | All emulated |
+| Development | ~$30 | Cloud Run, Firestore, minimal usage |
+| Staging | ~$50 | Similar to dev, more testing |
+| Production | ~$115 | Includes Load Balancer, higher usage |
+
+#### 10.7.2 Cost Saving Measures
+
+1. **Scale to Zero:** All environments use min instances = 0
+2. **Cloud Scheduler:** Warm-up only during business hours
+3. **Regional Resources:** Use southamerica-west1 where possible
+4. **Shared VPC:** Leverage existing network infrastructure
+5. **CMEK Reuse:** Use existing KMS infrastructure
+
+## 11.0 Deployment & Ongoing Management
+
+### 11.1 Terraform Deployment
 
 * The entire foundation described in this document was deployed from a single, unified Terraform configuration that was generated and downloaded from the Google Cloud Foundation Setup guide.
 
-### 10.2 Terraform State Management
+### 11.2 Terraform State Management
 
 * During the download process, a Google Cloud Storage (GCS) bucket was created in the `southamerica-west1` region. This bucket is configured as the remote backend for the Terraform project, providing a secure and reliable location to store the Terraform state file.
 
-### 10.3 Future Management Strategy
+### 11.3 Future Management Strategy
 
 * All future changes to the foundational infrastructure should be managed through the Terraform code. The standard workflow is as follows:
     1.  **Edit Code:** Modify the `.tf` files to reflect the desired change.
@@ -469,7 +700,7 @@ For production deployment:
     4.  **Apply:** Run `terraform apply` to implement the changes.
 * This IaC-first approach prevents configuration drift, provides a full audit trail of changes, and ensures that the infrastructure remains consistent and well-documented over time. Manual changes via the GCP Console should be avoided for foundational resources.
 
-### 10.4 Development Environment Management
+### 11.4 Development Environment Management
 
 * **Development Database:** The `ccm-development` Firestore database was created manually following Google Cloud security best practices for CMEK implementation.
 * **Gmail Integration:** Service account and authentication configured manually due to organization policy restrictions.
