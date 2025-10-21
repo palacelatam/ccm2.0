@@ -47,7 +47,7 @@ jobs:
         mkdocs build --strict --verbose
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: documentation
         path: backend/site/
@@ -89,7 +89,7 @@ jobs:
 
     - name: Upload coverage badge
       if: github.event_name == 'push'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: docstring-coverage-badge
         path: backend/docs/badges/
