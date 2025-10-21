@@ -40,3 +40,15 @@ python-dotenv==1.0.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
+
+# Documentation
+mkdocs>=1.5.3
+mkdocs-material>=9.5.0
+mkdocstrings[python]>=0.24.0
+mkdocs-autorefs>=0.5.0
+mkdocs-git-revision-date-localized-plugin>=1.2.0
+pymdown-extensions>=10.0
+mike>=2.0.0  # For versioned documentation
+black>=23.0.0  # For code formatting in examples
+interrogate>=1.5.0  # For docstring coverage checking
+pydocstyle>=6.3.0  # For docstring style checking

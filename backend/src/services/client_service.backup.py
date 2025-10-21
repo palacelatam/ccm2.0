@@ -1,9 +1,5 @@
 """
-Client service for managing client settings and related data.
-
-This module provides the central orchestration for all client-related operations
-in the CCM 2.0 system, including trade processing, email confirmations, matching
-workflows, and client configuration management.
+Client service for managing client settings and related data
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -34,83 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 class ClientService:
-    """
-    Service for client settings and data management.
-
-    The ClientService acts as the central coordinator for trade processing,
-    email confirmation handling, matching workflows, and client configuration
-    management. It integrates with multiple services to provide a complete
-    trade confirmation workflow.
-
-    This service manages:
-        - Client settings and preferences
-        - Bank accounts and settlement rules
-        - Trade upload and processing
-        - Email confirmation processing
-        - Trade matching coordination
-        - Automated notifications
-
-    Attributes:
-        db: CMEK-enabled Firestore client instance
-        csv_parser: Service for parsing CSV trade files
-
-    Example:
-        ```python
-        from services.client_service import ClientService
-
-        client_service = ClientService()
-
-        # Process a trade upload
-        result = await client_service.process_csv_upload(
-            client_id="xyz-corp",
-            csv_content=csv_data,
-            filename="trades.csv"
-        )
-        ```
-
-    Note:
-        This service contains approximately 2700 lines of code and handles
-        54 different methods. Consider refactoring into smaller, more
-        focused services for better maintainability.
-    """
-
+    """Service for client settings and data management"""
+    
     def __init__(self):
-        """
-        Initialize the ClientService with required dependencies.
-
-        Sets up the CMEK-enabled Firestore client and CSV parser service.
-        """
         self.db = get_cmek_firestore_client()
         self.csv_parser = CSVParserService()
     
     # ========== Client Management Methods ==========
     
     def get_all_clients(self) -> List[Dict[str, Any]]:
-        """
-        Get all clients (independent of banks).
-
-        Retrieves all client documents from Firestore, handling DocumentReference
-        objects properly by converting them to strings.
-
-        Returns:
-            List[Dict[str, Any]]: List of client dictionaries containing:
-                - id: Client identifier
-                - name: Client name
-                - organizationName: Organization name
-                - bankId: Associated bank ID (if any)
-                - Additional client metadata
-
-        Example:
-            ```python
-            clients = client_service.get_all_clients()
-            for client in clients:
-                print(f"Client: {client['name']} (ID: {client['id']})")
-            ```
-
-        Note:
-            DocumentReferences are automatically resolved to their IDs for
-            JSON serialization compatibility.
-        """
+        """Get all clients (independent of banks)"""
         try:
             clients_docs = self.db.collection('clients').stream()
             
@@ -1348,47 +1277,10 @@ class ClientService:
     
     # ========== CSV Upload Methods ==========
     
-    async def process_csv_upload(self, client_id: str, csv_content: str,
-                                overwrite_existing: bool, uploaded_by: str,
+    async def process_csv_upload(self, client_id: str, csv_content: str, 
+                                overwrite_existing: bool, uploaded_by: str, 
                                 filename: str) -> Dict[str, Any]:
-        """
-        Process CSV trade upload and perform automatic matching.
-
-        This is the main entry point for processing client trade uploads.
-        It handles parsing, validation, storage, matching with email
-        confirmations, and triggering automated notifications.
-
-        Args:
-            client_id: Unique identifier of the client
-            csv_content: Raw CSV content as string
-            overwrite_existing: If True, deletes existing unmatched trades
-            uploaded_by: UID of the user performing the upload
-            filename: Original filename of the uploaded CSV
-
-        Returns:
-            Dict containing:
-                - success: Whether processing completed
-                - message: Status message
-                - records_processed: Number of trades processed
-                - records_failed: Number of failed trades
-                - upload_session_id: Session ID for tracking
-                - matches_found: Number of automatic matches
-
-        Example:
-            ```python
-            result = await client_service.process_csv_upload(
-                client_id="xyz-corp",
-                csv_content=csv_data,
-                overwrite_existing=True,
-                uploaded_by="user-123",
-                filename="trades.csv"
-            )
-            ```
-
-        Note:
-            Large files (>10,000 trades) may take several minutes.
-            Matching is performed after all trades are stored.
-        """
+        """Process CSV upload and insert trade data"""
         try:
             # Parse CSV content
             trades, parsing_errors = self.csv_parser.parse_csv_content(csv_content)

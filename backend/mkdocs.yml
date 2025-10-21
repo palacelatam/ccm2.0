@@ -1,0 +1,130 @@
+# MkDocs configuration for CCM 2.0 Backend Documentation
+site_name: CCM 2.0 Backend Documentation
+site_description: Technical documentation for Client Confirmation Manager backend
+site_author: CCM Development Team
+site_url: https://docs.ccm.example.com
+
+# Development server settings
+dev_addr: 127.0.0.1:8002
+
+# Repository
+repo_name: ccm2.0
+repo_url: https://github.com/yourorg/ccm2.0
+edit_uri: edit/main/backend/docs/
+
+# Theme configuration
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+# Plugins
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_object_full_path: false
+            show_category_heading: true
+            show_if_no_docstring: true
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 80
+            merge_init_into_class: true
+            docstring_style: google
+            docstring_section_style: table
+            members_order: source
+            show_submodules: false
+            group_by_category: true
+            summary: true
+  - autorefs
+  # Disabled until docs are in git to avoid warnings
+  # - git-revision-date-localized:
+  #     enable_creation_date: true
+
+# Markdown extensions
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - tables
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+
+# Navigation structure - only existing files to avoid warnings
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+  - API Reference:
+    - Overview: api/index.md
+    - Clients: api/routes/clients.md
+  - Services:
+    - Overview: services/index.md
+    - Client Service: services/client_service.md
+  # Future sections - uncomment as files are created:
+  # - Architecture:
+  #   - Overview: architecture/overview.md
+  #   - Database Schema: architecture/database.md
+  # - Models:
+  #   - Overview: models/index.md
+  #   - Client Models: models/client.md
+  # - Development:
+  #   - Setup: development/setup.md
+  #   - Testing: development/testing.md
+
+# Extra configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourorg/ccm2.0
+  version:
+    provider: mike
+    default: stable

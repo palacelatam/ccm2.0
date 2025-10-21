@@ -1,0 +1,40 @@
+constraint: constraints/gcp.restrictNonCmekServices
+listPolicy:
+  deniedValues:
+  - aiplatform.googleapis.com
+  - alloydb.googleapis.com
+  - apigee.googleapis.com
+  - artifactregistry.googleapis.com
+  - bigquery.googleapis.com
+  - bigquerydatatransfer.googleapis.com
+  - bigtable.googleapis.com
+  - cloudfunctions.googleapis.com
+  - cloudtasks.googleapis.com
+  - composer.googleapis.com
+  - compute.googleapis.com
+  - container.googleapis.com
+  - dataflow.googleapis.com
+  - dataform.googleapis.com
+  - datafusion.googleapis.com
+  - dataplex.googleapis.com
+  - dataproc.googleapis.com
+  - discoveryengine.googleapis.com
+  - documentai.googleapis.com
+  - eventarc.googleapis.com
+  - file.googleapis.com
+  - firestore.googleapis.com
+  - integrations.googleapis.com
+  - logging.googleapis.com
+  - looker.googleapis.com
+  - notebooks.googleapis.com
+  - pubsub.googleapis.com
+  - redis.googleapis.com
+  - run.googleapis.com
+  - secretmanager.googleapis.com
+  - securesourcemanager.googleapis.com
+  - spanner.googleapis.com
+  - speech.googleapis.com
+  - sqladmin.googleapis.com
+  - storage.googleapis.com
+  - storagetransfer.googleapis.com
+  - workstations.googleapis.com

@@ -1,90 +1,318 @@
-2025-10-14 10:44:04,364 - services.client_service - INFO - ✅ Successfully created match with ID: 6QI0TWbPfGvNYxwTVXK2 in collection clients/xyz-corp/matches
-2025-10-14 10:44:04,567 - services.client_service - INFO - ✅ Added match_id 0e4812d4-884a-45cb-8684-58be415f4ce9 and status 'Difference' to trade BCI00002 in email 7o0Fq8GyqnjlO5vSnr8Y
-2025-10-14 10:44:04,629 - services.client_service - INFO - Successfully updated email 7o0Fq8GyqnjlO5vSnr8Y trade BCI00002 with match_id 0e4812d4-884a-45cb-8684-58be415f4ce9 and status 'Difference'
-2025-10-14 10:44:04,680 - services.client_service - INFO - Trade has 1 differences - checking dispute email automation
-2025-10-14 10:44:04,680 - services.client_service - INFO - Email automation disabled for dispute emails in client xyz-corp
-2025-10-14 10:44:04,680 - services.client_service - INFO - Created match between trade NAa2XRjCxFJrkxFHIKqi and email 7o0Fq8GyqnjlO5vSnr8Y with 100% confidence
-2025-10-14 10:44:04,680 - services.client_service - INFO - ✅ Successfully created match for trade 32011 with 100% confidence
-2025-10-14 10:44:04,681 - services.client_service - INFO - Email processing complete for email_body_Ben Clark <ben.clark.txt: 1 matches, 0 duplicates
-2025-10-14 10:44:04,681 - services.event_service - INFO - 📡 Broadcasting event gmail_processed to 1 subscription groups
-2025-10-14 10:44:04,681 - services.event_service - DEBUG - 📡 Checking subscription group xyz-corp:D5HgqZfogqM3FyyH3zeJdu2Gt1F2 with 2 connections
-2025-10-14 10:44:04,682 - services.event_service - DEBUG -    - PASSED all checks
-2025-10-14 10:44:04,682 - services.event_service - DEBUG - 📡 Event gmail_processed matches subscription fdebda44-bbaf-4502-b922-bc2a9a0234c9: True
-2025-10-14 10:44:04,682 - services.event_service - DEBUG -    - Event client_id: xyz-corp, Subscription client_id: xyz-corp
-2025-10-14 10:44:04,682 - services.event_service - DEBUG -    - Event user_id: None, Subscription user_id: D5HgqZfogqM3FyyH3zeJdu2Gt1F2
-2025-10-14 10:44:04,682 - services.event_service - DEBUG -    - Event type: gmail_processed, Subscription types: ['gmail_processed']
-2025-10-14 10:44:04,682 - services.event_service - DEBUG -    - Event priority: medium, Subscription priority_filter: None
-2025-10-14 10:44:04,683 - services.event_service - INFO - 📡 Event queued for connection fdebda44-bbaf-4502-b922-bc2a9a0234c9
-2025-10-14 10:44:04,683 - services.event_service - DEBUG -    - PASSED all checks
-2025-10-14 10:44:04,683 - services.event_service - DEBUG - 📡 Event gmail_processed matches subscription 505a3741-ca2a-4170-8d3d-8aa85269a126: True
-2025-10-14 10:44:04,683 - services.event_service - DEBUG -    - Event client_id: xyz-corp, Subscription client_id: xyz-corp
-2025-10-14 10:44:04,683 - services.event_service - DEBUG -    - Event user_id: None, Subscription user_id: D5HgqZfogqM3FyyH3zeJdu2Gt1F2
-2025-10-14 10:44:04,683 - services.event_service - DEBUG -    - Event type: gmail_processed, Subscription types: ['gmail_processed']
-2025-10-14 10:44:04,684 - services.event_service - DEBUG -    - Event priority: medium, Subscription priority_filter: None
-2025-10-14 10:44:04,684 - services.event_service - INFO - 📡 Event queued for connection 505a3741-ca2a-4170-8d3d-8aa85269a126
-2025-10-14 10:44:04,684 - services.event_service - INFO - 📡 Emitted event: gmail_processed - Email Processed Successfully (client: xyz-corp, priority: medium)
-2025-10-14 10:44:04,684 - services.client_service - INFO - 📡 Emitted Gmail processing event: Email Processed Successfully
-2025-10-14 10:44:04,684 - services.client_service - INFO - ✅ Gmail body processing completed: {'email_id': '7o0Fq8GyqnjlO5vSnr8Y', 'trades_extracted': 1, 'confirmation_detected': True, 'processed_at': '2025-10-14T10:44:04.097242', 'matches_found': 1, 'matched_trade_numbers': ['32011'], 'duplicates_found': 0, 'counterparty_name': 'Bci', 'matching_attempted': True, 'processing_complete': True}
-2025-10-14 10:44:04,685 - services.gmail_service - INFO - ✅ Successfully processed email body from Ben Clark <ben.clark@palace.cl>
-2025-10-14 10:44:04,685 - services.gmail_service - INFO - Successfully processed message 199e2f63b63f3359: 1 trades extracted
-2025-10-14 10:44:04,685 - services.gmail_service - INFO - ✅ Processed 1 emails in check #3
-2025-10-14 10:44:04,685 - services.gmail_service - INFO - 📊 Email from Ben Clark <ben.clark@palace.cl>: 1 trades, 1 matches, 0 duplicates
-2025-10-14 10:44:04,685 - services.gmail_service - DEBUG - ⏰ Waiting 30s until next check...
-2025-10-14 10:44:04,686 - api.routes.events - INFO - 📡 Received event: gmail_processed - Email Processed Successfully
-2025-10-14 10:44:04,686 - api.routes.events - INFO - 📡 Received event: gmail_processed - Email Processed Successfully
-2025-10-14 10:44:05,191 - google.auth.transport.requests - DEBUG - Making request: GET https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com
-2025-10-14 10:44:05,191 - cachecontrol.controller - DEBUG - Looking up "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com" in the cache
-2025-10-14 10:44:05,192 - cachecontrol.controller - DEBUG - Current age based on date: 84
-2025-10-14 10:44:05,192 - cachecontrol.controller - DEBUG - Freshness lifetime from max-age: 20129
-2025-10-14 10:44:05,192 - cachecontrol.controller - DEBUG - The response is "fresh", returning cached response
-2025-10-14 10:44:05,192 - cachecontrol.controller - DEBUG - 20129 > 84
-2025-10-14 10:44:05,429 - urllib3.connectionpool - DEBUG - https://identitytoolkit.googleapis.com:443 "POST /v1/projects/ccm-dev-pool/accounts:lookup HTTP/1.1" 200 None
-2025-10-14 10:44:05,662 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
-2025-10-14 10:44:05,663 - google.auth.transport.requests - DEBUG - Making request: GET https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com
-2025-10-14 10:44:05,664 - cachecontrol.controller - DEBUG - Looking up "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com" in the cache
-2025-10-14 10:44:05,664 - cachecontrol.controller - DEBUG - Current age based on date: 84
-2025-10-14 10:44:05,664 - cachecontrol.controller - DEBUG - Freshness lifetime from max-age: 20129
-2025-10-14 10:44:05,665 - cachecontrol.controller - DEBUG - The response is "fresh", returning cached response
-2025-10-14 10:44:05,665 - cachecontrol.controller - DEBUG - 20129 > 84
-2025-10-14 10:44:05,958 - urllib3.connectionpool - DEBUG - https://identitytoolkit.googleapis.com:443 "POST /v1/projects/ccm-dev-pool/accounts:lookup HTTP/1.1" 200 None
-2025-10-14 10:44:06,194 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
-2025-10-14 10:44:06,353 - services.client_service - INFO - Retrieved 1 trade records from email confirmations for client xyz-corp
-2025-10-14 10:44:06,487 - services.client_service - INFO - Trade differences found (1 fields): Price: 932.32 vs 932.33
-2025-10-14 10:44:06,488 - services.client_service - INFO - Retrieved 1 matched trades for client xyz-corp
-2025-10-14 10:44:06,489 - google.auth.transport.requests - DEBUG - Making request: GET https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com
-2025-10-14 10:44:06,490 - cachecontrol.controller - DEBUG - Looking up "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com" in the cache
-2025-10-14 10:44:06,490 - cachecontrol.controller - DEBUG - Current age based on date: 85
-2025-10-14 10:44:06,490 - cachecontrol.controller - DEBUG - Freshness lifetime from max-age: 20129
-2025-10-14 10:44:06,491 - cachecontrol.controller - DEBUG - The response is "fresh", returning cached response
-2025-10-14 10:44:06,491 - cachecontrol.controller - DEBUG - 20129 > 85
-2025-10-14 10:44:06,815 - urllib3.connectionpool - DEBUG - https://identitytoolkit.googleapis.com:443 "POST /v1/projects/ccm-dev-pool/accounts:lookup HTTP/1.1" 200 None
-2025-10-14 10:44:07,082 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
-2025-10-14 10:44:07,136 - services.client_service - INFO - Retrieved 10 total trades for client xyz-corp
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/all-email-confirmations HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/matched-trades HTTP/1.1" 200 OK
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/unmatched-trades HTTP/1.1" 200 OK
-2025-10-14 10:44:07,454 - google.auth.transport.requests - DEBUG - Making request: GET https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com
-2025-10-14 10:44:07,456 - cachecontrol.controller - DEBUG - Looking up "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com" in the cache
-2025-10-14 10:44:07,457 - cachecontrol.controller - DEBUG - Current age based on date: 86
-2025-10-14 10:44:07,457 - cachecontrol.controller - DEBUG - Freshness lifetime from max-age: 20129
-2025-10-14 10:44:07,457 - cachecontrol.controller - DEBUG - The response is "fresh", returning cached response
-2025-10-14 10:44:07,457 - cachecontrol.controller - DEBUG - 20129 > 86
-2025-10-14 10:44:07,792 - urllib3.connectionpool - DEBUG - https://identitytoolkit.googleapis.com:443 "POST /v1/projects/ccm-dev-pool/accounts:lookup HTTP/1.1" 200 None
-2025-10-14 10:44:08,065 - api.middleware.auth_middleware - INFO - Authenticated user: admin@xyz.cl (D5HgqZfogqM3FyyH3zeJdu2Gt1F2)
-2025-10-14 10:44:08,242 - services.client_service - INFO - Trade differences found (1 fields): Price: 932.32 vs 932.33
-2025-10-14 10:44:08,243 - services.client_service - INFO - Retrieved 1 matched trades for client xyz-corp
-INFO:     None:0 - "GET /api/v1/clients/xyz-corp/matched-trades HTTP/1.1" 200 OK
-2025-10-14 10:44:34,686 - services.gmail_service - INFO - 🔍 Gmail check #4 - Monitoring confirmaciones_dev@servicios.palace.cl...
-2025-10-14 10:44:34,687 - googleapiclient.discovery - DEBUG - URL being requested: GET https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=37720&alt=json
-2025-10-14 10:44:34,688 - api.routes.events - DEBUG - 📡 Sending heartbeat for connection fdebda44-bbaf-4502-b922-bc2a9a0234c9
-2025-10-14 10:44:34,688 - api.routes.events - DEBUG - 📡 Sending heartbeat for connection 505a3741-ca2a-4170-8d3d-8aa85269a126
-2025-10-14 10:44:34,897 - services.gmail_service - DEBUG - No new emails found
-2025-10-14 10:44:34,897 - services.gmail_service - DEBUG - 🔄 No new emails found in check #4
-2025-10-14 10:44:34,898 - services.gmail_service - DEBUG - ⏰ Waiting 30s until next check...
-2025-10-14 10:45:04,686 - api.routes.events - DEBUG - 📡 Sending heartbeat for connection 505a3741-ca2a-4170-8d3d-8aa85269a126
-2025-10-14 10:45:04,687 - api.routes.events - DEBUG - 📡 Sending heartbeat for connection fdebda44-bbaf-4502-b922-bc2a9a0234c9
-2025-10-14 10:45:04,901 - services.gmail_service - INFO - 🔍 Gmail check #5 - Monitoring confirmaciones_dev@servicios.palace.cl...
-2025-10-14 10:45:04,902 - googleapiclient.discovery - DEBUG - URL being requested: GET https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=37720&alt=json
-2025-10-14 10:45:05,089 - services.gmail_service - DEBUG - No new emails found
-2025-10-14 10:45:05,089 - services.gmail_service - DEBUG - 🔄 No new emails found in check #5
-2025-10-14 10:45:05,089 - services.gmail_service - DEBUG - ⏰ Waiting 30s until next check...
+(venv) C:\Users\bencl\Proyectos\ccm2.0\backend>launch_docs.bat
+
+====================================================
+        CCM 2.0 Backend Documentation
+====================================================
+
+Activating virtual environment...
+
+Starting documentation server on port 8002...
+
+====================================================
+
+  Documentation will be available at:
+  http://localhost:8002
+
+  Press Ctrl+C to stop the server
+
+====================================================
+
+INFO    -  Building documentation...
+INFO    -  PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use
+           `json_schema_extra` instead. (Extra keys: 'field_title_generator'). Deprecated in Pydantic V2.0 to be removed in V3.0. See
+           Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+             File "C:\Users\bencl\Proyectos\ccm2.0\backend\venv\Lib\site-packages\mkdocstrings_handlers\python\_internal\config.py",
+           line 72, in _Field
+               return BaseField(
+             File "C:\Users\bencl\Proyectos\ccm2.0\backend\venv\Lib\site-packages\pydantic\fields.py", line 799, in Field
+               warn(
+WARNING -  [git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs' has no git logs, using current
+           timestamp
+INFO    -  Cleaning site directory
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\api\index.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\index.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\client_service.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\getting-started\quickstart.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\client_service_detailed.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\api\routes\clients.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\index.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\api\routes\clients.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\index.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\api\index.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\client_service_detailed.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\getting-started\quickstart.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\services\client_service.md' has no git logs, using current timestamp
+[git-revision-date-localized-plugin] 'C:\Users\bencl\Proyectos\ccm2.0\backend\docs\index.md' has no git logs, using current timestamp
+INFO    -  The following pages exist in the docs directory, but are not included in the "nav" configuration:
+             - services\client_service_detailed.md
+WARNING -  A reference to 'getting-started/installation.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'getting-started/configuration.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'architecture/overview.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'architecture/design.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'architecture/database.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'architecture/api-design.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'api/routes/auth.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'api/routes/users.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'api/routes/banks.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'api/routes/gmail.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'api/routes/events.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'api/routes/sms.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'api/routes/internal_tasks.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'services/gmail_service.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'services/llm_service.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'services/matching_service.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'services/settlement_instruction_service.md' is included in the 'nav' configuration, which is not found in
+           the documentation files.
+WARNING -  A reference to 'services/bank_service.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'services/event_service.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'services/task_queue_service.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'services/auto_email_service.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'services/auto_sms_service.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'models/index.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'models/base.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'models/user.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'models/client.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'models/bank.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'models/events.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'config/settings.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'config/firebase.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'config/storage.md' is included in the 'nav' configuration, which is not found in the documentation files.
+WARNING -  A reference to 'development/setup.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'development/testing.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'development/debugging.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'development/contributing.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'deployment/overview.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'deployment/cloud-run.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'deployment/env-vars.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'deployment/monitoring.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'guides/trade-matching.md' is included in the 'nav' configuration, which is not found in the documentation
+           files.
+WARNING -  A reference to 'guides/settlement-instructions.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'guides/email-processing.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING -  A reference to 'guides/automation-setup.md' is included in the 'nav' configuration, which is not found in the
+           documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page index.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  Doc file 'index.md' contains a link 'getting-started/installation.md', but the target is not found among documentation
+           files.
+WARNING -  Doc file 'index.md' contains a link 'architecture/overview.md', but the target is not found among documentation files.
+WARNING -  Doc file 'index.md' contains a link 'development/contributing.md', but the target is not found among documentation files.
+WARNING -  Doc file 'index.md' contains a link 'guides/faq.md', but the target is not found among documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page api\index.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/auth.md', but the target 'api/routes/auth.md' is not found among
+           documentation files.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/users.md', but the target 'api/routes/users.md' is not found among
+           documentation files.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/banks.md', but the target 'api/routes/banks.md' is not found among
+           documentation files.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/gmail.md', but the target 'api/routes/gmail.md' is not found among
+           documentation files.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/events.md', but the target 'api/routes/events.md' is not found among
+           documentation files.
+WARNING -  Doc file 'api/index.md' contains a link 'routes/sms.md', but the target 'api/routes/sms.md' is not found among
+           documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page api\routes\clients.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING:root:First revision timestamp is older than last revision timestamp for page getting-started\quickstart.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  Doc file 'getting-started/quickstart.md' contains a link '../guides/faq.md', but the target 'guides/faq.md' is not found
+           among documentation files.
+WARNING -  Doc file 'getting-started/quickstart.md' contains a link 'installation.md', but the target
+           'getting-started/installation.md' is not found among documentation files.
+WARNING -  Doc file 'getting-started/quickstart.md' contains a link '../architecture/overview.md', but the target
+           'architecture/overview.md' is not found among documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page services\index.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  Doc file 'services/index.md' contains a link 'gmail_service.md', but the target 'services/gmail_service.md' is not found
+           among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'llm_service.md', but the target 'services/llm_service.md' is not found among
+           documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'matching_service.md', but the target 'services/matching_service.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'settlement_instruction_service.md', but the target
+           'services/settlement_instruction_service.md' is not found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'bank_service.md', but the target 'services/bank_service.md' is not found
+           among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'event_service.md', but the target 'services/event_service.md' is not found
+           among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'task_queue_service.md', but the target 'services/task_queue_service.md' is
+           not found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'auto_email_service.md', but the target 'services/auto_email_service.md' is
+           not found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'auto_sms_service.md', but the target 'services/auto_sms_service.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'storage_service.md', but the target 'services/storage_service.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'user_service.md', but the target 'services/user_service.md' is not found
+           among documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'csv_parser.md', but the target 'services/csv_parser.md' is not found among
+           documentation files.
+WARNING -  Doc file 'services/index.md' contains a link 'email_parser.md', but the target 'services/email_parser.md' is not found
+           among documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page services\client_service.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  Doc file 'services/client_service.md' contains a link 'csv_parser.md', but the target 'services/csv_parser.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link 'email_parser.md', but the target 'services/email_parser.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link 'llm_service.md', but the target 'services/llm_service.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link 'matching_service.md', but the target 'services/matching_service.md'
+           is not found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link 'task_queue_service.md', but the target
+           'services/task_queue_service.md' is not found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link '../models/client.md', but the target 'models/client.md' is not
+           found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link '../guides/trade-matching.md', but the target
+           'guides/trade-matching.md' is not found among documentation files.
+WARNING -  Doc file 'services/client_service.md' contains a link '../guides/settlement-instructions.md', but the target
+           'guides/settlement-instructions.md' is not found among documentation files.
+WARNING:root:First revision timestamp is older than last revision timestamp for page services\client_service_detailed.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_all_clients':
+           ['services/client_service/#services.client_service.ClientService.get_all_clients',
+           'services/client_service_detailed/#services.client_service.ClientService.get_all_clients']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_client_name':
+           ['services/client_service/#services.client_service.ClientService.get_client_name',
+           'services/client_service_detailed/#services.client_service.ClientService.get_client_name']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_client_settings':
+           ['services/client_service/#services.client_service.ClientService.get_client_settings',
+           'services/client_service_detailed/#services.client_service.ClientService.get_client_settings']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_client_settings':
+           ['services/client_service/#services.client_service.ClientService.update_client_settings',
+           'services/client_service_detailed/#services.client_service.ClientService.update_client_settings']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_bank_accounts':
+           ['services/client_service/#services.client_service.ClientService.get_bank_accounts',
+           'services/client_service_detailed/#services.client_service.ClientService.get_bank_accounts']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.create_bank_account':
+           ['services/client_service/#services.client_service.ClientService.create_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.create_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_bank_account':
+           ['services/client_service/#services.client_service.ClientService.update_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.update_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.delete_bank_account':
+           ['services/client_service/#services.client_service.ClientService.delete_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.delete_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_settlement_rules':
+           ['services/client_service/#services.client_service.ClientService.get_settlement_rules',
+           'services/client_service_detailed/#services.client_service.ClientService.get_settlement_rules']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.create_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.create_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.create_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.update_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.update_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.delete_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.delete_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.delete_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.process_csv_upload':
+           ['services/client_service/#services.client_service.ClientService.process_csv_upload',
+           'services/client_service_detailed/#services.client_service.ClientService.process_csv_upload']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.process_email_upload':
+           ['services/client_service/#services.client_service.ClientService.process_email_upload',
+           'services/client_service_detailed/#services.client_service.ClientService.process_email_upload']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.client_exists':
+           ['services/client_service/#services.client_service.ClientService.client_exists',
+           'services/client_service_detailed/#services.client_service.ClientService.client_exists']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_all_clients':
+           ['services/client_service/#services.client_service.ClientService.get_all_clients',
+           'services/client_service_detailed/#services.client_service.ClientService.get_all_clients']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.client_exists':
+           ['services/client_service/#services.client_service.ClientService.client_exists',
+           'services/client_service_detailed/#services.client_service.ClientService.client_exists']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_client_name':
+           ['services/client_service/#services.client_service.ClientService.get_client_name',
+           'services/client_service_detailed/#services.client_service.ClientService.get_client_name']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_client_settings':
+           ['services/client_service/#services.client_service.ClientService.get_client_settings',
+           'services/client_service_detailed/#services.client_service.ClientService.get_client_settings']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_client_settings':
+           ['services/client_service/#services.client_service.ClientService.update_client_settings',
+           'services/client_service_detailed/#services.client_service.ClientService.update_client_settings']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_bank_accounts':
+           ['services/client_service/#services.client_service.ClientService.get_bank_accounts',
+           'services/client_service_detailed/#services.client_service.ClientService.get_bank_accounts']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.create_bank_account':
+           ['services/client_service/#services.client_service.ClientService.create_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.create_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_bank_account':
+           ['services/client_service/#services.client_service.ClientService.update_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.update_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.delete_bank_account':
+           ['services/client_service/#services.client_service.ClientService.delete_bank_account',
+           'services/client_service_detailed/#services.client_service.ClientService.delete_bank_account']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.get_settlement_rules':
+           ['services/client_service/#services.client_service.ClientService.get_settlement_rules',
+           'services/client_service_detailed/#services.client_service.ClientService.get_settlement_rules']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.create_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.create_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.create_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.update_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.update_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.update_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.delete_settlement_rule':
+           ['services/client_service/#services.client_service.ClientService.delete_settlement_rule',
+           'services/client_service_detailed/#services.client_service.ClientService.delete_settlement_rule']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.process_csv_upload':
+           ['services/client_service/#services.client_service.ClientService.process_csv_upload',
+           'services/client_service_detailed/#services.client_service.ClientService.process_csv_upload']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+WARNING -  mkdocs_autorefs: Multiple primary URLs found for 'services.client_service.ClientService.process_email_upload':
+           ['services/client_service/#services.client_service.ClientService.process_email_upload',
+           'services/client_service_detailed/#services.client_service.ClientService.process_email_upload']. Make sure to use unique
+           headings, identifiers, or Markdown anchors (see our docs).
+INFO    -  Documentation built in 16.66 seconds
+INFO    -  [17:18:33] Watching paths for changes: 'docs', 'mkdocs.yml'
+INFO    -  [17:18:33] Serving on http://127.0.0.1:8002/
+WARNING -  [17:18:36] "GET /versions.json HTTP/1.1" code 404

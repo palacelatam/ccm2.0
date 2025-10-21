@@ -30,10 +30,16 @@
   font-size: 48px;
   font-weight: 900;
   font-style: italic;
-  color: var(--text-primary);
   margin: 0;
   margin-right: 24px;
   letter-spacing: 0.5px;
+
+  /* Gradient text effect */
+  background: linear-gradient(135deg, #007bff 0%, #33d18a 40%, #ffd84d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
 }
 
 .banner-right {

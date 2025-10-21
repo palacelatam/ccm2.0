@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "prod1-svc-5q4z",
+    "production": "prod1-svc-5q4z"
+  }
+}
