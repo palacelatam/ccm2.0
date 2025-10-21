@@ -475,7 +475,7 @@ class MatchingService:
             'CounterpartyPaymentMethod', 'OurPaymentMethod'
         ]
         
-        for field in fields_to_compare:_is_valid_value
+        for field in fields_to_compare:
             email_value = email_trade.get(field)
             client_value = client_trade.get(field)
             
