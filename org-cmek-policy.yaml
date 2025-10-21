@@ -1,0 +1,3 @@
+constraint: constraints/gcp.restrictNonCmekServices
+booleanPolicy:
+  enforced: true

@@ -1,0 +1,4 @@
+constraint: constraints/gcp.restrictNonCmekServices
+listPolicy:
+  allowedValues:
+    - firestore.googleapis.com

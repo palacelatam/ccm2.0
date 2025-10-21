@@ -22,6 +22,19 @@
   margin-bottom: 32px;
 }
 
+.login-header h2 {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: 'Manrope', sans-serif;
+  /*background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));*/
+  background: linear-gradient(135deg, var(--accent-blue), #00ffcc, #ffdd55);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  margin: 0; /* optional: removes extra spacing above/below */
+}
+
 .login-logo {
   height: 60px;
   width: auto;
